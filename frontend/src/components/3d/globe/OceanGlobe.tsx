@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, Suspense } from 'react'
+import { useMemo, useRef, useState, useEffect, Suspense } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Billboard, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
@@ -9,7 +9,8 @@ import './OceanGlobe.css'
 /**
  * OceanGlobe
  * ============
- * The interactive 3D ocean earth with glowing, "live" coast markers.
+ * The interactive 3D ocean earth with bright, unmistakable coast markers
+ * and animated data layers (temperature heat patches, wave ripples, currents).
  * Powered by Three.js + react-three-fiber.
  */
 
@@ -28,7 +29,6 @@ function Earth() {
   const groupRef = useRef<THREE.Group>(null)
   const [dayMap] = useTexture([EARTH_DAY_TEX])
 
-  // Gentle auto-rotation so the globe feels alive
   useFrame((_, delta) => {
     if (groupRef.current) {
       groupRef.current.rotation.y += delta * 0.04
@@ -51,12 +51,11 @@ function Earth() {
   )
 }
 
-/* ------- SLOW DRIFTING CLOUDS (the "live" sky) ------- */
+/* ------- SLOW DRIFTING CLOUDS ------- */
 function Clouds() {
   const groupRef = useRef<THREE.Group>(null)
   const [cloudsMap] = useTexture([EARTH_CLOUDS_TEX])
 
-  // Clouds drift a touch faster than the surface below
   useFrame((_, delta) => {
     if (groupRef.current) {
       groupRef.current.rotation.y += delta * 0.055
@@ -78,7 +77,7 @@ function Clouds() {
   )
 }
 
-/* ------- GLOWING ATMOSPHERE (NASA vibe) ------- */
+/* ------- GLOWING ATMOSPHERE ------- */
 function Atmosphere() {
   const shader = {
     uniforms: {
@@ -144,62 +143,65 @@ function MarkerPing({
     const t = (clock.elapsedTime + phase) % DURATION
     const k = t / DURATION
     if (meshRef.current) {
-      meshRef.current.scale.setScalar(0.012 + k * maxSize)
+      meshRef.current.scale.setScalar(0.02 + k * maxSize)
     }
     if (matRef.current) {
-      matRef.current.opacity = (1 - k) * 0.55
+      matRef.current.opacity = (1 - k) * 0.6
     }
   })
 
   return (
-    <mesh ref={meshRef} position={position} lookAt={outward}>
-      <ringGeometry args={[0.85, 1, 40]} />
+    <mesh ref={meshRef} lookAt={outward}>
+      <ringGeometry args={[0.85, 1, 48]} />
       <meshBasicMaterial
         ref={matRef}
         color={color}
         transparent
         side={THREE.DoubleSide}
         depthWrite={false}
-        opacity={0.4}
+        opacity={0.5}
       />
     </mesh>
   )
 }
 
-/* ------- A SINGLE "LIVE" COAST MARKER ------- */
+/* ------- A SINGLE PROMINENT "LIVE" COAST MARKER ------- */
 function CoastMarker({ marker, showLabel }: { marker: GlobeMarker; showLabel: boolean }) {
   const color = '#22d3ee'
+  const bright = '#9ff3ff'
   const pulseRef = useRef<THREE.Mesh>(null)
+  const outward: [number, number, number] = [
+    marker.position.x * 2,
+    marker.position.y * 2,
+    marker.position.z * 2,
+  ]
 
-  // Breathing pulse on the core pin
   useFrame(({ clock }) => {
     if (pulseRef.current) {
-      const s = 1 + Math.sin(clock.elapsedTime * 3 + marker.id) * 0.18
+      const s = 1 + Math.sin(clock.elapsedTime * 3 + marker.id) * 0.2
       pulseRef.current.scale.setScalar(s)
     }
   })
 
   return (
-    <group
-      position={[marker.position.x, marker.position.y, marker.position.z]}
-    >
-      {/* two staggered sonar rings → continuous radar ping */}
-      <MarkerPing position={marker.position} color={color} phase={marker.id * 0.53} maxSize={0.055} />
-      <MarkerPing position={marker.position} color={color} phase={marker.id * 0.53 + 1.6} maxSize={0.05} />
+    <group position={[marker.position.x, marker.position.y, marker.position.z]}>
+      {/* two staggered expanding sonar rings → continuous radar ping */}
+      <MarkerPing position={marker.position} color={color} phase={marker.id * 0.53} maxSize={0.13} />
+      <MarkerPing position={marker.position} color={color} phase={marker.id * 0.53 + 1.6} maxSize={0.11} />
 
-      {/* solid "coast mark" ring sitting on the surface */}
-      <mesh lookAt={[marker.position.x * 2, marker.position.y * 2, marker.position.z * 2]}>
-        <ringGeometry args={[0.014, 0.024, 40]} />
-        <meshBasicMaterial color={color} transparent opacity={0.9} side={THREE.DoubleSide} depthWrite={false} />
+      {/* bold solid "coast mark" ring sitting on the surface */}
+      <mesh lookAt={outward}>
+        <ringGeometry args={[0.034, 0.055, 48]} />
+        <meshBasicMaterial color={bright} transparent opacity={0.95} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
 
-      {/* soft glow halo */}
+      {/* wide soft glow halo */}
       <mesh>
-        <sphereGeometry args={[0.038, 16, 16]} />
+        <sphereGeometry args={[0.07, 20, 20]} />
         <meshBasicMaterial
           color={color}
           transparent
-          opacity={0.16}
+          opacity={0.22}
           depthWrite={false}
           blending={THREE.AdditiveBlending}
         />
@@ -207,11 +209,16 @@ function CoastMarker({ marker, showLabel }: { marker: GlobeMarker; showLabel: bo
 
       {/* bright pulsing core */}
       <mesh ref={pulseRef}>
-        <sphereGeometry args={[0.019, 16, 16]} />
-        <meshBasicMaterial color={color} />
+        <sphereGeometry args={[0.03, 20, 20]} />
+        <meshBasicMaterial color={bright} />
       </mesh>
 
-      {/* label */}
+      {/* white-hot heart */}
+      <mesh>
+        <sphereGeometry args={[0.013, 12, 12]} />
+        <meshBasicMaterial color="#ffffff" />
+      </mesh>
+
       {showLabel && (
         <Billboard>
           <div className="marker-label">{marker.name.split(' (')[0]}</div>
@@ -221,7 +228,7 @@ function CoastMarker({ marker, showLabel }: { marker: GlobeMarker; showLabel: bo
   )
 }
 
-/* ------- LOCATION MARKERS (always visible coast marks) ------- */
+/* ------- COAST MARKERS ------- */
 function LocationMarkers({ markers, showLabels }: { markers: GlobeMarker[]; showLabels: boolean }) {
   return (
     <group>
@@ -244,7 +251,7 @@ function TemperatureLayer({ markers }: { markers: GlobeMarker[] }) {
       varying float vValue;
       void main() {
         vValue = value;
-        gl_PointSize = 9.0;
+        gl_PointSize = 13.0;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
@@ -256,14 +263,13 @@ function TemperatureLayer({ markers }: { markers: GlobeMarker[] }) {
         float t = clamp((vValue - min) / (max - min), 0.0, 1.0);
         if (length(gl_PointCoord - vec2(0.5)) > 0.5) discard;
         vec3 cool = vec3(0.16, 0.75, 0.92);
-        vec3 warm = vec3(1.0, 0.55, 0.25);
+        vec3 warm = vec3(1.0, 0.45, 0.2);
         vec3 color = mix(cool, warm, t);
         gl_FragColor = vec4(color, 0.85);
       }
     `,
   }
 
-  // Scatter dots in a small grid tangent to the surface around each marker
   const positions: number[] = []
   const values: number[] = []
   const up = new THREE.Vector3(0, 1, 0)
@@ -273,14 +279,13 @@ function TemperatureLayer({ markers }: { markers: GlobeMarker[] }) {
     const t1 = new THREE.Vector3().crossVectors(pos, up).normalize()
     if (t1.lengthSq() < 0.01) t1.set(1, 0, 0)
     const t2 = new THREE.Vector3().crossVectors(pos, t1).normalize()
-    const r = pos.clone().multiplyScalar(1.006)
-    for (let gx = -1; gx <= 1; gx++) {
-      for (let gy = -1; gy <= 1; gy++) {
+    for (let gx = -2; gx <= 2; gx++) {
+      for (let gy = -2; gy <= 2; gy++) {
         if (gx === 0 && gy === 0) continue
-        const p = r
+        const p = pos
           .clone()
-          .add(t1.clone().multiplyScalar(gx * 0.03))
-          .add(t2.clone().multiplyScalar(gy * 0.03))
+          .add(t1.clone().multiplyScalar(gx * 0.028))
+          .add(t2.clone().multiplyScalar(gy * 0.028))
           .normalize()
           .multiplyScalar(1.006)
         positions.push(p.x, p.y, p.z)
@@ -311,6 +316,123 @@ function TemperatureLayer({ markers }: { markers: GlobeMarker[] }) {
   )
 }
 
+/* ------- LAYER: breathing wave ripples around each coast ------- */
+function Ripple({
+  position,
+  color,
+  phase,
+}: {
+  position: THREE.Vector3
+  color: string
+  phase: number
+}) {
+  const meshRef = useRef<THREE.Mesh>(null)
+  const matRef = useRef<THREE.MeshBasicMaterial>(null)
+  const outward: [number, number, number] = [
+    position.x * 2,
+    position.y * 2,
+    position.z * 2,
+  ]
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime * 1.6 + phase
+    const r = 0.035 + ((Math.sin(t) * 0.5 + 0.5) * 0.06)
+    if (meshRef.current) {
+      meshRef.current.scale.setScalar(r)
+    }
+    if (matRef.current) {
+      matRef.current.opacity = 0.18 + Math.max(0, Math.sin(t)) * 0.35
+    }
+  })
+
+  return (
+    <mesh ref={meshRef} lookAt={outward}>
+      <ringGeometry args={[0.85, 1, 48]} />
+      <meshBasicMaterial
+        ref={matRef}
+        color={color}
+        transparent
+        side={THREE.DoubleSide}
+        depthWrite={false}
+        opacity={0.3}
+      />
+    </mesh>
+  )
+}
+
+function WavesLayer({ markers }: { markers: GlobeMarker[] }) {
+  return (
+    <group>
+      {markers.map((m) => (
+        <group key={m.id} position={[m.position.x, m.position.y, m.position.z]}>
+          <Ripple position={m.position} color="#a5f3fc" phase={m.id} />
+          <Ripple position={m.position} color="#67e8f9" phase={m.id + 1.7} />
+        </group>
+      ))}
+    </group>
+  )
+}
+
+/* ------- LAYER: flowing ocean currents (orbiting streams) ------- */
+const CURRENT_ORBITS = [
+  new THREE.Vector3(0.2, 0.6, 0.8),
+  new THREE.Vector3(-0.6, 0.3, 0.8),
+  new THREE.Vector3(0.7, -0.4, 0.7),
+]
+const DOTS_PER_ORBIT = 22
+const CURRENT_DOTS = CURRENT_ORBITS.length * DOTS_PER_ORBIT
+
+function orbitBasis(n: THREE.Vector3) {
+  const nav = n.clone().normalize()
+  const helper = new THREE.Vector3(0, 1, 0)
+  const u = new THREE.Vector3().crossVectors(helper, nav)
+  if (u.lengthSq() < 1e-3) u.set(1, 0, 0)
+  u.normalize()
+  const v = new THREE.Vector3().crossVectors(nav, u).normalize()
+  return { nav, u, v }
+}
+
+const ORBITS = CURRENT_ORBITS.map(orbitBasis)
+
+function CurrentsLayer() {
+  const pointsRef = useRef<THREE.Points>(null)
+  const positions = useMemo(() => new Float32Array(CURRENT_DOTS * 3), [])
+
+  useFrame(({ clock }) => {
+    const geom = pointsRef.current?.geometry
+    if (!geom) return
+    const pos = geom.attributes.position.array as Float32Array
+    const t = clock.elapsedTime * 0.22
+    ORBITS.forEach(({ u, v }, oi) => {
+      for (let d = 0; d < DOTS_PER_ORBIT; d++) {
+        const ang = (d / DOTS_PER_ORBIT) * Math.PI * 2 + t * (1 + oi * 0.4)
+        const idx = (oi * DOTS_PER_ORBIT + d) * 3
+        pos[idx] = u.x * Math.cos(ang) * 1.014 + v.x * Math.sin(ang) * 1.014
+        pos[idx + 1] = u.y * Math.cos(ang) * 1.014 + v.y * Math.sin(ang) * 1.014
+        pos[idx + 2] = u.z * Math.cos(ang) * 1.014 + v.z * Math.sin(ang) * 1.014
+      }
+    })
+    geom.attributes.position.needsUpdate = true
+  })
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.016}
+        color="#a5f3fc"
+        transparent
+        opacity={0.85}
+        depthWrite={false}
+        sizeAttenuation
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  )
+}
+
 /* ------- MAIN EXPORTED COMPONENT ------- */
 export default function OceanGlobe({ locations, layers }: OceanGlobeProps) {
   const [markers] = useState(() => buildMarkers(locations))
@@ -322,7 +444,7 @@ export default function OceanGlobe({ locations, layers }: OceanGlobeProps) {
 
   return (
     <div className="globe-stage">
-      <Canvas key={globeKey} camera={{ position: [0, 0.35, 2.6], fov: 50 }}>
+      <Canvas key={globeKey} camera={{ position: [0, 0.35, -2.6], fov: 50 }}>
         {/* Bright, layered lighting so the earth pops */}
         <ambientLight intensity={0.75} />
         <directionalLight position={[4, 3, 2]} intensity={2.2} color="#ffffff" />
@@ -337,6 +459,8 @@ export default function OceanGlobe({ locations, layers }: OceanGlobeProps) {
           <Atmosphere />
           <LocationMarkers markers={markers} showLabels={layers.labels} />
           {layers.temperature && <TemperatureLayer markers={markers} />}
+          {layers.waves && <WavesLayer markers={markers} />}
+          {layers.currents && <CurrentsLayer />}
         </Suspense>
 
         <OrbitControls
