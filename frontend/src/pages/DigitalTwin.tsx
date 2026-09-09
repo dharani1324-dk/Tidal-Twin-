@@ -16,9 +16,9 @@ export default function DigitalTwin() {
   const [loading, setLoading] = useState(true)
   const [activeLoc, setActiveLoc] = useState<GlobeLocation | null>(null)
   const [layers, setLayers] = useState({
-    temperature: false,
-    waves: false,
-    currents: false,
+    temperature: true,
+    waves: true,
+    currents: true,
     labels: true,
   })
 

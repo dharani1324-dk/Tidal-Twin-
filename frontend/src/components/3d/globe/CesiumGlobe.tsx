@@ -36,6 +36,21 @@ type VizEntity = InstanceType<CesiumModule['Entity']>
 /** Cesium wraps raw booleans into ConstantProperty at runtime; TS types lag it. */
 type Showable = { show: boolean }
 
+/**
+ * Built-in fallback coasts, so the globe is always "marked" even if the
+ * backend API hasn't loaded yet. Mirrors the seed data.
+ */
+const FALLBACK_LOCATIONS: GlobeLocation[] = [
+  { id: 1, name: 'Arabian Sea (Mumbai Coast)', latitude: 18.9, longitude: 72.0, temperature: 28.6, wave_height: 1.4 },
+  { id: 2, name: 'Bay of Bengal (Chennai Coast)', latitude: 13.0, longitude: 80.3, temperature: 29.2, wave_height: 1.1 },
+  { id: 3, name: 'Gulf of Mannar', latitude: 9.0, longitude: 78.5, temperature: 29.5, wave_height: 0.8 },
+  { id: 4, name: 'Kerala Coast (Kochi)', latitude: 9.9, longitude: 76.3, temperature: 28.8, wave_height: 1.2 },
+  { id: 5, name: 'Goa Coast (Panaji)', latitude: 15.5, longitude: 73.8, temperature: 28.5, wave_height: 1.3 },
+  { id: 6, name: 'Andaman Sea', latitude: 11.5, longitude: 92.5, temperature: 29.8, wave_height: 1.0 },
+  { id: 7, name: 'Lakshadweep Sea', latitude: 10.5, longitude: 72.5, temperature: 29.0, wave_height: 1.1 },
+  { id: 8, name: 'Odisha Coast (Puri)', latitude: 19.8, longitude: 85.8, temperature: 28.2, wave_height: 1.5 },
+]
+
 let cesiumPromise: Promise<CesiumModule> | null = null
 function loadCesium(): Promise<CesiumModule> {
   if (!cesiumPromise) {
@@ -155,16 +170,11 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
         viewerRef.current = viewer
         viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0a2a4a')
         viewer.scene.globe.enableLighting = false
-        // Make the globe feel like a map: left-drag pans, right-drag spins,
-        // scroll zooms, middle-drag tilts. Add zoom guardrails so it never
-        // flies into space or through the earth.
+        // Normal Cesium navigation (left-drag spins the globe, scroll zooms,
+        // Ctrl/right-drag pans), with generous zoom guardrails.
         const camCtrl = viewer.scene.screenSpaceCameraController
-        camCtrl.translateEventTypes = [Cesium.CameraEventType.LEFT_DRAG, Cesium.CameraEventType.PINCH]
-        camCtrl.rotateEventTypes = Cesium.CameraEventType.RIGHT_DRAG
-        camCtrl.tiltEventTypes = Cesium.CameraEventType.MIDDLE_DRAG
-        camCtrl.zoomEventTypes = [Cesium.CameraEventType.WHEEL, Cesium.CameraEventType.PINCH]
-        camCtrl.minimumZoomDistance = 1200000
-        camCtrl.maximumZoomDistance = 9000000
+        camCtrl.minimumZoomDistance = 300000
+        camCtrl.maximumZoomDistance = 20000000
         // A freshly created viewer sits at the default "home" view — make sure
         // the camera is pointed at India again (StrictMode remounts viewers).
         flownRef.current = false
@@ -232,7 +242,9 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
     viewer.entities.removeAll()
     const scene: Scene = { markers: [], temps: [], waves: [], currents: [] }
 
-    const valid = locations.filter((l) => l.latitude != null && l.longitude != null)
+    const valid = (locations.length > 0 ? locations : FALLBACK_LOCATIONS).filter(
+      (l) => l.latitude != null && l.longitude != null,
+    )
 
     for (const loc of valid) {
       const lon = loc.longitude!
@@ -245,8 +257,8 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
         position: pos,
         billboard: {
           image: getBeaconUrl(),
-          width: 44,
-          height: 44,
+          width: 52,
+          height: 52,
           scaleByDistance: new Cesium.NearFarScalar(1.2e6, 1.0, 4.0e6, 0.55),
           scale: new Cesium.CallbackProperty(
             () => 0.82 + 0.35 * (0.5 + 0.5 * Math.sin(Date.now() / 1000 * 3.2 + phase)),
@@ -421,9 +433,9 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
   return (
     <div ref={containerRef} className="cesium-globe">
       <div className="cesium-hint">
-        <span>Left-drag · move map</span>
-        <span>Right-drag · spin globe</span>
+        <span>Drag · spin globe</span>
         <span>Scroll · zoom</span>
+        <span>Ctrl+drag · pan</span>
       </div>
     </div>
   )
