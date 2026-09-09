@@ -17,6 +17,30 @@
   height: 100%;
 }
 
+/* Mouse-gesture hint */
+.cesium-hint {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(6, 18, 40, 0.72);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(120, 190, 255, 0.14);
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.cesium-hint span {
+  white-space: nowrap;
+}
+
 /* Keep Cesium's attribution subtle + legible on dark */
 .cesium-globe .cesium-viewer-bottom {
   left: 10px;

@@ -155,6 +155,17 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
         viewerRef.current = viewer
         viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0a2a4a')
         viewer.scene.globe.enableLighting = false
+        // Make the globe feel like a map: left-drag pans, right-drag spins,
+        // scroll zooms, middle-drag tilts. Add zoom guardrails so it never
+        // flies into space or through the earth.
+        const camCtrl = viewer.scene.screenSpaceCameraController
+        camCtrl.translateEventTypes = [Cesium.CameraEventType.LEFT_DRAG, Cesium.CameraEventType.PINCH]
+        camCtrl.rotateEventTypes = Cesium.CameraEventType.RIGHT_DRAG
+        camCtrl.lookEventTypes = Cesium.CameraEventType.RIGHT_DRAG
+        camCtrl.tiltEventTypes = Cesium.CameraEventType.MIDDLE_DRAG
+        camCtrl.zoomEventTypes = [Cesium.CameraEventType.WHEEL, Cesium.CameraEventType.PINCH]
+        camCtrl.minimumZoomDistance = 1200000
+        camCtrl.maximumZoomDistance = 9000000
         // A freshly created viewer sits at the default "home" view — make sure
         // the camera is pointed at India again (StrictMode remounts viewers).
         flownRef.current = false
@@ -166,7 +177,7 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
         const indiaFocus = Cesium.Cartesian3.fromDegrees(78.6, 18.0, 0)
         viewer.camera.lookAt(
           indiaFocus,
-          new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-50), 2500000),
+          new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-48), 3600000),
         )
       }
 
@@ -403,5 +414,13 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
     viewer.scene.requestRender()
   }
 
-  return <div ref={containerRef} className="cesium-globe" />
+  return (
+    <div ref={containerRef} className="cesium-globe">
+      <div className="cesium-hint">
+        <span>Left-drag · move map</span>
+        <span>Right-drag · spin globe</span>
+        <span>Scroll · zoom</span>
+      </div>
+    </div>
+  )
 }
