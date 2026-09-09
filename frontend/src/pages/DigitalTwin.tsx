@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Thermometer, Waves, Droplets, Tag, Globe2, Crosshair, Layers } from 'lucide-react'
+import { Thermometer, Waves, Droplets, Tag, Globe2, Crosshair, Layers, Tornado, Clock, Play, Pause } from 'lucide-react'
 import CesiumGlobe from '../components/3d/globe/CesiumGlobe'
-import type { GlobeLocation } from '../components/3d/globe/CesiumGlobe'
-import { fetchLocations, fetchObservations } from '../api/client'
+import type { GlobeLocation, SeriesRegion, StormTrackData } from '../components/3d/globe/CesiumGlobe'
+import { fetchLocations, fetchObservations, fetchStormTrack, fetchSafetyTimeseries } from '../api/client'
 import './DigitalTwin.css'
 
 const fadeUp = {
@@ -20,7 +20,12 @@ export default function DigitalTwin() {
     waves: true,
     currents: true,
     labels: true,
+    storm: false,
   })
+  const [storm, setStorm] = useState<StormTrackData | null>(null)
+  const [series, setSeries] = useState<SeriesRegion[]>([])
+  const [cursor, setCursor] = useState<number>(0)
+  const [playing, setPlaying] = useState(false)
 
   useEffect(() => {
     fetchLocations()
@@ -45,7 +50,26 @@ export default function DigitalTwin() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
+
+    fetchStormTrack()
+      .then((d: StormTrackData) => setStorm(d))
+      .catch(() => {})
+    fetchSafetyTimeseries()
+      .then((d) => {
+        const regions: SeriesRegion[] = d.regions ?? []
+        setSeries(regions)
+        setCursor(0)
+      })
+      .catch(() => {})
   }, [])
+
+  // Timeline auto-play
+  const maxCursor = series.length > 0 ? series[0].points.length - 1 : 0
+  useEffect(() => {
+    if (!playing || maxCursor <= 0) return
+    const id = setInterval(() => setCursor((c) => (c + 1) % (maxCursor + 1)), 240)
+    return () => clearInterval(id)
+  }, [playing, maxCursor])
 
   const toggleLayer = (key: keyof typeof layers) => {
     setLayers((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -56,7 +80,18 @@ export default function DigitalTwin() {
     { key: 'temperature' as const, icon: <Thermometer size={16} />, name: 'Sea Temperature', desc: 'Heat signature layer' },
     { key: 'waves' as const, icon: <Waves size={16} />, name: 'Wave Height', desc: 'Wave energy layer' },
     { key: 'currents' as const, icon: <Droplets size={16} />, name: 'Ocean Currents', desc: 'Flow field layer' },
+    { key: 'storm' as const, icon: <Tornado size={16} />, name: 'Storm Track', desc: 'Simulated cyclone path + eye' },
   ]
+
+  const cursorTime = series[0]?.points[cursor]?.time
+  const cursorLabel = cursorTime
+    ? new Date(cursorTime).toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '—'
 
   return (
     <div className="page digital-twin animate-in">
@@ -78,7 +113,13 @@ export default function DigitalTwin() {
       <motion.div variants={fadeUp} initial="hidden" animate="show" className="twin-layout">
         {/* Globe */}
         <div className="twin-globe-wrap">
-          <CesiumGlobe locations={locations} layers={layers} />
+          <CesiumGlobe
+            locations={locations}
+            layers={layers}
+            storm={storm}
+            series={series}
+            timeCursor={series.length > 0 ? cursor : null}
+          />
         </div>
 
         {/* Control panel */}
@@ -107,6 +148,51 @@ export default function DigitalTwin() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Timeline scrubber */}
+          <div className="glass-card control-card">
+            <div className="control-title">
+              <Clock size={16} />
+              <span>Global Timeline</span>
+              <span className={`live-dot ${playing ? '' : 'live-dot-off'}`} />
+            </div>
+            {series.length > 0 ? (
+              <>
+                <div className="scrubber-label">
+                  <span>{cursorLabel}</span>
+                  <span className="scrubber-badge">
+                    {cursor <= series[0].points.length - 1 - 24 ? 'OBSERVED' : 'AI PROJECTED'}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={maxCursor}
+                  value={cursor}
+                  onChange={(e) => {
+                    setCursor(Number(e.target.value))
+                    setPlaying(false)
+                  }}
+                  className="scrubber"
+                />
+                <div className="scrubber-marks">
+                  <span>H-48</span>
+                  <span>Now</span>
+                  <span>H+24</span>
+                </div>
+                <button
+                  className="btn-primary scrubber-play"
+                  onClick={() => setPlaying((p) => !p)}
+                  disabled={maxCursor <= 0}
+                >
+                  {playing ? <Pause size={14} /> : <Play size={14} />}
+                  {playing ? 'Pause' : 'Play forecast'}
+                </button>
+              </>
+            ) : (
+              <div className="hint">Timeline loading…</div>
+            )}
           </div>
 
           {/* Selected region info */}

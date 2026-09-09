@@ -15,6 +15,7 @@ from app.api.assistant import router as assistant_router
 from app.api.monitoring import router as monitoring_router
 from app.api.stories import router as stories_router
 from app.api.reports import router as reports_router
+from app.api.safety import router as safety_router
 
 # Create the FastAPI app instance
 # The title, description and version show up on the automatic
@@ -48,6 +49,7 @@ app.include_router(assistant_router)
 app.include_router(monitoring_router)
 app.include_router(stories_router)
 app.include_router(reports_router)
+app.include_router(safety_router)
 
 
 # ---- Basic Routes (Doors) ----

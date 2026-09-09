@@ -100,3 +100,27 @@ export const fetchSummary = async () => {
 export const downloadCsv = () => {
   window.open(`${API_BASE}/api/v1/reports/csv`, '_blank')
 }
+
+/** Get per-coast fishing safety advisories (safe window + status) */
+export const fetchSafetyAdvisory = async () => {
+  const { data } = await api.get('/api/v1/safety/advisory')
+  return data
+}
+
+/** Get the simulated storm-track layer for the globe */
+export const fetchStormTrack = async () => {
+  const { data } = await api.get('/api/v1/safety/storm')
+  return data
+}
+
+/** Get per-coast model trust scores + rolling MAE sparklines */
+export const fetchModelTrust = async () => {
+  const { data } = await api.get('/api/v1/safety/trust')
+  return data
+}
+
+/** Get merged observation + forecast timelines for the globe time-scrubber */
+export const fetchSafetyTimeseries = async () => {
+  const { data } = await api.get('/api/v1/safety/timeseries')
+  return data
+}

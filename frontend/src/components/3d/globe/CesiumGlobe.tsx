@@ -11,6 +11,10 @@ import './CesiumGlobe.css'
  *   - temperature : translucent heat patches colored by real SST
  *   - waves       : expanding ripple rings around each coast
  *   - currents    : glowing flow arcs + dots streaming along ocean orbits
+ *   - storm       : simulated cyclone path, confidence cone + moving eye
+ *
+ * An optional time-cursor (driven by the globe timeline scrubber) recolors
+ * the temperature patches from a merged observation+forecast series.
  *
  * Cesium is loaded dynamically so its base URL / runtime workers can be
  * configured before the module evaluates.
@@ -27,8 +31,31 @@ export interface GlobeLocation {
   wave_height?: number | null
 }
 
-export type LayerKey = 'labels' | 'temperature' | 'waves' | 'currents'
+export type LayerKey = 'labels' | 'temperature' | 'waves' | 'currents' | 'storm'
 export type LayersState = Record<LayerKey, boolean>
+
+/** One merged observation/forecast point used by the time scrubber. */
+export interface TimedPoint {
+  time: string
+  temperature: number | null
+  wave: number | null
+  forecast?: boolean
+}
+
+/** Per-coast merged timeline (from /api/v1/safety/timeseries). */
+export interface SeriesRegion {
+  location_id: number
+  location: string
+  points: TimedPoint[]
+}
+
+/** Simulated cyclone track (from /api/v1/safety/storm). */
+export interface StormTrackData {
+  id?: string
+  name?: string
+  headline?: string
+  points: { hour?: number; time?: string; lat: number; lon: number; wind_kmh?: number; radius_km?: number }[]
+}
 
 type CesiumModule = typeof import('cesium')
 type Viz = InstanceType<CesiumModule['Viewer']>
@@ -109,6 +136,34 @@ function getDotUrl() {
   return dotUrl
 }
 
+let stormEyeUrl: string | null = null
+/** Cyclone eye: amber core with a red tracking ring. */
+function getStormEyeUrl() {
+  if (stormEyeUrl) return stormEyeUrl
+  const size = 128
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const ctx = c.getContext('2d')!
+  const cx = size / 2
+  const g = ctx.createRadialGradient(cx, cx, 0, cx, cx, 56)
+  g.addColorStop(0, 'rgba(255,255,255,1)')
+  g.addColorStop(0.25, 'rgba(251,191,36,0.95)')
+  g.addColorStop(0.6, 'rgba(244,114,182,0.45)')
+  g.addColorStop(1, 'rgba(244,114,182,0)')
+  ctx.fillStyle = g
+  ctx.beginPath(); ctx.arc(cx, cx, 56, 0, Math.PI * 2); ctx.fill()
+  ctx.strokeStyle = 'rgba(251,191,36,0.95)'
+  ctx.lineWidth = 5
+  ctx.beginPath(); ctx.arc(cx, cx, 48, 0, Math.PI * 2); ctx.stroke()
+  ctx.strokeStyle = 'rgba(244,114,182,0.8)'
+  ctx.lineWidth = 2
+  ctx.beginPath(); ctx.arc(cx, cx, 38, 0, Math.PI * 2); ctx.stroke()
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath(); ctx.arc(cx, cx, 8, 0, Math.PI * 2); ctx.fill()
+  stormEyeUrl = c.toDataURL()
+  return stormEyeUrl
+}
+
 function tempColor(Cesium: CesiumModule, temp: number) {
   const cold = Cesium.Color.fromCssColorString('#22d3ee')
   const hot = Cesium.Color.fromCssColorString('#ff8a28')
@@ -121,23 +176,32 @@ function tempColor(Cesium: CesiumModule, temp: number) {
 interface CesiumGlobeProps {
   locations: GlobeLocation[]
   layers: LayersState
+  storm?: StormTrackData | null
+  series?: SeriesRegion[] | null
+  /** Index into each region's merged timeline (null = static colors). */
+  timeCursor?: number | null
 }
 
 interface Scene {
   markers: VizEntity[]
-  temps: VizEntity[]
+  temps: { locId: number; entity: VizEntity }[]
   waves: VizEntity[]
   currents: VizEntity[]
+  storm: VizEntity[]
 }
 
-export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
+export default function CesiumGlobe({ locations, layers, storm, series, timeCursor }: CesiumGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<Viz | null>(null)
-  const sceneRef = useRef<Scene>({ markers: [], temps: [], waves: [], currents: [] })
+  const sceneRef = useRef<Scene>({ markers: [], temps: [], waves: [], currents: [], storm: [] })
   const layersRef = useRef(layers)
   layersRef.current = layers
   const locatedRef = useRef(locations)
   locatedRef.current = locations
+  const seriesRef = useRef<SeriesRegion[]>([])
+  seriesRef.current = series ?? []
+  const cursorRef = useRef<number | null>(timeCursor ?? null)
+  cursorRef.current = timeCursor ?? null
   const flownRef = useRef(false)
 
   // Build / rebuild the scene whenever the location list changes.
@@ -192,10 +256,13 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
 
       buildScene(Cesium, viewer)
       applyLayers(viewer, layersRef.current)
+      const curs = cursorRef.current
+      if (curs != null) applyCursor(Cesium, viewer, curs)
     })
     return () => {
       active = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locations])
 
   // Toggle data layers without rebuilding entities.
@@ -204,6 +271,28 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
     if (!viewer) return
     loadCesium().then(() => applyLayers(viewer, layers))
   }, [layers])
+
+  // Keep the temperature patches in sync with the timeline scrubber.
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer || timeCursor == null) return
+    loadCesium().then((Cesium) => applyCursor(Cesium, viewer, timeCursor))
+  }, [timeCursor, locations])
+
+  // Storm-track layer. Rebuilt whenever the track or the base scene changes
+  // (a full scene rebuild wipes all entities including the storm).
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer || !storm) return
+    let cancelled = false
+    loadCesium().then((Cesium) => {
+      if (!cancelled) buildStorm(Cesium, viewer, storm)
+    })
+    return () => {
+      cancelled = true
+      clearStormEntities(viewer)
+    }
+  }, [storm, locations])
 
   // Dispose the viewer on unmount.
   useEffect(() => {
@@ -215,7 +304,7 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
       container?.removeEventListener('contextmenu', onContextMenu)
       viewerRef.current?.destroy()
       viewerRef.current = null
-      sceneRef.current = { markers: [], temps: [], waves: [], currents: [] }
+      sceneRef.current = { markers: [], temps: [], waves: [], currents: [], storm: [] }
     }
   }, [])
 
@@ -240,7 +329,8 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
 
   function buildScene(Cesium: CesiumModule, viewer: Viz) {
     viewer.entities.removeAll()
-    const scene: Scene = { markers: [], temps: [], waves: [], currents: [] }
+    clearStormEntities(viewer)
+    const scene: Scene = { markers: [], temps: [], waves: [], currents: [], storm: [] }
 
     const valid = (locations.length > 0 ? locations : FALLBACK_LOCATIONS).filter(
       (l) => l.latitude != null && l.longitude != null,
@@ -299,7 +389,7 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
         },
         show: layersRef.current.temperature,
       })
-      scene.temps.push(temp)
+      scene.temps.push({ locId: loc.id, entity: temp })
 
       // ---- Wave ripples (3 expanding rings) ----
       for (let r = 0; r < 3; r++) {
@@ -419,14 +509,149 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
     sceneRef.current = scene
   }
 
+  function clearStormEntities(viewer: Viz | null) {
+    const list = sceneRef.current.storm
+    for (const e of list) {
+      try {
+        viewer?.entities.remove(e)
+      } catch {
+        /* already disposed */
+      }
+    }
+    sceneRef.current = { ...sceneRef.current, storm: [] }
+  }
+
+  function buildStorm(Cesium: CesiumModule, viewer: Viz, data: StormTrackData) {
+    clearStormEntities(viewer)
+    const pts = (data.points ?? []).filter((p) => p.lat != null && p.lon != null)
+    if (pts.length < 2) return
+
+    const scene = sceneRef.current
+    const positions = pts.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0))
+    const show = layersRef.current.storm
+    const stormRed = Cesium.Color.fromCssColorString('#f43f5e')
+
+    // ---- Track path ----
+    scene.storm.push(
+      viewer.entities.add({
+        polyline: {
+          positions,
+          width: 5,
+          arcType: Cesium.ArcType.GEODESIC,
+          material: new Cesium.PolylineGlowMaterialProperty({
+            color: stormRed.withAlpha(0.85),
+            glowPower: 0.45,
+          }),
+        },
+        show,
+      }),
+    )
+
+    // ---- Confidence cone (expanding-uncertainty ellipses along the path) ----
+    pts.forEach((p, i) => {
+      if (i % 3 !== 0) return
+      const radius = (p.radius_km ?? 60) * 1000
+      scene.storm.push(
+        viewer.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 400),
+          ellipse: {
+            semiMajorAxis: radius,
+            semiMinorAxis: radius * 0.72,
+            rotation: Cesium.Math.toRadians(-30 + (i % 5) * 8),
+            material: stormRed.withAlpha(0.05),
+            outline: true,
+            outlineColor: stormRed.withAlpha(0.35),
+            outlineWidth: 2,
+            height: 400,
+          },
+          show,
+        }),
+      )
+    })
+
+    // ---- Origin + landfall markers ----
+    scene.storm.push(
+      viewer.entities.add({
+        position: positions[0],
+        point: {
+          pixelSize: 10,
+          color: Cesium.Color.fromCssColorString('#ffffff').withAlpha(0.95),
+          outlineColor: stormRed.withAlpha(0.9),
+          outlineWidth: 2,
+        },
+        label: {
+          text: 'TRACK START',
+          font: '700 11px Inter, sans-serif',
+          fillColor: Cesium.Color.fromCssColorString('#fecaca'),
+          pixelOffset: new Cesium.Cartesian2(0, -14),
+        },
+        show,
+      }),
+    )
+    const landfall = pts[pts.length - 1]
+    scene.storm.push(
+      viewer.entities.add({
+        position: positions[pts.length - 1],
+        point: { pixelSize: 14, color: stormRed.withAlpha(0.95) },
+        label: {
+          text: `LANDFALL H+${pts.length - 1} · ${landfall.lon.toFixed(1)}°E`,
+          font: '700 11px Inter, sans-serif',
+          fillColor: Cesium.Color.fromCssColorString('#fecaca'),
+          pixelOffset: new Cesium.Cartesian2(0, -16),
+        },
+        show,
+      }),
+    )
+
+    // ---- Moving eye ----
+    scene.storm.push(
+      viewer.entities.add({
+        position: new Cesium.CallbackPositionProperty(() => {
+          const seg = positions.length - 1
+          const t = ((Date.now() / 1000) * 0.06) % seg
+          const i = Math.min(Math.floor(t), positions.length - 2)
+          const f = t - i
+          return Cesium.Cartesian3.lerp(positions[i], positions[i + 1], f, new Cesium.Cartesian3())
+        }, false),
+        billboard: {
+          image: getStormEyeUrl(),
+          width: 40,
+          height: 40,
+          verticalOrigin: Cesium.VerticalOrigin.CENTER,
+        },
+        show,
+      }),
+    )
+
+    viewer.scene.requestRender()
+  }
+
+  /** Recolor temperature patches from the merged timeline at the cursor. */
+  function applyCursor(Cesium: CesiumModule, viewer: Viz, cursor: number) {
+    const scene = sceneRef.current
+    for (const tge of scene.temps) {
+      const reg = seriesRef.current.find((r) => r.location_id === tge.locId)
+      if (!reg) continue
+      const idx = Math.min(cursor, reg.points.length - 1)
+      const p = reg.points[idx]
+      const entity = tge.entity
+      if (!p || p.temperature == null || !entity.ellipse) continue
+      entity.ellipse.material = new Cesium.ColorMaterialProperty(
+        tempColor(Cesium, p.temperature).withAlpha(0.38),
+      )
+    }
+    viewer.scene.requestRender()
+  }
+
   function applyLayers(viewer: Viz, state: LayersState) {
     const scene = sceneRef.current
     scene.markers.forEach((m) => {
       if (m.label) (m.label as unknown as Showable).show = state.labels
     })
-    scene.temps.forEach((e) => (e.show = state.temperature))
+    scene.temps.forEach((t) => (t.entity.show = state.temperature))
     scene.waves.forEach((e) => (e.show = state.waves))
     scene.currents.forEach((e) => (e.show = state.currents))
+    scene.storm.forEach((e) => (e.show = state.storm))
     viewer.scene.requestRender()
   }
 
