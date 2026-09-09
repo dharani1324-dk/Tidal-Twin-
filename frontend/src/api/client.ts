@@ -144,3 +144,30 @@ export const fetchValidationSituation = async () => {
   const { data } = await api.get('/api/v1/validation/situation')
   return data
 }
+
+/** Get per-variable model skill score (MAE / RMSE / bias / skill %) */
+export const fetchValidationSkill = async () => {
+  const { data } = await api.get('/api/v1/validation/skill')
+  return data
+}
+
+/** Get classified ocean events (heatwave, flood risk, mismatch...) */
+export const fetchValidationEvents = async () => {
+  const { data } = await api.get('/api/v1/validation/events')
+  return data
+}
+
+/** Get scientific traceability per coast (source / dataset / model run) */
+export const fetchValidationProvenance = async () => {
+  const { data } = await api.get('/api/v1/validation/provenance')
+  return data
+}
+
+/** Run an illustrative what-if projection (labelled simulation, not a forecast) */
+export const runScenario = async (locationId: number, windPercent: number) => {
+  const { data } = await api.post('/api/v1/validation/scenario', {
+    location_id: locationId,
+    wind_percent: windPercent,
+  })
+  return data
+}

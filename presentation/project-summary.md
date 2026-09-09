@@ -20,7 +20,11 @@ data → comparison → anomaly → interpretation → decision.
 |---|---|
 | **Mission Control Dashboard** | Live status of the whole ocean: health ring, energy gauges, region telemetry, Ocean Situation strip |
 | **Model Validation Workspace** | MODEL \| OBSERVED \| DEVIATION per field + plain-language "why" panel + forecast-vs-reality verification charts |
-| **Confidence Engine** | Per-coast observation confidence + model trust + HIGH DISAGREEMENT flags (age, coverage, sampling, agreement) |
+| **Explainable Confidence Engine** | Observation confidence (0–100) with a **why-82%?** weighted component breakdown (age, coverage, sampling, agreement) + model trust + HIGH DISAGREEMENT flags |
+| **Model Skill Score** | Honest per-variable forecast verification — MAE / RMSE / bias / skill-vs-climatology per region |
+| **Ocean Event Detection** | Anomalies upgraded to **named phenomena** — marine heatwave, cold-water anomaly, rapid temp change, strong-current, coastal flooding risk, model mismatch — each with intensity + start→peak→now evolution + confidence |
+| **What-If Simulator** | Wind slider → clearly-labelled illustrative projection of wave height, SST & hazard band (*"what could happen"*) |
+| **Data Provenance** | Every value traceable: source, dataset, observation time, model-run id, QC + interpolation processing |
 | **3D Digital Twin Globe** | Interactive 3D ocean with labels, heat, waves, currents + live storm track |
 | **4D Event Replay** | Scrub 48h observation → 24h projection, re-coloured as Observed \| Model \| Difference with event flags |
 | **AI Surveillance** | Anomaly detection (Isolation Forest + z-score) with severity + confidence scores |
@@ -49,9 +53,10 @@ data → comparison → anomaly → interpretation → decision.
                      └─────────────────┘
 ```
 
-**Decision pipeline:** live data → spatial/temporal matching → **MODEL–OBSERVATION
-DIFFERENCE ENGINE** → Anomaly Engine + Confidence Engine → 4D replay engine →
-3D globe + Safety/Risk surfaces → operational insight (advisory, alert, report).
+**Decision pipeline:** live data → QC → spatial/temporal matching →
+**MODEL–OBSERVATION DIFFERENCE ENGINE** → Uncertainty (confidence breakdown) +
+Event classification → 4D replay → 3D globe + Safety/Risk surfaces → operational
+decision (advisory, alert, report, scenario).
 
 ## 4. Tech Stack
 

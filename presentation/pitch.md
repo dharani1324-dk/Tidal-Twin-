@@ -37,35 +37,53 @@
 
 ## The Innovation (Our Answer)
 
-A single platform that runs the full decision pipeline:
+A single platform that runs the full scientific intelligence pipeline:
 
-**Data → Visualization → Comparison → Anomaly → Interpretation → Decision**
+**Data → QC → Model/Observation Matching → Deviation → Uncertainty →
+Event → Impact → Decision**
 
-1. **Ingests real-time data** from public ocean APIs (no hardware needed).
+1. **Ingests real-time data** from public ocean APIs (no hardware needed),
+   with **provenance & traceability** — for every displayed value the system
+   can answer *where it came from* (source, dataset, observation time, model
+   run id, processing) — a must for any SIH scientific project.
 2. **Model ↔ Reality Difference Engine** — for every coast, a workspace that
    puts `MODEL | OBSERVED | DEVIATION` side by side per field, with a
    plain-language interpretation ("temperature is 1.8°C above the model
    baseline — possible cause: persistent surface heating with weak mixing").
-3. **Observation Confidence Engine** — a 0–100 confidence per coast blending
-   observation age, field coverage, sample size, and model agreement, plus a
-   **HIGH MODEL–OBSERVATION DISAGREEMENT** flag when the AI and reality diverge.
-4. **Automatic Anomaly Detection** — z-score statistics + Isolation Forest
-   (unsupervised ML, the technique used in fraud detection), with severity and
-   confidence — not just a changing colorbar.
-5. **4D Event Replay** — scrub the 3D ocean through 48h of observations into
+3. **Explainable Uncertainty Layer** — observation confidence (0–100) is not a
+   black box: the dashboard breaks it down into weighted component scores
+   (Observation age, Field coverage, Sampling density, Model agreement) so a
+   judge can see *why* confidence is 82%.
+4. **Model Skill Score** — honest forecast verification per region *and*
+   variable (MAE / RMSE / bias / skill vs climatology). We don't claim to be
+   perfect — we measure it, visibly.
+5. **Automatic Anomaly Detection & Ocean Event Classification** — z-score
+   statistics + Isolation Forest (unsupervised ML, the technique used in fraud
+   detection), upgraded to *named phenomena*: marine heatwave, cold-water
+   anomaly, rapid temperature change, strong-current event, coastal flooding
+   risk, and model–observation mismatch — each with intensity, evolution
+   (start → peak → now) and confidence.
+6. **4D Event Replay** — scrub the 3D ocean through 48h of observations into
    24h of projection, or re-color the globe `Observed → Model → Difference`
    and watch heat patches diverge in real time (live WebSocket push).
-6. **Decision Intelligence** — Safety Center advisories (SAFE / CAUTION /
+7. **What-If Decision Simulator** — *"what could happen, not just what is"*:
+   change wind intensity and see a clearly-labelled illustrative projection of
+   wave height, SST and hazard band (labelled as a scenario, not a forecast).
+8. **Decision Intelligence** — Safety Center advisories (SAFE / CAUTION /
    DANGER + safe sailing window), multilingual SMS/WhatsApp + voice bulletins,
    a National Risk Map, and a transparent risk-index report with CSV export.
 
 ## The AI Pipeline (what makes it "AI", not just maps)
 
+- **Data provenance** — every value answers *who, what, when, how*.
 - **Difference Engine** — model baseline vs live observation, field by field.
-- **Confidence Engine** — observation confidence + model trust + drift flags.
-- **Anomaly Detection** — Isolation Forest + statistical z-score baseline.
+- **Confidence Engine** — observation confidence with weighted explainability.
+- **Skill Score** — MAE / RMSE / bias / skill-vs-climatology per variable.
+- **Anomaly + Event Detection** — Isolation Forest + z-score, classified into
+  named marine phenomena with evolution.
 - **Forecasting** — trend-based prediction with real forecast-vs-observed
   verification (MAE), stated honestly.
+- **What-If Simulator** — illustrative scenario projections, clearly labelled.
 - **NLP Assistant** — plain-language safety, trend, comparison, superlative.
 - **Decision Intelligence** — weighted composite risk index with full
   explainability (no black boxes).

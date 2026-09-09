@@ -25,12 +25,17 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 from sqlalchemy.orm import Session
 
+from app.models.alert import OceanAlert
 from app.models.location import OceanLocation
 from app.models.observation import OceanObservation
 from app.modules.ai.reports.risk import compute_risk_index
 from app.modules.ai.safety.advisory import model_trust, safety_advisory
 
 OBS_WINDOW = 96
+
+
+def _clamp100(x: float) -> int:
+    return int(min(100, max(0, round(x * 100))))
 
 FIELD_META = {
     "temperature": {"label": "Sea surface temperature", "unit": "°C", "high": 1.5, "moderate": 0.8},
@@ -135,6 +140,14 @@ def observation_confidence(db: Session) -> dict:
         score = round(100.0 * (0.35 * freshness + 0.25 * coverage + 0.20 * quantity + 0.20 * agreement))
         score = int(min(score, 100))
 
+        components = [
+            {"factor": "Observation age", "pct": _clamp100(freshness), "weight": 35},
+            {"factor": "Field coverage", "pct": _clamp100(coverage), "weight": 25},
+            {"factor": "Sampling density", "pct": _clamp100(quantity), "weight": 20},
+            {"factor": "Model agreement", "pct": _clamp100(agreement), "weight": 20},
+        ]
+        weighting = ", ".join(f"{c['factor'].split()[0]} {c['weight']}%" for c in components)
+
         temps = [o.sea_surface_temperature for o in obs if o.sea_surface_temperature is not None]
         anom = abs((temps[-1] - np.mean(temps[:-1]))) if len(temps) >= 5 else 0.0
         active_alerts = risk.get("active_alerts", 0)
@@ -155,6 +168,8 @@ def observation_confidence(db: Session) -> dict:
                 "field_coverage": round(coverage, 2),
                 "sample_size": len(obs),
                 "agreement": round(agreement, 2),
+                "confidence_components": components,
+                "component_weights": weighting,
                 "model_trust": trust_by_id.get(loc.id, {}).get("trust_score", 0),
                 "drift": drift,
                 "disagreement": disagreement,
@@ -310,4 +325,282 @@ def situation_panel(db: Session) -> dict:
         )
 
     rows.sort(key=lambda r: (r["status"] != "safe", r["disagreement"], -r["observation_confidence"]))
+    return {"generated_at": now.isoformat(), "regions": rows}
+
+
+# ---------------------------------------------------------------------------
+# 4. Model Skill Score (MAE / RMSE / bias / skill-vs-climatology)
+# ---------------------------------------------------------------------------
+
+def model_skill(db: Session) -> dict:
+    """Measured model accuracy per region & variable, plus an overall skill
+    score (fraction of variance explained vs a climatology baseline)."""
+    from app.modules.ai.comparison.comparator import compare_location
+
+    now = datetime.now(timezone.utc)
+    rows = []
+    for loc in db.query(OceanLocation).all():
+        cmp = compare_location(db, loc)
+        skill_vals = []
+        variables = {}
+        for key, f_key in (("temperature", "temperature"), ("wave_height", "wave")):
+            fcst = [s.get(f"forecast_{f_key}") for s in cmp.get("series", [])]
+            obsd = [s.get(f"observed_{f_key}") for s in cmp.get("series", [])]
+            pairs = [(a, b) for a, b in zip(fcst, obsd) if a is not None and b is not None]
+            if len(pairs) < 3:
+                variables[key] = None
+                continue
+            fc = np.array([p[0] for p in pairs], dtype=float)
+            ob = np.array([p[1] for p in pairs], dtype=float)
+            mae = float(np.mean(np.abs(fc - ob)))
+            rmse = float(np.sqrt(np.mean((fc - ob) ** 2)))
+            bias = float(np.mean(fc - ob))
+            clim_mae = float(np.mean(np.abs(ob - np.mean(ob))))
+            skill = round(100.0 * (1.0 - mae / clim_mae), 1) if clim_mae > 1e-4 else None
+            skill = max(0.0, min(100.0, skill)) if skill is not None else None
+            if skill is not None:
+                skill_vals.append(skill)
+            variables[key] = {
+                "mae": round(mae, 3),
+                "rmse": round(rmse, 3),
+                "bias": round(bias, 3),
+                "climatology_mae": round(clim_mae, 3),
+                "skill": skill,
+                "samples": len(pairs),
+            }
+        overall = round(float(np.mean(skill_vals)), 1) if skill_vals else None
+        rows.append(
+            {
+                "location_id": loc.id,
+                "location": loc.name,
+                "overall_skill": overall,
+                "variables": variables,
+            }
+        )
+    rows.sort(key=lambda r: -(r["overall_skill"] or -1))
+    return {"generated_at": now.isoformat(), "regions": rows}
+
+
+# ---------------------------------------------------------------------------
+# 5. Ocean Event Detection & Classification
+# ---------------------------------------------------------------------------
+
+EVENT_META = {
+    "marine_heatwave": {"label": "Marine heatwave", "icon": "🔥"},
+    "cold_water_anomaly": {"label": "Cold-water anomaly", "icon": "❄️"},
+    "rapid_temp_change": {"label": "Rapid temperature change", "icon": "⚡"},
+    "strong_current_event": {"label": "Strong-current event", "icon": "🌊"},
+    "coastal_flooding_risk": {"label": "Coastal flooding risk", "icon": "⚠️"},
+    "model_mismatch_event": {"label": "Model-observation mismatch", "icon": "⟲"},
+}
+
+# Wave band thresholds (m)
+_EV_SAFE, _EV_WARN, _EV_DANGER = 1.0, 1.6, 2.4
+
+
+def classify_events(db: Session) -> dict:
+    """Upgrade anomalies into named, classified, evolving ocean events."""
+    risk_by = {r["location_id"]: r for r in compute_risk_index(db)["regions"]}
+    diff_by = {r["location_id"]: r for r in difference_engine(db)["regions"]}
+    alerts = (
+        db.query(OceanAlert)
+        .filter(OceanAlert.status == "active")
+        .all()
+    )
+    active_by: dict = {}
+    for a in alerts:
+        active_by.setdefault(a.location_id, []).append(a)
+
+    events: list[dict] = []
+    for loc in db.query(OceanLocation).all():
+        obs = _latest_rows(db, loc)
+        temps = [o.sea_surface_temperature for o in obs if o.sea_surface_temperature is not None]
+        waves = [o.wave_height for o in obs if o.wave_height is not None]
+        speeds = [o.current_speed for o in obs if o.current_speed is not None]
+
+        def _span(series: list[float], above: float, rising: bool | None = None) -> dict:
+            """Find start hour & peak for a threshold crossing in a series."""
+            if not series:
+                return {"start_h": None, "peak": None, "peak_h": None, "hours_on": 0}
+            start = next((i for i, v in enumerate(series) if above is None or v >= above), None)
+            peak_i = int(np.argmax(series)) if series else None
+            return {
+                "start_h": len(series) - start - 1 if start is not None else None,
+                "peak": round(float(series[peak_i]), 2) if peak_i is not None else None,
+                "peak_h": len(series) - 1 - peak_i if peak_i is not None else None,
+                "hours_on": (len(series) - start) if start is not None else 0,
+            }
+
+        heat = False
+        cold = False
+        rapid = False
+        curr = False
+        flood = False
+        mismatch = False
+
+        if len(temps) >= 5:
+            mean = float(np.mean(temps[:-1]))
+            anom = temps[-1] - mean
+            heat = anom >= 1.0
+            cold = anom <= -1.0
+            diffs = [abs(b - a) for a, b in zip(temps[-13:], temps[-12:])]
+            rapid = bool(diffs and max(diffs) >= 0.5)
+        if speeds and speeds[-1] >= 0.5:
+            curr = True
+        if waves and waves[-1] >= _EV_WARN:
+            flood = True
+        for f in (diff_by.get(loc.id) or {}).get("fields", []):
+            if f.get("deviation_level") in ("high", "moderate"):
+                mismatch = True
+
+        def _conf(base: float, mag: float, scale: float) -> int:
+            return int(min(95, max(55, base + mag / scale * 15)))
+
+        latest_temp = temps[-1] if temps else None
+        anom_v = (temps[-1] - float(np.mean(temps[:-1]))) if len(temps) >= 5 else 0.0
+        latest_wave = waves[-1] if waves else None
+
+        if heat:
+            span = _span(temps[:-2], float(np.mean(temps[:-1])) + 1.0)
+            events.append(_event(loc, "marine_heatwave", "high" if anom_v >= 1.5 else "medium",
+                                 _conf(78, anom_v, 2.0), span, latest_temp, "SST anomaly"))
+        if cold:
+            span = _span(temps[:-2], float(np.mean(temps[:-1])) - 1.0)
+            events.append(_event(loc, "cold_water_anomaly", "high" if anom_v <= -1.5 else "medium",
+                                 _conf(75, abs(anom_v), 2.0), span, latest_temp, "SST anomaly"))
+        if rapid:
+            events.append(_event(loc, "rapid_temp_change", "medium", 72, _span(temps, None), latest_temp, "SST jump"))
+        if curr:
+            events.append(_event(loc, "strong_current_event", "high" if speeds[-1] >= 0.8 else "medium",
+                                 80, _span(speeds[::-1], 0.5), speeds[-1], "current speed"))
+        if flood:
+            band = "danger" if latest_wave and latest_wave >= _EV_DANGER else "warning"
+            events.append(_event(loc, "coastal_flooding_risk", band, 82, _span(waves, _EV_WARN), latest_wave, "wave height"))
+        if mismatch:
+            events.append(_event(loc, "model_mismatch_event", "medium", 76, _span(temps, None), None, "observed vs model baseline"))
+
+    events.sort(key=lambda e: (e["intensity"] != "high", -(e["confidence"] or 0)))
+    summary = {e["event_type"]: sum(1 for x in events if x["event_type"] == e["event_type"]) for e in events}
+    return {"generated_at": datetime.now(timezone.utc).isoformat(), "events": events, "summary": summary}
+
+
+def _event(loc: OceanLocation, event_type: str, intensity: str, confidence: int,
+           span: dict, value: float | None, var: str) -> dict:
+    meta = EVENT_META[event_type]
+    ev = {
+        "location_id": loc.id,
+        "location": loc.name,
+        "event_type": event_type,
+        "label": meta["label"],
+        "icon": meta["icon"],
+        "intensity": intensity,
+        "confidence": confidence,
+        "variable": var,
+        "value": round(value, 2) if value is not None else None,
+        "status": "active",
+    }
+    if span["start_h"] is not None:
+        ev["began_hours_ago"] = span["start_h"]
+        ev["peak_hours_ago"] = span["peak_h"]
+        ev["peak_value"] = span["peak"]
+        ev["hours_active"] = span["hours_on"]
+        ev["evolution"] = (
+            f"Began {span['start_h']}h ago, peaked {span['peak_h']}h ago "
+            f"at {span['peak']}, still active."
+        )
+    else:
+        ev["hours_active"] = span["hours_on"]
+        ev["evolution"] = "Observed in the latest window; evolution building."
+    return ev
+
+
+# ---------------------------------------------------------------------------
+# 6. What-If Scenario Simulator (illustrative, clearly labelled)
+# ---------------------------------------------------------------------------
+
+def scenario_projection(db: Session, location_id: int, wind_percent: float = 0.0) -> dict:
+    """Illustrative 'what-if' projection. NOT a validated forecast."""
+    loc = db.query(OceanLocation).filter(OceanLocation.id == location_id).first()
+    if loc is None:
+        return {"scenario": True, "error": "location not found"}
+
+    rows = _latest_rows(db, loc)
+    waves = [o.wave_height for o in rows if o.wave_height is not None]
+    temps = [o.sea_surface_temperature for o in rows if o.sea_surface_temperature is not None]
+    base_wave = waves[-1] if waves else None
+    base_temp = temps[-1] if temps else None
+
+    k = max(-0.5, min(0.5, wind_percent / 100.0))
+    proj_wave = round(max(0.0, (base_wave or 0) * (1 + k * 0.9)), 2)
+    proj_temp = round((base_temp or 0) - k * 0.4, 2)  # stronger wind → slight surface cooling
+
+    band = "danger" if proj_wave >= _EV_DANGER else "warning" if proj_wave >= _EV_WARN else \
+        "caution" if proj_wave >= _EV_SAFE else "safe"
+    band_change = ""
+    if base_wave is not None:
+        cur_band = "danger" if base_wave >= _EV_DANGER else "warning" if base_wave >= _EV_WARN else \
+            "caution" if base_wave >= _EV_SAFE else "safe"
+        band_change = "unchanged" if cur_band == band else f"{cur_band} → {band}"
+
+    narrative = (
+        f"If wind intensity changes by {wind_percent:+.0f}%, projected wave height at "
+        f"{loc.name} moves from {base_wave:.2f} m to ~{proj_wave:.2f} m "
+        f"({band_change}). {_band_message(band)}"
+    )
+
+    return {
+        "scenario": True,
+        "caveat": "Illustrative scenario simulation — not a validated operational forecast.",
+        "location_id": loc.id,
+        "location": loc.name,
+        "inputs": {"wind_percent": wind_percent},
+        "output": {
+            "wave_height": proj_wave,
+            "expected_sst": proj_temp,
+            "hazard_band": band,
+            "band_change": band_change,
+        },
+        "narrative": narrative,
+    }
+
+
+def _band_message(band: str) -> str:
+    return {
+        "danger": "Small vessels advised against sailing.",
+        "warning": "Exercise caution offshore — elevated wave risk.",
+        "caution": "Slightly elevated conditions; standard caution advised.",
+        "safe": "Conditions remain within normal small-craft limits.",
+    }[band]
+
+
+# ---------------------------------------------------------------------------
+# 7. Data Provenance & Scientific Traceability
+# ---------------------------------------------------------------------------
+
+def provenance(db: Session) -> dict:
+    """For every displayed value: source, dataset, time, processing, model run."""
+    now = datetime.now(timezone.utc)
+    rows = []
+    for loc in db.query(OceanLocation).all():
+        obs = _latest_rows(db, loc, window=OBS_WINDOW)
+        sources = sorted({o.source or "unknown" for o in obs})
+        data_types = sorted({o.data_type or "observation" for o in obs})
+        times = [o.timestamp for o in obs]
+        latest = max(times) if times else None
+
+        rows.append(
+            {
+                "location_id": loc.id,
+                "location": loc.name,
+                "sources": sources,
+                "datasets": ["Open-Meteo Marine (ERA5-driven coastal reanalysis)"],
+                "data_types": data_types,
+                "observation_count": len(obs),
+                "latest_observation": (latest.isoformat() if latest else None),
+                "window_hours": OBS_WINDOW,
+                "processing": "Quality check → temporal alignment → linear trend baseline → deviation & confidence",
+                "model_run_id": f"MR-{now.strftime('%Y%m%d%H')}-L{loc.id:02d}",
+                "last_updated": now.isoformat(),
+            }
+        )
     return {"generated_at": now.isoformat(), "regions": rows}

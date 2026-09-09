@@ -37,9 +37,13 @@ Everything below has been verified working during development.
 - [ ] `GET /api/v1/safety/trust` → 8 regions with MAE sparkline + drift flag
 - [ ] `GET /api/v1/safety/timeseries` → 8 regions, 72 points each (48 obs + 24 forecast)
 - [ ] `WS /api/v1/safety/ws/live` → snapshot + repeated broadcasts (every 12s)
-- [ ] `GET /api/v1/validation/confidence` → per-coast obs confidence + disagreement
+- [ ] `GET /api/v1/validation/confidence` → per-coast obs confidence + **component breakdown** (why 82%?)
 - [ ] `GET /api/v1/validation/difference` → MODEL | OBSERVED | DEVIATION per field (optionally `?location_id=`)
 - [ ] `GET /api/v1/validation/situation` → operational situation strip per coast
+- [ ] `GET /api/v1/validation/skill` → per-variable MAE / RMSE / bias / skill-vs-climatology
+- [ ] `GET /api/v1/validation/events` → classified phenomena (heatwave, flood risk, mismatch…)
+- [ ] `GET /api/v1/validation/provenance` → source / dataset / model run / processing per coast
+- [ ] `POST /api/v1/validation/scenario` `{location_id, wind_percent}` → labelled what-if projection
 
 ## ✅ Frontend Pages (http://localhost:5173)
 
@@ -49,7 +53,10 @@ Everything below has been verified working during development.
 - [ ] **Digital Twin** — **Event Replay**: Observed / Model / Difference modes + deviation readout
 - [ ] **Monitoring** — "Run AI Radar Scan" works, alerts render with severity
 - [ ] **Model Validation** — MODEL|OBSERVED|DEVIATION rows, "why it matters" panel,
-      confidence meters, forecast-vs-reality charts for any coast
+      confidence meters with **why-92% component breakdown**, **Model Skill Score**
+      (MAE/RMSE/bias/skill), **Ocean Event Detection** cards, **What-If simulator**
+      (wind slider → wave/SST/hazard band), **Data Provenance** table,
+      forecast-vs-reality charts for any coast
 - [ ] **Ocean AI** — all 4 demo questions answered correctly
 - [ ] **Safety Center** — advisory cards, LIVE Command Feed (WebSocket), SMS phone mock,
       multilingual voice bulletins, trust sparklines
@@ -68,7 +75,8 @@ Everything below has been verified working during development.
    ```
 2. [ ] Open **Monitoring**, watch an alert appear on "Goa" (medium, ~85%).
 3. [ ] Open **Model Validation**, select Goa — **+1.8°C deviation**, red row,
-      "persistent surface heating" interpretation, HIGH DISAGREEMENT flag.
+      "persistent surface heating" interpretation, HIGH DISAGREEMENT flag,
+      **marine heatwave** event card with evolution, skill score visible.
 4. [ ] Open **Safety Center** — Goa card shows **DANGER/CAUTION**; run **SMS Alert** mock.
 5. [ ] Open **Reports** — Goa ranked #1 ELEVATED, national gauge reflects it.
 6. [ ] Assistant answers `is it safe to go fishing in goa today?`.

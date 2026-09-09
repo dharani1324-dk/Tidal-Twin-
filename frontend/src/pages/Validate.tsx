@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Scale, ThermometerSun, Waves, Gauge, GitCompareArrows,
-  ShieldAlert, CheckCircle2, Activity, MapPin, Sparkles,
+  ShieldAlert, CheckCircle2, Activity, MapPin, Sparkles, Percent,
+  FlaskConical, Database, Radar,
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
@@ -10,6 +11,7 @@ import {
 import {
   fetchLocations, fetchComparison, fetchValidationDifference,
   fetchValidationConfidence, fetchValidationSituation,
+  fetchValidationSkill, fetchValidationEvents, fetchValidationProvenance, runScenario,
 } from '../api/client'
 import './Validate.css'
 
@@ -63,6 +65,66 @@ interface Confidence {
   drift: boolean
   disagreement: boolean
   interpretation: string
+  confidence_components?: { factor: string; pct: number; weight: number }[]
+  component_weights?: string
+}
+
+interface SkillVar {
+  mae: number | null
+  rmse: number | null
+  bias: number | null
+  climatology_mae: number | null
+  skill: number | null
+  samples: number
+}
+
+interface SkillRegion {
+  location_id: number
+  location: string
+  overall_skill: number | null
+  variables: { temperature?: SkillVar | null; wave_height?: SkillVar | null }
+}
+
+interface OceanEvent {
+  location_id: number
+  location: string
+  event_type: string
+  label: string
+  icon: string
+  intensity: 'high' | 'medium' | 'low'
+  confidence: number
+  variable: string
+  value: number | null
+  status: string
+  began_hours_ago?: number
+  peak_hours_ago?: number
+  peak_value?: number
+  hours_active?: number
+  evolution?: string
+}
+
+interface ProvRegion {
+  location_id: number
+  location: string
+  sources: string[]
+  datasets: string[]
+  data_types: string[]
+  observation_count: number
+  latest_observation: string | null
+  window_hours: number
+  processing: string
+  model_run_id: string
+  last_updated: string
+}
+
+interface ScenarioResult {
+  scenario: boolean
+  caveat: string
+  location_id: number
+  location: string
+  inputs: { wind_percent: number }
+  output: { wave_height: number; expected_sst: number; hazard_band: string; band_change: string }
+  narrative: string
 }
 
 interface ComparePoint {
@@ -108,6 +170,12 @@ export default function Validate() {
   const [sit, setSit] = useState<Situation | null>(null)
   const [conf, setConf] = useState<Confidence | null>(null)
   const [compare, setCompare] = useState<{ temp: ComparePoint[]; wave: ComparePoint[] }>({ temp: [], wave: [] })
+  const [skill, setSkill] = useState<SkillRegion[]>([])
+  const [events, setEvents] = useState<OceanEvent[]>([])
+  const [prov, setProv] = useState<ProvRegion[]>([])
+  const [wind, setWind] = useState(20)
+  const [scen, setScen] = useState<ScenarioResult | null>(null)
+  const [scenBusy, setScenBusy] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -130,12 +198,18 @@ export default function Validate() {
       fetchValidationDifference(selected.id),
       fetchValidationSituation(),
       fetchValidationConfidence(),
+      fetchValidationSkill(),
+      fetchValidationEvents(),
+      fetchValidationProvenance(),
       fetchComparison(selected.id),
     ])
-      .then(([d, s, cf, cmp]) => {
+      .then(([d, s, cf, sk, ev, pv, cmp]) => {
         setDiff(d.region ?? null)
         setSit(byId(s.regions ?? []) as Situation | null)
         setConf(byId(cf.regions ?? []) as Confidence | null)
+        setSkill(sk.regions ?? [])
+        setEvents(ev.events ?? [])
+        setProv(pv.regions ?? [])
         const series: ComparePoint[] = cmp?.series ?? []
         setCompare({
           temp: series.map((p: ComparePoint) => ({
@@ -153,6 +227,21 @@ export default function Validate() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [selected])
+
+  const run = () => {
+    if (!selected || scenBusy) return
+    setScenBusy(true)
+    runScenario(selected.id, wind)
+      .then(setScen)
+      .catch(() => setScen(null))
+      .finally(() => setScenBusy(false))
+  }
+
+  const skillSel = useMemo(() => skill.find((r) => r.location_id === selected?.id) ?? null, [skill, selected])
+  const provSel = useMemo(() => prov.find((r) => r.location_id === selected?.id) ?? null, [prov, selected])
+  const localEvents = useMemo(() => events.filter((e) => e.location_id === selected?.id), [events, selected])
+  const otherEvents = useMemo(() => events.filter((e) => e.location_id !== selected?.id), [events, selected])
+  const totalActive = events.length
 
   const situationChips = useMemo(() => {
     if (!sit) return []
@@ -174,7 +263,7 @@ export default function Validate() {
             Model <span className="text-gradient">Validation</span> Workspace
           </h1>
           <p className="page-subtitle">
-            Where the AI model meets reality — deviation per field, observation confidence, and what the gap means.
+            Where the AI model meets reality — deviation, uncertainty, skill, events, and what each gap means for decisions.
           </p>
         </div>
         <div className="validate-count glass-card">
@@ -291,6 +380,19 @@ export default function Validate() {
             <div className="conf-meters">
               <Meter label="Observation" value={conf.observation_confidence} color="#22d3ee" />
               <Meter label="Model trust" value={conf.model_trust} color="#818cf8" />
+              <div className="conf-breakdown">
+                <div className="conf-breakdown-title">Why {conf.observation_confidence}%?</div>
+                {(conf.confidence_components ?? []).map((c) => (
+                  <div key={c.factor} className="conf-comp">
+                    <span className="conf-comp-label">{c.factor} <i>{c.weight}%</i></span>
+                    <div className="conf-comp-bar">
+                      <div className="conf-comp-fill" style={{ width: `${c.pct}%` }} />
+                    </div>
+                    <b className="conf-comp-pct">{c.pct}%</b>
+                  </div>
+                ))}
+                <div className="conf-weights">Weighted blend · {conf.component_weights}</div>
+              </div>
               <div className="conf-facts">
                 <span>Coverage <b>{Math.round(conf.field_coverage * 100)}%</b> of fields</span>
                 <span>Sampling <b>{conf.sample_size}</b> readings</span>
@@ -322,6 +424,161 @@ export default function Validate() {
           </div>
         </motion.div>
       </div>
+
+      {/* ---- second tier: skill + what-if ---- */}
+      <div className="val-grid val-grid-bottom">
+        <motion.div className="glass-card panel val-skill-panel" variants={fadeUp} initial="hidden" animate="show" custom={4}>
+          <div className="panel-header">
+            <h3>Model skill score</h3>
+            <span className="panel-badge"><Percent size={12} /> FORECAST VERIFICATION</span>
+          </div>
+          {skillSel ? (
+            <>
+              <div className="skill-hero">
+                <div>
+                  <span className="skill-hero-label">Overall skill</span>
+                  <div className="skill-hero-num">{skillSel.overall_skill != null ? `${skillSel.overall_skill}%` : '—'}</div>
+                </div>
+                <div className="skill-hero-note">vs climatology baseline · 24h window</div>
+              </div>
+              <div className="skill-table">
+                <div className="skill-row skill-row-head">
+                  <span>Variable</span><span>MAE</span><span>RMSE</span><span>Bias</span><span>Skill</span>
+                </div>
+                {(['temperature', 'wave_height'] as const).map((k) => {
+                  const v = skillSel.variables[k]
+                  return (
+                    <div key={k} className="skill-row">
+                      <span className="skill-var">{k === 'temperature' ? 'Sea surface temperature' : 'Wave height'}</span>
+                      <span>{v?.mae != null ? v.mae.toFixed(3) : '—'}</span>
+                      <span>{v?.rmse != null ? v.rmse.toFixed(3) : '—'}</span>
+                      <span>{v?.bias != null ? `${v.bias > 0 ? '+' : ''}${v.bias.toFixed(3)}` : '—'}</span>
+                      <b className={v?.skill != null && v.skill >= 50 ? 'skill-good' : ''}>
+                        {v?.skill != null ? `${v.skill.toFixed(1)}%` : '—'}
+                      </b>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="diff-note">MAE = mean absolute error · RMSE = root mean square error · Bias = signed (forecast − observed). Skill = 1 − MAE/MAEᴄʟɪᴍ.</div>
+            </>
+          ) : (
+            <div className="hint">Loading skill metrics…</div>
+          )}
+        </motion.div>
+
+        <motion.div className="glass-card panel val-whatif-panel" variants={fadeUp} initial="hidden" animate="show" custom={5}>
+          <div className="panel-header">
+            <h3>What-If simulator</h3>
+            <span className="panel-badge"><FlaskConical size={12} /> SCENARIO</span>
+          </div>
+          <div className="whatif-caveat">Illustrative simulation — not a validated operational forecast.</div>
+          <div className="whatif-slider-row">
+            <div>
+              <span className="whatif-label">Wind intensity</span>
+              <span className="whatif-val">{wind > 0 ? '+' : ''}{wind}%</span>
+            </div>
+            <input
+              type="range" min={-50} max={50} step={5} value={wind}
+              onChange={(e) => setWind(Number(e.target.value))}
+              className="whatif-range"
+            />
+            <button className="whatif-run" onClick={run} disabled={scenBusy || !selected}>
+              {scenBusy ? 'Running…' : 'Run scenario'}
+            </button>
+          </div>
+          {scen && scen.location_id === selected?.id ? (
+            <div className="whatif-result">
+              <div className="whatif-big">
+                <div>
+                  <span>Projected wave height</span>
+                  <b>{scen.output.wave_height.toFixed(2)} m</b>
+                </div>
+                <div>
+                  <span>Expected SST</span>
+                  <b>{scen.output.expected_sst.toFixed(2)} °C</b>
+                </div>
+                <div>
+                  <span>Hazard band</span>
+                  <b className={`band-${scen.output.hazard_band}`}>{scen.output.hazard_band.toUpperCase()}</b>
+                </div>
+              </div>
+              <p className="whatif-narrative">{scen.narrative}</p>
+            </div>
+          ) : (
+            <div className="hint">Adjust the slider and run a what-if for {selected?.name ?? 'a coast'}.</div>
+          )}
+        </motion.div>
+      </div>
+
+      {/* ---- event detection ---- */}
+      <motion.div className="glass-card panel val-events-panel" variants={fadeUp} initial="hidden" animate="show" custom={6}>
+        <div className="panel-header">
+          <h3>Ocean event detection & classification</h3>
+          <span className="panel-badge"><Radar size={12} /> {totalActive} ACTIVE PHENOMENA</span>
+        </div>
+        {totalActive === 0 ? (
+          <div className="hint">No named events right now — ocean is tracking its model baseline.</div>
+        ) : (
+          <div className="events-grid">
+            {[...localEvents, ...otherEvents].map((e) => (
+              <div key={`${e.location_id}-${e.event_type}`} className={`event-card ${e.location_id === selected?.id ? 'event-card-local' : ''} ${localEvents.length === 0 ? 'event-card-muted' : ''}`}>
+                <div className="event-head">
+                  <span className="event-icon">{e.icon}</span>
+                  <b>{e.label}</b>
+                  <span className={`event-level event-${e.intensity}`}>{e.intensity.toUpperCase()}</span>
+                </div>
+                <div className="event-loc">{e.location}</div>
+                <div className="event-metrics">
+                  <span>Confidence <b>{e.confidence}%</b></span>
+                  {e.value != null && <span>{e.variable.replace('_', ' ')} <b>{e.value}</b></span>}
+                  {e.hours_active != null && <span>Active <b>{e.hours_active}h</b></span>}
+                </div>
+                {e.location_id === selected?.id && e.evolution && <div className="event-evo">{e.evolution}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </motion.div>
+
+      {/* ---- provenance ---- */}
+      <motion.div className="glass-card panel val-prov-panel" variants={fadeUp} initial="hidden" animate="show" custom={7}>
+        <div className="panel-header">
+          <h3>Data provenance & traceability</h3>
+          <span className="panel-badge"><Database size={12} /> SOURCE OF TRUTH</span>
+        </div>
+        {provSel ? (
+          <div className="prov-grid">
+            <div className="prov-cell prov-wide">
+              <span>Source</span><b>{provSel.sources.join(', ') || '—'}</b>
+            </div>
+            <div className="prov-cell">
+              <span>Dataset</span><b>{provSel.datasets.join(', ')}</b>
+            </div>
+            <div className="prov-cell">
+              <span>Observation type</span><b>{provSel.data_types.join(', ') || '—'}</b>
+            </div>
+            <div className="prov-cell">
+              <span>Latest observation</span>
+              <b>{provSel.latest_observation ? new Date(provSel.latest_observation).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true }) : '—'}</b>
+            </div>
+            <div className="prov-cell">
+              <span>Window</span><b>{provSel.window_hours}h · {provSel.observation_count} readings</b>
+            </div>
+            <div className="prov-cell">
+              <span>Model run</span><b className="prov-mono">{provSel.model_run_id}</b>
+            </div>
+            <div className="prov-cell prov-wide">
+              <span>Processing</span><b>{provSel.processing}</b>
+            </div>
+            <div className="prov-cell">
+              <span>Last updated</span><b>{provSel.last_updated ? new Date(provSel.last_updated).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) : '—'}</b>
+            </div>
+          </div>
+        ) : (
+          <div className="hint">Loading provenance…</div>
+        )}
+      </motion.div>
     </div>
   )
 }
