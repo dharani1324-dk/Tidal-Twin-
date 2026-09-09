@@ -32,15 +32,26 @@ Everything below has been verified working during development.
 - [ ] `GET /api/v1/reports/summary` → executive summary text
 - [ ] `GET /api/v1/reports/csv` → downloads valid CSV (header + data rows)
 - [ ] `POST /api/v1/assistant/ask` → answers: safety, trend, compare, hottest/coldest
+- [ ] `GET /api/v1/safety/advisory` → 8 regions with status + safe window
+- [ ] `GET /api/v1/safety/storm` → 25-point cyclone track with wind + radius
+- [ ] `GET /api/v1/safety/trust` → 8 regions with MAE sparkline + drift flag
+- [ ] `GET /api/v1/safety/timeseries` → 8 regions, 72 points each (48 obs + 24 forecast)
+- [ ] `WS /api/v1/safety/ws/live` → snapshot + repeated broadcasts (every 12s)
 
 ## ✅ Frontend Pages (http://localhost:5173)
 
 - [ ] **Dashboard** — health ring, gauges, region chips, telemetry load
 - [ ] **Digital Twin** — 3D globe renders, markers appear, layers toggle
+- [ ] **Digital Twin** — Storm Track layer shows cyclone path, cone + moving eye
+- [ ] **Digital Twin** — Global Timeline scrubber plays observations → forecast
 - [ ] **Monitoring** — "Run AI Radar Scan" works, alerts render with severity
 - [ ] **Ocean AI** — all 4 demo questions answered correctly
+- [ ] **Safety Center** — advisory cards, LIVE Command Feed (WebSocket), SMS phone mock,
+      multilingual voice bulletins, trust sparklines
+- [ ] **Risk Map** — India silhouette, risk-banded markers, storm track + eye, threat ranking
 - [ ] **Story Mode** — 4 stories, chapter flips, live data facts show
 - [ ] **Reports** — national gauge, risk table, summary, CSV download
+- [ ] **PWA** — `/manifest.webmanifest` + `/sw.js` served; install prompt hinted in prod build
 - [ ] Every nav item highlights correctly; page transitions smooth
 
 ## ✅ The AI Heatwave Demo (5-minute judge moment)
@@ -51,8 +62,9 @@ Everything below has been verified working during development.
    .venv\Scripts\python -m scripts.simulate_anomaly --kind heatwave --location goa
    ```
 2. [ ] Open **Monitoring**, watch an alert appear on "Goa" (medium, ~85%).
-3. [ ] Open **Reports** — Goa ranked #1 ELEVATED, national gauge reflects it.
-4. [ ] Assistant answers `is it safe to go fishing in goa today?`.
+3. [ ] Open **Safety Center** — Goa card shows **DANGER/CAUTION**; run **SMS Alert** mock.
+4. [ ] Open **Reports** — Goa ranked #1 ELEVATED, national gauge reflects it.
+5. [ ] Assistant answers `is it safe to go fishing in goa today?`.
 
 ## ✅ Data Integrity
 
@@ -65,7 +77,8 @@ Everything below has been verified working during development.
 - [ ] Frontend builds with zero TypeScript errors: `npm run build`.
 - [ ] No `.env` committed (contains `Dharani%407` password — it's gitignored).
 - [ ] No `node_modules`, `.venv`, or `dist` in git.
-- [ ] `git log` tells the full story (Step 1 → Step 14).
+- [ ] `git log` tells the full story (Step 1 → Step 14 → features: Safety Center,
+      Risk Map, storm + timeline, live WebSocket feed, PWA).
 
 ## 🚨 Smoke Test (run right before judging)
 ```
