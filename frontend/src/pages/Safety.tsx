@@ -241,7 +241,11 @@ export default function Safety() {
           <span className={`live-feed-dot ${liveOn ? '' : 'live-feed-dot-off'}`} />
           <span className="live-feed-title">LIVE COMMAND FEED</span>
           <span className="live-feed-ts">
-            {live ? new Date(live.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'connecting…'}
+            {live
+              ? new Date(live.t).toLocaleTimeString('en-IN', {
+                  timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
+                })
+              : 'connecting…'}
           </span>
         </div>
         {live && (
@@ -370,7 +374,7 @@ export default function Safety() {
                     >
                       <div className="bubble-msg">{phoneMsg.message}</div>
                       <div className="bubble-meta">
-                        <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>{new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                         <span className="bubble-tick">✓✓</span>
                       </div>
                     </motion.div>

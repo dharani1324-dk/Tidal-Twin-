@@ -162,12 +162,17 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Live time */}
+        {/* Live time — pinned to IST so the demo always shows India time */}
         <motion.div className="hero-clock" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
           <div className="clock-time">
-            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            {new Date().toLocaleTimeString('en-IN', {
+              timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
+            })}
+            <span className="clock-zone">IST</span>
           </div>
-          <div className="clock-date">{new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+          <div className="clock-date">
+            {new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'long', day: 'numeric', month: 'long' })}
+          </div>
         </motion.div>
       </motion.div>
 

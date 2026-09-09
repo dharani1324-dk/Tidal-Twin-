@@ -108,6 +108,21 @@
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.clock-zone {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--neon);
+  -webkit-text-fill-color: currentColor;
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 7px;
+  padding: 2px 7px;
 }
 
 .clock-date {

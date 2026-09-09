@@ -97,10 +97,10 @@ def safety_advisory(db: Session, ahead: int = 12) -> list[dict]:
             status = "safe"
 
         windows = _safe_windows(rows, ahead=ahead)
-        now = datetime.now(timezone.utc)
+        base_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
         if windows:
-            t0 = (now + timedelta(hours=windows[0][0])).strftime("%H:%M")
-            t1 = (now + timedelta(hours=windows[0][1] + 1)).strftime("%H:%M")
+            t0 = (base_ist + timedelta(hours=windows[0][0])).strftime("%H:%M")
+            t1 = (base_ist + timedelta(hours=windows[0][1] + 1)).strftime("%H:%M")
             safe_window = f"{t0} – {t1} IST"
         else:
             safe_window = "Not advised"
