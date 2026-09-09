@@ -1,0 +1,178 @@
+/* OceanVerse AI - Digital Twin page */
+
+.twin-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.twin-count {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  font-size: 12px;
+  letter-spacing: 1.2px;
+  color: var(--neon);
+}
+
+.twin-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+.twin-globe-wrap {
+  min-width: 0;
+}
+
+.twin-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-card {
+  padding: 20px;
+}
+
+.control-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+
+.control-title svg {
+  color: var(--neon);
+}
+
+.control-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.layer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(120, 190, 255, 0.1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.25s ease;
+}
+
+.layer-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+.layer-toggle-on {
+  background: rgba(34, 211, 238, 0.08);
+  border-color: rgba(34, 211, 238, 0.4);
+  color: var(--text-primary);
+}
+
+.toggle-icon {
+  color: var(--neon);
+  display: grid;
+  place-items: center;
+}
+
+.toggle-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.toggle-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.toggle-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.toggle-switch {
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  position: relative;
+  transition: background 0.25s;
+  flex-shrink: 0;
+}
+
+.toggle-switch-on {
+  background: var(--neon);
+}
+
+.toggle-knob {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  transition: left 0.25s;
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.6);
+}
+
+.toggle-switch-on .toggle-knob {
+  left: 19px;
+}
+
+/* Region focus */
+.focus-region {
+  padding: 6px 4px;
+}
+
+.focus-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #e6f1ff;
+  margin-bottom: 4px;
+}
+
+.focus-meta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.focus-meta span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.focus-coords {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1000px) {
+  .twin-layout {
+    grid-template-columns: 1fr;
+  }
+}

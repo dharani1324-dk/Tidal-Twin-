@@ -1,6 +1,7 @@
 import { Routes, Route, NavLink } from 'react-router-dom'
 import { Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, Activity } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
+import DigitalTwin from './pages/DigitalTwin'
 import './App.css'
 
 /**
@@ -63,7 +64,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           {/* Placeholder routes for upcoming pages */}
-          <Route path="/globe" element={<PagePlaceholder title="3D Ocean Digital Twin" note="Coming next — the immersive 3D globe" />} />
+          <Route path="/globe" element={<DigitalTwin />} />
           <Route path="/monitoring" element={<PagePlaceholder title="Ocean Monitoring" note="Live anomaly detection & alerts" />} />
           <Route path="/assistant" element={<PagePlaceholder title="Ocean AI Assistant" note="Natural language ocean intelligence" />} />
           <Route path="/reports" element={<PagePlaceholder title="Reports & Insights" note="PDF/CSV reports, model comparisons" />} />
