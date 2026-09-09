@@ -3,6 +3,7 @@ import { Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, Activity } fro
 import Dashboard from './pages/Dashboard'
 import DigitalTwin from './pages/DigitalTwin'
 import Assistant from './pages/Assistant'
+import Monitoring from './pages/Monitoring'
 import './App.css'
 
 /**
@@ -66,7 +67,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           {/* Placeholder routes for upcoming pages */}
           <Route path="/globe" element={<DigitalTwin />} />
-          <Route path="/monitoring" element={<PagePlaceholder title="Ocean Monitoring" note="Live anomaly detection & alerts" />} />
+          <Route path="/monitoring" element={<Monitoring />} />
           <Route path="/assistant" element={<Assistant />} />
           <Route path="/reports" element={<PagePlaceholder title="Reports & Insights" note="PDF/CSV reports, model comparisons" />} />
         </Routes>

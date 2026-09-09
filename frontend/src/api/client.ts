@@ -47,3 +47,21 @@ export const askAssistant = async (question: string) => {
   const { data } = await api.post('/api/v1/assistant/ask', { question })
   return data
 }
+
+/** Get monitoring alerts (active/resolved/all) */
+export const fetchAlerts = async (status = 'all') => {
+  const { data } = await api.get('/api/v1/monitoring/alerts', { params: { status } })
+  return data
+}
+
+/** Run the AI anomaly-detection radar */
+export const runAnomalyScan = async () => {
+  const { data } = await api.post('/api/v1/monitoring/scan')
+  return data
+}
+
+/** Get AI 12h forecasts for all regions */
+export const fetchForecasts = async () => {
+  const { data } = await api.get('/api/v1/monitoring/forecast')
+  return data
+}
