@@ -41,3 +41,9 @@ export const triggerRefresh = async () => {
   const { data } = await api.post('/api/v1/ocean/refresh')
   return data
 }
+
+/** Ask the Ocean AI Assistant a natural-language question */
+export const askAssistant = async (question: string) => {
+  const { data } = await api.post('/api/v1/assistant/ask', { question })
+  return data
+}

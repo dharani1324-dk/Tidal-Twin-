@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.status import router as status_router
 from app.api.ocean import router as ocean_router
+from app.api.assistant import router as assistant_router
 
 # Create the FastAPI app instance
 # The title, description and version show up on the automatic
@@ -40,6 +41,7 @@ app.add_middleware(
 # Routers group related endpoints in separate files for clean structure.
 app.include_router(status_router)
 app.include_router(ocean_router)
+app.include_router(assistant_router)
 
 
 # ---- Basic Routes (Doors) ----
