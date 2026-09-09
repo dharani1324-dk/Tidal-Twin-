@@ -9,6 +9,8 @@ sets up all the API routes (doors) that the frontend will use.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.status import router as status_router
+
 # Create the FastAPI app instance
 # The title, description and version show up on the automatic
 # documentation page which is great for judges.
@@ -31,6 +33,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---- Register API Routers ----
+# Routers group related endpoints in separate files for clean structure.
+app.include_router(status_router)
 
 
 # ---- Basic Routes (Doors) ----
