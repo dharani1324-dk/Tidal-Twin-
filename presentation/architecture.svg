@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="1000" viewBox="0 0 1320 1000" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a1a33"/>
+      <stop offset="1" stop-color="#050d1d"/>
+    </linearGradient>
+    <linearGradient id="srcGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#12304d"/>
+      <stop offset="1" stop-color="#0d2844"/>
+    </linearGradient>
+    <linearGradient id="panelGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d2747"/>
+      <stop offset="1" stop-color="#091c36"/>
+    </linearGradient>
+    <linearGradient id="aiGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#123c54"/>
+      <stop offset="1" stop-color="#0d2c42"/>
+    </linearGradient>
+    <linearGradient id="apiGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#154477"/>
+      <stop offset="1" stop-color="#0e2f57"/>
+    </linearGradient>
+    <linearGradient id="frontGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f2c52"/>
+      <stop offset="1" stop-color="#0a1f3d"/>
+    </linearGradient>
+    <linearGradient id="tileGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16406b"/>
+      <stop offset="1" stop-color="#0e2c50"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+
+  <rect width="1320" height="1000" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="60" y="58" font-size="30" font-weight="700" fill="#e8f4ff" letter-spacing="0.5">OceanVerse AI — System Architecture &amp; Data Workflow</text>
+  <text x="60" y="86" font-size="15" fill="#7c93b8">Web-based interactive 3D platform integrating numerical ocean model outputs and in-situ observations</text>
+
+  <!-- Deploy chip -->
+  <rect x="920" y="30" width="340" height="56" rx="14" fill="#12304d" stroke="#22d3ee" stroke-opacity="0.4"/>
+  <text x="934" y="51" font-size="13" font-weight="600" fill="#7dd3fc">Deployment</text>
+  <text x="934" y="71" font-size="12" fill="#9fb8d6">docker compose up --build · :8080 web · :8000 api · :5433 db</text>
+
+  <!-- ================= SOURCES ================= -->
+  <rect x="110" y="132" width="430" height="100" rx="14" fill="url(#srcGrad)" stroke="#38bdf8" stroke-opacity="0.35"/>
+  <text x="130" y="172" font-size="19" font-weight="700" fill="#e8f4ff">Numerical Model Outputs</text>
+  <text x="130" y="198" font-size="13" fill="#8fb0cc">Open-Meteo Marine Forecast API</text>
+  <text x="130" y="218" font-size="13" fill="#8fb0cc">hourly sea-surface temperature · wave height</text>
+
+  <rect x="780" y="132" width="430" height="100" rx="14" fill="url(#srcGrad)" stroke="#38bdf8" stroke-opacity="0.35"/>
+  <text x="800" y="172" font-size="19" font-weight="700" fill="#e8f4ff">In-situ Observations</text>
+  <text x="800" y="198" font-size="13" fill="#8fb0cc">buoys · HF radar · coastal stations</text>
+  <text x="800" y="218" font-size="13" fill="#8fb0cc">seeded + live-refreshed readings</text>
+
+  <!-- source → backend arrows -->
+  <line x1="310" y1="232" x2="310" y2="340" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="322" y="290" font-size="11" fill="#38bdf8">fetch</text>
+  <line x1="995" y1="232" x2="995" y2="340" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="1007" y="290" font-size="11" fill="#38bdf8">ingest</text>
+
+  <!-- ================= BACKEND PANEL ================= -->
+  <rect x="60" y="304" width="1200" height="288" rx="18" fill="url(#panelGrad)" stroke="#22d3ee" stroke-opacity="0.3"/>
+  <text x="82" y="332" font-size="13" font-weight="700" letter-spacing="1.2" fill="#7dd3fc">BACKEND · FASTAPI + AI ENGINE  —  uvicorn · SQLAlchemy · scikit-learn</text>
+
+  <rect x="90" y="350" width="470" height="92" rx="12" fill="url(#tileGrad)" stroke="#38bdf8" stroke-opacity="0.3"/>
+  <text x="110" y="382" font-size="16" font-weight="700" fill="#e8f4ff">1 · Data Pipeline</text>
+  <text x="110" y="408" font-size="12.5" fill="#9fb8d6">scheduled refresh · normalization · dedupe</text>
+  <text x="110" y="426" font-size="12.5" fill="#9fb8d6">alert lifecycle (create · resolve · timeout)</text>
+
+  <rect x="640" y="350" width="560" height="92" rx="12" fill="url(#tileGrad)" stroke="#38bdf8" stroke-opacity="0.3"/>
+  <text x="660" y="382" font-size="16" font-weight="700" fill="#e8f4ff">2 · PostgreSQL + PostGIS</text>
+  <text x="660" y="408" font-size="12.5" fill="#9fb8d6">observations · forecasts · locations · alerts</text>
+  <text x="660" y="426" font-size="12.5" fill="#9fb8d6">geo-spatial queries over Indian coastal zones</text>
+
+  <line x1="564" y1="396" x2="632" y2="396" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="90" y="474" width="1110" height="104" rx="12" fill="url(#aiGrad)" stroke="#7dd3fc" stroke-opacity="0.4"/>
+  <text x="110" y="504" font-size="16" font-weight="700" fill="#e8f4ff">3 · AI ENGINE — inference on live + historical data</text>
+  <line x1="640" y1="442" x2="640" y2="468" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- AI pills -->
+  <rect x="110" y="536" width="170" height="34" rx="8" fill="#0b2a46" stroke="#38bdf8" stroke-opacity="0.5"/>
+  <text x="195" y="557" font-size="12.5" font-weight="600" text-anchor="middle" fill="#cfe8ff">Anomaly Detection</text>
+  <rect x="292" y="536" width="170" height="34" rx="8" fill="#0b2a46" stroke="#38bdf8" stroke-opacity="0.5"/>
+  <text x="377" y="557" font-size="12.5" font-weight="600" text-anchor="middle" fill="#cfe8ff">ML Forecasting</text>
+  <rect x="474" y="536" width="170" height="34" rx="8" fill="#0b2a46" stroke="#38bdf8" stroke-opacity="0.5"/>
+  <text x="559" y="557" font-size="12.5" font-weight="600" text-anchor="middle" fill="#cfe8ff">Comparison · MAE</text>
+  <rect x="656" y="536" width="170" height="34" rx="8" fill="#0b2a46" stroke="#38bdf8" stroke-opacity="0.5"/>
+  <text x="741" y="557" font-size="12.5" font-weight="600" text-anchor="middle" fill="#cfe8ff">Risk Index</text>
+  <rect x="838" y="536" width="170" height="34" rx="8" fill="#0b2a46" stroke="#38bdf8" stroke-opacity="0.5"/>
+  <text x="923" y="557" font-size="12.5" font-weight="600" text-anchor="middle" fill="#cfe8ff">Story Engine</text>
+  <rect x="1020" y="536" width="170" height="34" rx="8" fill="#0b2a46" stroke="#38bdf8" stroke-opacity="0.5"/>
+  <text x="1105" y="557" font-size="12.5" font-weight="600" text-anchor="middle" fill="#cfe8ff">Ocean Assistant</text>
+
+  <!-- ================= API LAYER ================= -->
+  <line x1="660" y1="578" x2="660" y2="620" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="160" y="628" width="1000" height="78" rx="14" fill="url(#apiGrad)" stroke="#38bdf8" stroke-opacity="0.4"/>
+  <text x="180" y="662" font-size="17" font-weight="700" fill="#e8f4ff">REST API · /api/v1/*</text>
+  <text x="180" y="688" font-size="12.5" fill="#a8c4e2">ocean · monitoring · forecast · comparison · reports · stories · assistant</text>
+
+  <!-- ================= FRONTEND PANEL ================= -->
+  <line x1="660" y1="706" x2="660" y2="734" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="60" y="742" width="1200" height="172" rx="18" fill="url(#frontGrad)" stroke="#22d3ee" stroke-opacity="0.3"/>
+  <text x="82" y="770" font-size="13" font-weight="700" letter-spacing="1.2" fill="#7dd3fc">FRONTEND · REACT + TYPESCRIPT  —  Vite · Cesium 3D globe · Recharts</text>
+
+  <rect x="90" y="790" width="180" height="108" rx="12" fill="url(#tileGrad)" stroke="#38bdf8" stroke-opacity="0.3"/>
+  <text x="180" y="832" font-size="13.5" font-weight="700" text-anchor="middle" fill="#e8f4ff">Dashboard</text>
+  <text x="180" y="856" font-size="11" text-anchor="middle" fill="#9fb8d6">live stats &amp; trends</text>
+  <text x="180" y="874" font-size="11" text-anchor="middle" fill="#9fb8d6">per coastal region</text>
+
+  <rect x="282" y="790" width="180" height="108" rx="12" fill="url(#tileGrad)" stroke="#38bdf8" stroke-opacity="0.3"/>
+  <text x="372" y="832" font-size="13.5" font-weight="700" text-anchor="middle" fill="#e8f4ff">Monitoring</text>
+  <text x="372" y="856" font-size="11" text-anchor="middle" fill="#9fb8d6">anomaly alerts</text>
+  <text x="372" y="874" font-size="11" text-anchor="middle" fill="#9fb8d6">+ 48h forecasts</text>
+
+  <rect x="474" y="790" width="180" height="108" rx="12" fill="url(#tileGrad)" stroke="#38bdf8" stroke-opacity="0.3"/>
+  <text x="564" y="832" font-size="13.5" font-weight="700" text-anchor="middle" fill="#e8f4ff">3D Digital Twin</text>
+  <text x="564" y="856" font-size="11" text-anchor="middle" fill="#9fb8d6">Cesium globe</text>
+  <text x="564" y="874" font-size="11" text-anchor="middle" fill="#9fb8d6">heat · wave · current layers</text>
+
+  <rect x="666" y="790" width="180" height="108" rx="12" fill="url(#tileGrad)" stroke="#38bdf8" stroke-opacity="0.3"/>
+  <text x="756" y="832" font-size="13.5" font-weight="700" text-anchor="middle" fill="#e8f4ff">Forecast vs Reality</text>
+  <text x="756" y="856" font-size="11" text-anchor="middle" fill="#9fb8d6">comparison engine</text>
+  <text x="756" y="874" font-size="11" text-anchor="middle" fill="#9fb8d6">MAE accuracy check</text>
+
+  <rect x="858" y="790" width="180" height="108" rx="12" fill="url(#tileGrad)" stroke="#38bdf8" stroke-opacity="0.3"/>
+  <text x="948" y="832" font-size="13.5" font-weight="700" text-anchor="middle" fill="#e8f4ff">Reports &amp; Risk</text>
+  <text x="948" y="856" font-size="11" text-anchor="middle" fill="#9fb8d6">national risk index</text>
+  <text x="948" y="874" font-size="11" text-anchor="middle" fill="#9fb8d6">ranked + CSV export</text>
+
+  <rect x="1050" y="790" width="180" height="108" rx="12" fill="url(#tileGrad)" stroke="#38bdf8" stroke-opacity="0.3"/>
+  <text x="1140" y="832" font-size="13.5" font-weight="700" text-anchor="middle" fill="#e8f4ff">Stories &amp; AI</text>
+  <text x="1140" y="856" font-size="11" text-anchor="middle" fill="#9fb8d6">narrative insights</text>
+  <text x="1140" y="874" font-size="11" text-anchor="middle" fill="#9fb8d6">+ ocean assistant</text>
+
+  <!-- ================= USERS ================= -->
+  <line x1="660" y1="914" x2="660" y2="928" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="210" y="938" width="900" height="44" rx="22" fill="#12304d" stroke="#22d3ee" stroke-opacity="0.45"/>
+  <text x="660" y="965" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="0.8" fill="#e8f4ff">END USERS · Coast Guard · Port Authorities · Fisheries &amp; Cooperative Societies · Disaster Management</text>
+</svg>
