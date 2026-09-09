@@ -105,3 +105,39 @@ C:\Project 2.0\
 ## 🧠 The Big Idea (One Sentence)
 
 > OceanVerse AI turns publicly available ocean data into a beautiful, interactive 3D "digital twin" of the sea, and uses AI to help answer questions and make decisions that protect the ocean and the people who depend on it.
+
+---
+
+## 🚀 Deployment with Docker (One Command)
+
+The whole platform — database, AI backend, and web frontend — ships as containers.
+With Docker installed, you can bring the entire app up on any machine:
+
+```bash
+docker compose up --build
+```
+
+| Service    | URL                 | Notes                                 |
+|------------|---------------------|---------------------------------------|
+| Frontend   | http://localhost:8080 | React app served by nginx            |
+| Backend    | http://localhost:8000 | FastAPI + AI engine (docs at /docs)  |
+| Database   | localhost:5433       | PostgreSQL 16 + PostGIS              |
+
+What happens on startup (automatically):
+1. PostGIS database starts and becomes healthy.
+2. Backend container waits for the DB, then:
+   - creates all tables (`init_db`)
+   - seeds the 8 Indian coastal locations (`seed_data`)
+   - pulls live ocean observations from Open-Meteo (`refresh_ocean_data` — best effort)
+3. Frontend container serves the app and proxies every `/api/...` call to the backend.
+
+Stop everything:
+
+```bash
+docker compose down          # stop
+docker compose down -v       # stop AND wipe the database volume (fresh start)
+```
+
+### Running locally (without Docker)
+Backend: `cd backend`, then `uvicorn app.main:app --reload` (needs Python + PostgreSQL).
+Frontend: `cd frontend`, then `npm run dev`.

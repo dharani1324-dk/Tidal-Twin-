@@ -1,0 +1,64 @@
+# OceanVerse AI - Full deployment stack
+# ======================================
+# ONE command brings up the entire platform:
+#     docker compose up --build
+#
+# Services:
+#   db        - PostgreSQL 16 + PostGIS (spatial data store)
+#   backend   - FastAPI AI engine (REST API + anomaly detection + reports)
+#   frontend  - nginx serving the React app (http://localhost:8080)
+#
+# After startup, open http://localhost:8080 in your browser.
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: oceanverse-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: oceanverse
+      POSTGRES_DB: oceanverse
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"   # host 5433 to avoid clashing with local PostgreSQL on 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d oceanverse"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build: ./backend
+    container_name: oceanverse-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:oceanverse@db:5432/oceanverse
+      DB_HOST: db
+      DB_PORT: "5432"
+      CORS_ORIGINS: '*'
+      PORT: "8000"
+    ports:
+      - "8000:8000"
+    # Allow the container to reach the internet for live Open-Meteo data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ""
+    container_name: oceanverse-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  db-data:
