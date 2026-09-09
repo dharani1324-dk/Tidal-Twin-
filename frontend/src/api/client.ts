@@ -65,3 +65,21 @@ export const fetchForecasts = async () => {
   const { data } = await api.get('/api/v1/monitoring/forecast')
   return data
 }
+
+/** Get all interactive ocean stories with live data hooks */
+export const fetchStories = async () => {
+  const { data } = await api.get('/api/v1/stories')
+  return data.stories
+}
+
+/** Get AI forecast-vs-reality comparisons for all locations */
+export const fetchComparisons = async () => {
+  const { data } = await api.get('/api/v1/comparison')
+  return data.comparisons
+}
+
+/** Get AI forecast-vs-reality comparison for one location */
+export const fetchComparison = async (locationId: number) => {
+  const { data } = await api.get(`/api/v1/comparison/${locationId}`)
+  return data
+}

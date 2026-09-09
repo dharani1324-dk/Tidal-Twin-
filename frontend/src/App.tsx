@@ -1,9 +1,10 @@
 import { Routes, Route, NavLink } from 'react-router-dom'
-import { Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, Activity } from 'lucide-react'
+import { Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, Activity, BookOpen } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import DigitalTwin from './pages/DigitalTwin'
 import Assistant from './pages/Assistant'
 import Monitoring from './pages/Monitoring'
+import Stories from './pages/Stories'
 import './App.css'
 
 /**
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: Home, end: true },
   { to: '/globe', label: 'Digital Twin', icon: Globe2 },
   { to: '/monitoring', label: 'Monitoring', icon: Activity },
+  { to: '/stories', label: 'Story Mode', icon: BookOpen },
   { to: '/assistant', label: 'Ocean AI', icon: MessageSquare },
   { to: '/reports', label: 'Reports', icon: FileBarChart },
 ]
@@ -68,6 +70,7 @@ export default function App() {
           {/* Placeholder routes for upcoming pages */}
           <Route path="/globe" element={<DigitalTwin />} />
           <Route path="/monitoring" element={<Monitoring />} />
+          <Route path="/stories" element={<Stories />} />
           <Route path="/assistant" element={<Assistant />} />
           <Route path="/reports" element={<PagePlaceholder title="Reports & Insights" note="PDF/CSV reports, model comparisons" />} />
         </Routes>
