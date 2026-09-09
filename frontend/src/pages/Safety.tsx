@@ -66,6 +66,17 @@ const fadeUp = {
   }),
 }
 
+interface LiveSnapshot {
+  type: string
+  t: string
+  danger_zones: number
+  caution_zones: number
+  top_risk: { location: string; risk_index: number; status: string }[]
+  trust_avg: number
+  alerts: { id: number; location: string | null; severity: string; type: string; confidence: number | null; created_at: string | null }[]
+  storm: { name: string; lat: number; lon: number; wind_kmh: number; headline: string } | null
+}
+
 export default function Safety() {
   const [advisory, setAdvisory] = useState<AdvisoryRegion[]>([])
   const [trust, setTrust] = useState<TrustRegion[]>([])
@@ -75,6 +86,48 @@ export default function Safety() {
   const [lang, setLang] = useState('en-IN')
   const [speakingLoc, setSpeakingLoc] = useState<number | null>(null)
   const [copiedId, setCopiedId] = useState<number | null>(null)
+  const [live, setLive] = useState<LiveSnapshot | null>(null)
+  const [liveOn, setLiveOn] = useState(false)
+  const [liveAlerts, setLiveAlerts] = useState<LiveSnapshot['alerts']>([])
+
+  useEffect(() => {
+    const base = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/^http/, 'ws')
+    let ws: WebSocket | null = null
+    let retry: number | undefined
+    let alive = true
+
+    const connect = () => {
+      ws = new WebSocket(`${base}/api/v1/safety/ws/live`)
+      ws.onopen = () => setLiveOn(true)
+      ws.onmessage = (ev) => {
+        try {
+          const d = JSON.parse(ev.data)
+          if (d.type === 'live') {
+            setLive(d)
+            setLiveAlerts((prev) => {
+              const incoming = d.alerts ?? []
+              if (incoming.length === 0) return prev
+              return incoming.slice(0, 5)
+            })
+          }
+        } catch {
+          /* non-JSON keepalive */
+        }
+      }
+      ws.onclose = () => {
+        setLiveOn(false)
+        if (alive) retry = window.setTimeout(connect, 4000)
+      }
+      ws.onerror = () => ws?.close()
+    }
+    connect()
+
+    return () => {
+      alive = false
+      if (retry) window.clearTimeout(retry)
+      ws?.close()
+    }
+  }, [])
 
   const load = async () => {
     setLoading(true)
@@ -129,7 +182,12 @@ export default function Safety() {
 
   const share = async (r: AdvisoryRegion) => {
     const text =
-      `⚓ ${r.location}: ${r.headline} Safe window ${r.safe_window}. Risk index ${r.risk_index} — OceanVerse AI`
+      `⚓ COASTAL BULLETIN — ${r.location.toUpperCase()}\n` +
+      `Status: ${STATUS_META[r.status].label} · Risk index ${r.risk_index}\n\n` +
+      `SST ${r.latest_temperature?.toFixed(1) ?? '—'}°C (Δ${r.temperature_anomaly > 0 ? '+' : ''}${r.temperature_anomaly.toFixed(2)}°C) · ` +
+      `Wave ${r.wave_height?.toFixed(1) ?? '—'} m\n` +
+      `Safe window: ${r.safe_window}\n\n` +
+      `${r.headline}\n\n— OceanVerse AI · fisherman safety`
     try {
       if (navigator.share) {
         await navigator.share({ title: 'Coastal Safety Bulletin', text })
@@ -170,6 +228,46 @@ export default function Safety() {
           </span>
         </div>
       </div>
+
+      {/* ---- Live command feed (WebSocket push) ---- */}
+      <motion.div
+        className={`glass-card live-feed ${liveOn ? 'live-feed-on' : ''}`}
+        variants={fadeUp}
+        initial="hidden"
+        animate="show"
+        custom={0}
+      >
+        <div className="live-feed-head">
+          <span className={`live-feed-dot ${liveOn ? '' : 'live-feed-dot-off'}`} />
+          <span className="live-feed-title">LIVE COMMAND FEED</span>
+          <span className="live-feed-ts">
+            {live ? new Date(live.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'connecting…'}
+          </span>
+        </div>
+        {live && (
+          <div className="live-feed-grid">
+            <FeedStat label="Danger" value={live.danger_zones} color="#f43f5e" />
+            <FeedStat label="Caution" value={live.caution_zones} color="#f59e0b" />
+            <FeedStat label="Model Trust" value={`${live.trust_avg}%`} color="#22d3ee" />
+            {live.storm && (
+              <div className="feed-storm">
+                <Wind size={14} />
+                <span>
+                  <b>{live.storm.name}</b> · {live.storm.lat.toFixed(1)}N, {live.storm.lon.toFixed(1)}E · <b>{live.storm.wind_kmh} km/h</b>
+                </span>
+              </div>
+            )}
+            <div className="feed-alerts">
+              {liveAlerts.map((a) => (
+                <span key={a.id} className="feed-alert">
+                  <AlertTriangle size={11} /> {a.location} · {a.severity}
+                </span>
+              ))}
+              {liveAlerts.length === 0 && <span className="feed-alert muted">No active alerts pushed</span>}
+            </div>
+          </div>
+        )}
+      </motion.div>
 
       {/* ---- Overview stats ---- */}
       <div className="stats-grid safety-stats">
@@ -360,6 +458,15 @@ function AddCard({ icon, label, value, color, i }: {
         <span className="stat-value" style={{ color }}>{value}</span>
       </div>
     </motion.div>
+  )
+}
+
+function FeedStat({ label, value, color }: { label: string; value: number | string; color: string }) {
+  return (
+    <div className="feed-stat">
+      <span className="feed-stat-label">{label}</span>
+      <span className="feed-stat-value" style={{ color }}>{value}</span>
+    </div>
   )
 }
 

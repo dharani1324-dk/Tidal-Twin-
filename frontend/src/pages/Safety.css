@@ -50,6 +50,138 @@
   border-radius: 999px;
 }
 
+/* ---- Live command feed ---- */
+.live-feed {
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  border-color: rgba(34, 211, 238, 0.25);
+}
+
+.live-feed-on {
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.live-feed-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.live-feed-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.9);
+  animation: livePulse 1.6s ease-in-out infinite;
+}
+
+.live-feed-dot-off {
+  background: var(--text-muted);
+  box-shadow: none;
+  animation: none;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.live-feed-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  color: #34d399;
+}
+
+.live-feed-ts {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.live-feed-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(90px, 130px)) 1fr 1.4fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.feed-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feed-stat-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+}
+
+.feed-stat-value {
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.feed-storm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  padding: 8px 12px;
+  border-radius: 10px;
+  min-width: 0;
+}
+
+.feed-storm svg {
+  color: #f43f5e;
+  flex-shrink: 0;
+}
+
+.feed-storm b {
+  color: #fecdd3;
+}
+
+.feed-alerts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.feed-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #fda4af;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.feed-alert.muted {
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(120, 190, 255, 0.12);
+}
+
+@media (max-width: 1100px) {
+  .live-feed-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ---- Overview stats ---- */
 .safety-stats .stat-card {
   padding: 18px 20px;
   display: flex;

@@ -6,6 +6,9 @@ When the web server starts, it reads this file first and
 sets up all the API routes (doors) that the frontend will use.
 """
 
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,6 +19,17 @@ from app.api.monitoring import router as monitoring_router
 from app.api.stories import router as stories_router
 from app.api.reports import router as reports_router
 from app.api.safety import router as safety_router
+from app.modules.ai.safety.live import broadcast_loop
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Start the background live-broadcast task on boot, stop it on shutdown."""
+    task = asyncio.create_task(broadcast_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
 
 # Create the FastAPI app instance
 # The title, description and version show up on the automatic
@@ -26,6 +40,7 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ---- CORS (Cross-Origin Resource Sharing) ----
