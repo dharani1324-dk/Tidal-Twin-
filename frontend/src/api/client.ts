@@ -83,3 +83,20 @@ export const fetchComparison = async (locationId: number) => {
   const { data } = await api.get(`/api/v1/comparison/${locationId}`)
   return data
 }
+
+/** Get national ocean risk index (composite ranking) */
+export const fetchRiskIndex = async () => {
+  const { data } = await api.get('/api/v1/reports/index')
+  return data
+}
+
+/** Get auto-generated executive summary + risk index */
+export const fetchSummary = async () => {
+  const { data } = await api.get('/api/v1/reports/summary')
+  return data
+}
+
+/** Download all observations as CSV (browser download) */
+export const downloadCsv = () => {
+  window.open(`${API_BASE}/api/v1/reports/csv`, '_blank')
+}

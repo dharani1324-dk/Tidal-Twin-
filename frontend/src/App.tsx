@@ -5,6 +5,7 @@ import DigitalTwin from './pages/DigitalTwin'
 import Assistant from './pages/Assistant'
 import Monitoring from './pages/Monitoring'
 import Stories from './pages/Stories'
+import Reports from './pages/Reports'
 import './App.css'
 
 /**
@@ -72,25 +73,9 @@ export default function App() {
           <Route path="/monitoring" element={<Monitoring />} />
           <Route path="/stories" element={<Stories />} />
           <Route path="/assistant" element={<Assistant />} />
-          <Route path="/reports" element={<PagePlaceholder title="Reports & Insights" note="PDF/CSV reports, model comparisons" />} />
+          <Route path="/reports" element={<Reports />} />
         </Routes>
       </main>
-    </div>
-  )
-}
-
-/** A simple, elegant placeholder page for upcoming modules */
-function PagePlaceholder({ title, note }: { title: string; note: string }) {
-  return (
-    <div className="page animate-in">
-      <div className="page-header">
-        <h1 className="page-title">{title}</h1>
-        <p className="page-subtitle">{note}</p>
-      </div>
-      <div className="glass-card placeholder-card">
-        <Waves size={48} className="placeholder-icon" />
-        <p>This module is under construction — coming in the next step.</p>
-      </div>
     </div>
   )
 }
