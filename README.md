@@ -141,3 +141,16 @@ docker compose down -v       # stop AND wipe the database volume (fresh start)
 ### Running locally (without Docker)
 Backend: `cd backend`, then `uvicorn app.main:app --reload` (needs Python + PostgreSQL).
 Frontend: `cd frontend`, then `npm run dev`.
+
+---
+
+## 🏆 SIH Presentation Package
+
+Everything you need to present and win lives in [`presentation/`](presentation/):
+
+| File | What it's for |
+|------|---------------|
+| `pitch.md` | The judge-facing story: problem → innovation → impact → ask |
+| `demo-script.md` | A timed 5-minute walkthrough of all six pages |
+| `project-summary.md` | Features, architecture, tech stack, roadmap |
+| `checklist.md` | Final verification checklist to run before judging |
