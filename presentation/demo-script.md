@@ -15,8 +15,10 @@ memory. **Total: 5 minutes** with room for questions.
   .venv\Scripts\python -m scripts.simulate_anomaly --location goa --kind heatwave
   ```
 - [ ] One alert active = Goa temperature anomaly (check Monitoring page).
-- [ ] **Fullscreen** — the side nav now has 7 pages: Digital Twin, Monitoring,
-  Safety Center, Risk Map, Story Mode, Ocean AI, Reports.
+- [ ] **Fullscreen** — the side nav now has 8 pages: Digital Twin, Monitoring,
+  Model Validation, Safety Center, Risk Map, Story Mode, Ocean AI, Reports.
+- [ ] The **Ocean Situation strip** on the Dashboard shows a disagreement flag
+  on Goa (proof the validation engine is live).
 - [ ] Screen brightness up, no clutter on desktop, fonts at readable size.
 
 ---
@@ -24,90 +26,86 @@ memory. **Total: 5 minutes** with room for questions.
 ## The Script
 
 ### 0:00–0:30 — OPENING (on the Dashboard)
-> "This is OceanVerse AI — an AI-powered digital twin of India's ocean.
-> Everything you're seeing runs on **live data** and **machine learning**."
+> "This is OceanVerse AI — an interactive ocean **model-validation** and
+> decision-intelligence platform. Everything here runs on live data and
+> machine learning."
 
-Do this: slowly move across the dashboard — health ring, energy gauge bars,
-region chips, live telemetry feed. Let the animation breathe.
+Do this: sweep the hero, then stop on the **Ocean Situation strip**:
+> "Every coast is scored against a model baseline — confidence, anomaly level,
+> and live disagreement flags. One glows right now: **Goa**. We'll find out
+> why in a minute."
 
-### 0:30–1:00 — THE 3D GLOBE (navigate to "Digital Twin")
-> "Here's the ocean itself. Eight regions across India's coastline are being
-> monitored in real time — temperature, wave height, wave direction. Watch the
-> markers breathe as data flows in."
+### 0:30–1:00 — THE GLOBE + EVENT REPLAY (navigate to "Digital Twin")
+> "Here's the ocean itself. Eight regions, live markers, a real cyclone watch."
 
-Do this: spin the globe. **Toggle on "Storm Track"** — the cyclone path, its
-cone and the moving eye appear. Then press **Play** on the Global Timeline:
-the heat patches animate through 48 hours of observations into 24 hours of AI
-projection.
+Do this: toggle **Storm Track** on. Then press **Play** on Event Replay, and
+switch the mode to **Difference** — the heat patches recolor to show how far
+reality drifted from the model hour by hour.
+> "This is a 4D event replay: observed hours, then model projection — and now
+> the difference between them, live."
 
 ### 1:00–1:30 — AI WATCHES FOR DANGER (navigate to "Monitoring")
-> "This is where the AI does its job. Our anomaly engine — using the same
-> machine-learning technique banks use for fraud detection — watches every
-> region and flags anything unusual."
+> "Under the hood, the anomaly engine — z-score statistics plus Isolation
+> Forest, the same machine-learning trick used in fraud detection — flags
+> anything unusual."
 
-Do this: **click "Run AI Radar Scan"** live, then point at the active alert:
-> "A temperature anomaly off Goa, 85% confidence. The AI found this heatwave
-> before it became dangerous."
+Do this: **Run AI Radar Scan**, point at the active alert:
+> "A temperature anomaly off Goa, 85% confidence — caught before it became
+> dangerous."
 
-### 1:30–2:00 — THE ASSISTANT (navigate to "Ocean AI")
-> "Our platform speaks plain language. Ask the ocean a question."
+### 1:30–2:00 — THE DIFFERENTIATOR: VALIDATION WORKSPACE (navigate to "Model Validation")
+> "Now — the part that makes this more than a viewer. Pick **Goa**. The system
+> puts the model side by side with reality."
 
-Do this: type these EXACT demo questions and read the answers aloud:
-1. `is it safe to go fishing in goa today?`
-2. `compare wave heights between chennai and goa`
-3. `which region has the warmest water right now?`
+Do this: point at the **MODEL · OBSERVED · DEVIATION** row (+1.8°C, red), then
+the "Why it matters" panel, then the confidence meters:
+> "Sea surface temperature is 1.8 degrees above the model baseline. Possible
+> cause: persistent surface heating with weak mixing. Confidence high,
+> disagreement flagged. That's a scientist's workflow, automated — not just a
+> prettier colorbar."
 
-### 2:00–2:30 — SAFETY CENTER: THE "WOW" (navigate to "Safety Center")
-> "And now the part that matters to a fisherman. One screen, every coast,
-> colour-coded safe / caution / danger — with a safe sailing window for each."
+### 2:00–2:15 — THE ASSISTANT (navigate to "Ocean AI")
+Do this: ask ONE question — `is it safe to go fishing in goa today?` — and read
+the answer aloud.
 
-Do this (pick the **Goa** card — avoid clicking the LIVE feed's blast until here):
-1. Point at the LIVE Command Feed at the top — "this is our **WebSocket live
-   push**, updating every twelve seconds: storm position, wind speed, alerts."
-2. Click **SMS Alert** on the Goa card — the phone mock fills with a
-   WhatsApp-style bulletin ("Alert dispatched to 2,400 vessels").
-3. Switch the **language picker to हिन्दी** and click **Voice** — the bulletin
-   is read aloud in Hindi.
-> "Voice, SMS or WhatsApp — in six Indian languages, the warning reaches the
+### 2:15–2:45 — SAFETY CENTER: THE "WOW" (navigate to "Safety Center")
+> "And here is the decision side — what a fisherman actually sees."
+
+Do this: on the **Goa** card click **SMS Alert** (phone mock fills with a
+WhatsApp-style bulletin), then switch the voice to **हिन्दी** and press Voice.
+> "SMS, WhatsApp or voice — in six Indian languages, the warning reaches the
 > beach before the storm does."
 
-### 2:30–3:00 — NATIONAL RISK MAP (navigate to "Risk Map")
-> "This is the state's view: one screen, the whole nation. Every coast, every
-> risk band, and the live cyclone — all at once."
+### 2:45–3:10 — NATIONAL RISK MAP (navigate to "Risk Map")
+> "One screen, the whole nation: every coast, every risk band, and the live
+> cyclone moving toward Odisha."
 
-Do this: sweep across the map, point at the red **storm track + eye** over the
-Bay of Bengal, then read the **Threat Ranking** list off the right rail.
+Do this: sweep the map, point at the storm track + eye, read the **Threat
+Ranking** rail.
 
-### 3:00–3:30 — STORY MODE (navigate to "Story Mode")
-> "We turned the data into understanding. Story Mode guides you through ocean
-> science — every number on screen is real, live sensor data."
+### 3:10–3:35 — STORY MODE (navigate to "Story Mode")
+Do this: open **Marine Heatwaves**, flip a chapter, point at the bar chart
+showing **Goa elevated**.
 
-Do this: click **Marine Heatwaves**, flip a chapter, point at the bar chart
-showing **Goa elevated** and the "Hottest right now: Goa Coast" fact.
+### 3:35–4:00 — THE RISK REPORT (navigate to "Reports")
+> "And this is the stakeholder view — a National Risk Index, ranked and
+> explained. No black boxes: you can verify the weightings and download the CSV."
 
-### 3:30–4:00 — THE RISK REPORT (navigate to "Reports")
-> "And this is what government stakeholders see: a National Risk Index. Every
-> region scored, ranked, and explained — no black boxes."
+### 4:00–4:30 — THE "PROOF" MOMENT
+> "And because this is science, not magic — verification. The blue line is
+> what the model predicted; the green line is what the ocean did. They nearly
+> overlap. That's a trustworthy model."
 
-Do this: point at the **Goa row** ranked #1 with its red status pill.
-> "See the weightings at the bottom? You can verify every number and download
-> the raw data as CSV."
-
-### 4:00–4:30 — THE "PROOF" MOMENT (Story Mode → time explorer OR Reports → accuracy)
-> "And because this is science, not magic — here's the forecast verification.
-> The blue line is what the AI predicted. The green line is what the ocean
-> actually did. They nearly overlap. That's a trustworthy model."
-
-Do this: on Story Mode use the **Time Explorer slider**, or on Reports point to
-the accuracy metrics; the Safety Center's trust sparklines also show rolling
-MAE + "model drift" flags.
+Do this: on **Model Validation**, scroll to the verification charts (or use
+Story Mode's Time Explorer / Reports accuracy metrics).
 
 ### 4:30–5:00 — CLOSING + IMPACT
-> "In five minutes you've seen: live data ingestion, a 3D digital twin with
-> storm tracking and forecast playback, AI anomaly detection, a national risk
-> map, multilingual voice safety alerts pushed over live WebSockets, guided
-> storytelling, and executive decision reports — in one platform. The same twin
-> can be pointed at any coastline on Earth. This is data in, decisions out."
+> "In five minutes you've seen: live data ingestion, a 4D event replay, AI
+> anomaly detection, a model-validation engine with confidence scores, a
+> national risk map, multilingual voice safety bulletins pushed over live
+> WebSockets, and executive reports — one platform. Not another ocean viewer:
+> a system that tells you where the model disagrees with reality, by how much,
+> why it matters, and what to do. This is data in, decisions out."
 
 ---
 
@@ -119,9 +117,12 @@ MAE + "model drift" flags.
   exactly what it's supposed to do."
 - If the WebSocket feed stays "connecting…", skip the LIVE feed point and carry
   on with SMS + Voice bulletins (they work over plain HTTP).
+- If Goa shows no deviation, re-point the same moment at whichever coast is
+  reddest in the Validation Workspace.
 
 ## What NOT to do
+- ❌ Don't open Risk Map and Digital Twin at the same time — pick one map moment.
+- ❌ Don't lead with "it's a 3D ocean globe" — lead with **validation**.
 - ❌ Don't read code aloud.
 - ❌ Don't say "it's just statistical" — say "statistics + machine learning".
-- ❌ Don't open Risk Map and Digital Twin at the same time — pick one map moment.
 - ❌ Don't apologize for anything. It's a hackathon demo, not a launch.

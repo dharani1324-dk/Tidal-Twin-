@@ -171,6 +171,25 @@ function tempColor(Cesium: CesiumModule, temp: number) {
   return Cesium.Color.lerp(cold, hot, k, new Cesium.Color())
 }
 
+/** Deviation palette: cool (reality below model) -> neutral -> warm (above). */
+function deviationColor(Cesium: CesiumModule, dev: number) {
+  const cool = Cesium.Color.fromCssColorString('#22d3ee')
+  const neutral = Cesium.Color.fromCssColorString('#a7b6c8')
+  const warm = Cesium.Color.fromCssColorString('#f43f5e')
+  const span = 2.0
+  const c = Cesium.Math.clamp(dev, -span, span)
+  if (c < 0) return Cesium.Color.lerp(neutral, cool, -c / span, new Cesium.Color())
+  return Cesium.Color.lerp(neutral, warm, c / span, new Cesium.Color())
+}
+
+/** Rolling 12h baseline of a region's merged timeline up to (excluding) idx. */
+function rollingBaseline(reg: SeriesRegion, idx: number): number | null {
+  const windowPoints = reg.points.slice(Math.max(0, idx - 12), idx)
+  const temps = windowPoints.map((p) => p.temperature).filter((t): t is number => t != null)
+  if (temps.length === 0) return null
+  return temps.reduce((a, b) => a + b, 0) / temps.length
+}
+
 /* ------------------ component ------------------ */
 
 interface CesiumGlobeProps {
@@ -180,6 +199,8 @@ interface CesiumGlobeProps {
   series?: SeriesRegion[] | null
   /** Index into each region's merged timeline (null = static colors). */
   timeCursor?: number | null
+  /** Which quantity colors the heat patches during replay. */
+  timeColor?: 'temp' | 'model' | 'difference'
 }
 
 interface Scene {
@@ -190,7 +211,7 @@ interface Scene {
   storm: VizEntity[]
 }
 
-export default function CesiumGlobe({ locations, layers, storm, series, timeCursor }: CesiumGlobeProps) {
+export default function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor = 'temp' }: CesiumGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<Viz | null>(null)
   const sceneRef = useRef<Scene>({ markers: [], temps: [], waves: [], currents: [], storm: [] })
@@ -202,6 +223,8 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
   seriesRef.current = series ?? []
   const cursorRef = useRef<number | null>(timeCursor ?? null)
   cursorRef.current = timeCursor ?? null
+  const timeColorRef = useRef(timeColor)
+  timeColorRef.current = timeColor
   const flownRef = useRef(false)
 
   // Build / rebuild the scene whenever the location list changes.
@@ -277,7 +300,7 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
     const viewer = viewerRef.current
     if (!viewer || timeCursor == null) return
     loadCesium().then((Cesium) => applyCursor(Cesium, viewer, timeCursor))
-  }, [timeCursor, locations])
+  }, [timeCursor, locations, timeColor])
 
   // Storm-track layer. Rebuilt whenever the track or the base scene changes
   // (a full scene rebuild wipes all entities including the storm).
@@ -629,15 +652,29 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
   /** Recolor temperature patches from the merged timeline at the cursor. */
   function applyCursor(Cesium: CesiumModule, viewer: Viz, cursor: number) {
     const scene = sceneRef.current
+    const mode = timeColorRef.current
     for (const tge of scene.temps) {
       const reg = seriesRef.current.find((r) => r.location_id === tge.locId)
       if (!reg) continue
       const idx = Math.min(cursor, reg.points.length - 1)
       const p = reg.points[idx]
       const entity = tge.entity
-      if (!p || p.temperature == null || !entity.ellipse) continue
+      if (!entity.ellipse || !p) continue
+
+      let value = p.temperature
+      let color = value != null ? tempColor(Cesium, value) : null
+      if (mode !== 'temp' && p.temperature != null) {
+        const base = rollingBaseline(reg, idx)
+        if (mode === 'model') {
+          value = base
+          color = value != null ? tempColor(Cesium, value) : null
+        } else if (mode === 'difference') {
+          value = base != null ? p.temperature - base : null
+          color = value != null ? deviationColor(Cesium, value) : null
+        }
+      }
       entity.ellipse.material = new Cesium.ColorMaterialProperty(
-        tempColor(Cesium, p.temperature).withAlpha(0.38),
+        (color ?? Cesium.Color.fromCssColorString('#2a4a6a')).withAlpha(0.38),
       )
     }
     viewer.scene.requestRender()

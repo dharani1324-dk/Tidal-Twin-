@@ -1,28 +1,35 @@
 # OceanVerse AI — Project Summary
 
-AI-Powered Ocean Digital Twin & Decision Intelligence Platform · Smart India Hackathon
+Interactive 4D Ocean Model Validation & Decision Intelligence Platform · Smart India Hackathon
 
 ---
 
 ## 1. What It Is
 
-OceanVerse AI builds a **real-time digital copy of the ocean** from public
-sensor data, then applies **AI** to detect danger, forecast the future, answer
-questions, and generate executive-grade reports. It is a complete
-"data-in → decisions-out" ocean intelligence platform.
+OceanVerse AI is **not another ocean viewer**. It is a validation platform:
+fore every monitored coast it puts the decisions **MODEL | OBSERVED | DEVIATION**
+side by side, scores how confident we are in both the observation stream and the
+model, flags **model–observation disagreement**, explains *why* in plain
+language, and pushes a decision (safety advisory, alert, briefing) to a coastal
+command center. The 3D ocean globe is the interface — the product is
+data → comparison → anomaly → interpretation → decision.
 
 ## 2. Features (what it does)
 
 | Module | What it does |
 |---|---|
-| **Mission Control Dashboard** | Live status of the whole ocean: health ring, energy gauges, region telemetry, live feed |
-| **3D Digital Twin Globe** | Interactive 3D ocean with atmosphere, clickable region markers, data layers |
+| **Mission Control Dashboard** | Live status of the whole ocean: health ring, energy gauges, region telemetry, Ocean Situation strip |
+| **Model Validation Workspace** | MODEL \| OBSERVED \| DEVIATION per field + plain-language "why" panel + forecast-vs-reality verification charts |
+| **Confidence Engine** | Per-coast observation confidence + model trust + HIGH DISAGREEMENT flags (age, coverage, sampling, agreement) |
+| **3D Digital Twin Globe** | Interactive 3D ocean with labels, heat, waves, currents + live storm track |
+| **4D Event Replay** | Scrub 48h observation → 24h projection, re-coloured as Observed \| Model \| Difference with event flags |
 | **AI Surveillance** | Anomaly detection (Isolation Forest + z-score) with severity + confidence scores |
 | **AI Forecasting** | 12-hour predictions for temperature & waves, verified against reality (MAE) |
+| **Safety Center** | Per-coast SAFE/CAUTION/DANGER advisories, safe sailing window, SMS/WhatsApp + 6-language voice bulletins, live WebSocket feed |
+| **National Risk Map & Report** | One-screen command view + composite risk index ranking + executive summary + CSV export |
 | **Ocean AI Assistant** | Natural-language Q&A: safety checks, trends, comparisons, superlatives |
 | **Story Mode** | Guided narratives that explain ocean science with live data |
-| **Time Explorer** | Scrub through recent history; watch forecasts track reality |
-| **National Risk Report** | Composite risk index ranking for all regions + executive summary + CSV export |
+| **PWA + Live Push** | Installable offline shell + 12-second live broadcast channel |
 | **Docker Deployment** | One command (`docker compose up --build`) runs the whole platform |
 
 ## 3. Architecture
@@ -30,26 +37,34 @@ questions, and generate executive-grade reports. It is a complete
 ```
 ┌───────────────┐      ┌───────────────┐      ┌──────────────┐
 │   React UI    │─────▶│   FastAPI     │─────▶│  PostgreSQL  │
-│  (TypeScript) │  HTTP│   (Python)    │  SQL │  + PostGIS   │
-│  + Three.js   │      │  AI Engines   │      │  (spatial)   │
-└───────────────┘      └──────┬────────┘      └──────────────┘
+│  (TypeScript) │  HTTP│  AI Engines   │  SQL │  + PostGIS   │
+│    + Cesium   │◀─WS──│ Validation ·  │      │  (spatial)   │
+└───────────────┘      │ Safety ·      │      └──────────────┘
+                       │ Anomaly ·     │
+                       │ Forecast · NLP│
+                       └──────┬────────┘
                               │
                      ┌────────▼────────┐
                      │ Open-Meteo API  │  live marine data
                      └─────────────────┘
 ```
 
+**Decision pipeline:** live data → spatial/temporal matching → **MODEL–OBSERVATION
+DIFFERENCE ENGINE** → Anomaly Engine + Confidence Engine → 4D replay engine →
+3D globe + Safety/Risk surfaces → operational insight (advisory, alert, report).
+
 ## 4. Tech Stack
 
-**Frontend:** React 19 · TypeScript · Vite · Three.js (@react-three/fiber) ·
-Framer Motion · Recharts · lucide-react
+**Frontend:** React 19 · TypeScript · Vite · Cesium (3D globe) · Framer Motion ·
+Recharts · lucide-react · PWA (manifest + service worker)
 
-**Backend:** Python 3.12 · FastAPI · SQLAlchemy 2 · Pydantic · Uvicorn
+**Backend:** Python 3.12 · FastAPI · SQLAlchemy 2 · Pydantic · Uvicorn ·
+WebSocket live broadcast
 
 **Database:** PostgreSQL 16 · PostGIS 3 (geospatial)
 
-**AI/ML:** scikit-learn (Isolation Forest) · NumPy (z-score stats) ·
-Rule-based NLP · Trend forecasting
+**AI/ML:** scikit-learn (Isolation Forest) · NumPy (z-score stats, difference
+engine) · Rule-based NLP · Trend forecasting · Model-validation confidence
 
 **Data Source:** Open-Meteo Marine API (free, no API key needed)
 
@@ -58,12 +73,15 @@ PostGIS database)
 
 ## 5. Demo Highlights (proof the AI works)
 
-- 8 Indian coastal regions monitored in real time.
+- 8 Indian coastal regions monitored **and validated** in real time.
 - 384+ real observations ingested from Open-Meteo.
 - Live-detected **marine heatwave at Goa** at **85% confidence** (reproducible
   via `python -m scripts.simulate_anomaly`).
-- Forecast verification: mean absolute error ~0.1–0.6°C across regions.
-- National Risk Index ranks Goa #1 (ELEVATED) with full transparency.
+- Difference Engine: Goa at **+1.8°C vs the model baseline**, explained with a
+  possible cause and confidence.
+- Observation confidence engine: **92–100% live**, disagreement flags raised.
+- 4D Event Replay: re-colour the globe `Observed → Model → Difference`.
+- Forecast verification: MAE ~0.1–0.6°C; National Risk Index fully transparent.
 
 ## 6. How to Extend (future roadmap)
 

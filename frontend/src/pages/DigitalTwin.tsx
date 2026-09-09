@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Thermometer, Waves, Droplets, Tag, Globe2, Crosshair, Layers, Tornado, Clock, Play, Pause } from 'lucide-react'
+import { Thermometer, Waves, Droplets, Tag, Globe2, Crosshair, Layers, Tornado, Clock, Play, Pause, Repeat } from 'lucide-react'
 import CesiumGlobe from '../components/3d/globe/CesiumGlobe'
 import type { GlobeLocation, SeriesRegion, StormTrackData } from '../components/3d/globe/CesiumGlobe'
 import { fetchLocations, fetchObservations, fetchStormTrack, fetchSafetyTimeseries } from '../api/client'
@@ -9,6 +9,18 @@ import './DigitalTwin.css'
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' as const } },
+}
+
+type ReplayMode = 'temp' | 'model' | 'difference'
+
+/** Rolling baseline + deviation for a point index (mirrors the globe layer). */
+function baselineAt(reg: SeriesRegion, idx: number) {
+  const temps = reg.points
+    .slice(Math.max(0, idx - 12), idx)
+    .map((p) => p.temperature)
+    .filter((t): t is number => t != null)
+  if (temps.length === 0) return null
+  return temps.reduce((a, b) => a + b, 0) / temps.length
 }
 
 export default function DigitalTwin() {
@@ -26,6 +38,7 @@ export default function DigitalTwin() {
   const [series, setSeries] = useState<SeriesRegion[]>([])
   const [cursor, setCursor] = useState<number>(0)
   const [playing, setPlaying] = useState(false)
+  const [replayMode, setReplayMode] = useState<ReplayMode>('temp')
 
   useEffect(() => {
     fetchLocations()
@@ -93,6 +106,29 @@ export default function DigitalTwin() {
       })
     : '—'
 
+  // Event replay readout: strongest model-vs-reality gap at the current hour.
+  const replayEvent = useMemo(() => {
+    if (series.length === 0 || series[0].points.length === 0) return null
+    let best: { loc: string; dev: number; cur: number } | null = null
+    for (const reg of series) {
+      const idx = Math.min(cursor, reg.points.length - 1)
+      const cur = reg.points[idx]?.temperature
+      if (cur == null) continue
+      const base = baselineAt(reg, idx)
+      if (base == null) continue
+      const dev = cur - base
+      if (!best || Math.abs(dev) > Math.abs(best.dev)) best = { loc: reg.location, dev, cur }
+    }
+    if (!best) return null
+    const aDev = Math.abs(best.dev)
+    const grade = aDev >= 0.8 ? 'SIGNIFICANT EVENT' : aDev >= 0.4 ? 'NOTABLE' : 'WITHIN BASELINE'
+    const kind = best.dev > 0 ? 'heating' : best.dev < 0 ? 'cooling' : 'neutral'
+    return { cur: best.cur, dev: best.dev, grade, kind, loc: best.loc.replace(' Coast', '') }
+  }, [series, cursor])
+
+  const replayLabel =
+    replayMode === 'temp' ? 'OBSERVED' : replayMode === 'model' ? 'MODEL' : 'DIFFERENCE'
+
   return (
     <div className="page digital-twin animate-in">
       <div className="page-header twin-header">
@@ -119,6 +155,7 @@ export default function DigitalTwin() {
             storm={storm}
             series={series}
             timeCursor={series.length > 0 ? cursor : null}
+            timeColor={replayMode}
           />
         </div>
 
@@ -150,19 +187,33 @@ export default function DigitalTwin() {
             </div>
           </div>
 
-          {/* Timeline scrubber */}
+          {/* Timeline scrubber — 4D Event Replay */}
           <div className="glass-card control-card">
             <div className="control-title">
               <Clock size={16} />
-              <span>Global Timeline</span>
+              <span>Event Replay</span>
               <span className={`live-dot ${playing ? '' : 'live-dot-off'}`} />
             </div>
+
+            {/* Replay mode: what the patches are colored by */}
+            <div className="replay-modes">
+              {(['temp', 'model', 'difference'] as ReplayMode[]).map((m) => (
+                <button
+                  key={m}
+                  className={`replay-mode ${replayMode === m ? 'replay-mode-on' : ''}`}
+                  onClick={() => { setReplayMode(m); setPlaying(false) }}
+                >
+                  {m === 'temp' ? 'Observed' : m === 'model' ? 'Model' : 'Difference'}
+                </button>
+              ))}
+            </div>
+
             {series.length > 0 ? (
               <>
                 <div className="scrubber-label">
                   <span>{cursorLabel}</span>
-                  <span className="scrubber-badge">
-                    {cursor <= series[0].points.length - 1 - 24 ? 'OBSERVED' : 'AI PROJECTED'}
+                  <span className={`scrubber-badge ${replayMode === 'difference' ? 'scrubber-badge-dev' : ''}`}>
+                    {replayLabel} · {cursor <= series[0].points.length - 1 - 24 ? 'OBSERVED' : 'AI PROJECTED'}
                   </span>
                 </div>
                 <input
@@ -181,6 +232,25 @@ export default function DigitalTwin() {
                   <span>Now</span>
                   <span>H+24</span>
                 </div>
+
+                {/* Live deviation readout */}
+                {replayEvent && replayMode === 'difference' && (
+                  <div className={`replay-event ${replayEvent.grade === 'SIGNIFICANT EVENT' ? 'replay-event-hot' : ''}`}>
+                    <Repeat size={13} />
+                    <span>
+                      <b>{replayEvent.dev > 0 ? '+' : '−'}{Math.abs(replayEvent.dev).toFixed(1)}°C</b>
+                      {' '}<b style={{ color: '#7dd3fc' }}>{replayEvent.grade}</b>
+                      {' '}<span className="replay-event-meta">({replayEvent.kind === 'neutral' ? 'stable' : replayEvent.kind} · {replayEvent.cur}°C real · {replayEvent.loc})</span>
+                    </span>
+                  </div>
+                )}
+                {replayEvent && replayMode !== 'difference' && (
+                  <div className="replay-event">
+                    <Repeat size={13} />
+                    <span><b>{replayMode === 'temp' ? replayEvent.cur : (replayEvent.cur - replayEvent.dev).toFixed(1)}°C</b> at {replayEvent.loc}</span>
+                  </div>
+                )}
+
                 <button
                   className="btn-primary scrubber-play"
                   onClick={() => setPlaying((p) => !p)}

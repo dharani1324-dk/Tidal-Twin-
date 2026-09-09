@@ -1,8 +1,13 @@
 # 🌊 OceanVerse AI
 
-**An AI-Powered Ocean Digital Twin & Decision Intelligence Platform**
+**An Interactive 4D Ocean Model Validation & Decision Intelligence Platform**
 
-Built for the Smart India Hackathon. This project creates a virtual (digital) copy of the real ocean using public data, and adds AI to help people make smart decisions about the sea.
+Built for the Smart India Hackathon. This project is **not another ocean
+viewer** — it streams live ocean data, compares the AI model against reality
+field by field (MODEL | OBSERVED | DEVIATION), scores observation confidence,
+flags model–observation disagreement, explains *why* — then pushes a decision
+(safety advisory, alert, risk briefing) to a coastal command center. The 3D
+globe is the interface; validation is the product.
 
 ---
 
@@ -104,7 +109,10 @@ C:\Project 2.0\
 
 ## 🧠 The Big Idea (One Sentence)
 
-> OceanVerse AI turns publicly available ocean data into a beautiful, interactive 3D "digital twin" of the sea, and uses AI to help answer questions and make decisions that protect the ocean and the people who depend on it.
+> OceanVerse AI turns public ocean data into a **model-validation decision
+> engine**: every coast is scored on how much the model disagrees with reality,
+> why it matters, and what to do — from a scientist's confidence score to a
+> fisherman's safety bulletin.
 
 ---
 
@@ -151,6 +159,6 @@ Everything you need to present and win lives in [`presentation/`](presentation/)
 | File | What it's for |
 |------|---------------|
 | `pitch.md` | The judge-facing story: problem → innovation → impact → ask |
-| `demo-script.md` | A timed 5-minute walkthrough of all six pages |
+| `demo-script.md` | A timed 5-minute walkthrough of every page and moment |
 | `project-summary.md` | Features, architecture, tech stack, roadmap |
 | `checklist.md` | Final verification checklist to run before judging |

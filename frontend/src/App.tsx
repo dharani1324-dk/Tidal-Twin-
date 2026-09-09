@@ -1,5 +1,5 @@
 import { Routes, Route, NavLink } from 'react-router-dom'
-import { Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, Activity, BookOpen, LifeBuoy, Siren } from 'lucide-react'
+import { Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, Activity, BookOpen, LifeBuoy, Siren, Scale } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import DigitalTwin from './pages/DigitalTwin'
 import Assistant from './pages/Assistant'
@@ -8,6 +8,7 @@ import Stories from './pages/Stories'
 import Reports from './pages/Reports'
 import Safety from './pages/Safety'
 import RiskMap from './pages/RiskMap'
+import Validate from './pages/Validate'
 import './App.css'
 
 /**
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: Home, end: true },
   { to: '/globe', label: 'Digital Twin', icon: Globe2 },
   { to: '/monitoring', label: 'Monitoring', icon: Activity },
+  { to: '/validate', label: 'Model Validation', icon: Scale },
   { to: '/safety', label: 'Safety Center', icon: LifeBuoy },
   { to: '/risk', label: 'Risk Map', icon: Siren },
   { to: '/stories', label: 'Story Mode', icon: BookOpen },
@@ -75,6 +77,7 @@ export default function App() {
           {/* Placeholder routes for upcoming pages */}
           <Route path="/globe" element={<DigitalTwin />} />
           <Route path="/monitoring" element={<Monitoring />} />
+          <Route path="/validate" element={<Validate />} />
           <Route path="/safety" element={<Safety />} />
           <Route path="/risk" element={<RiskMap />} />
           <Route path="/stories" element={<Stories />} />

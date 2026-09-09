@@ -19,6 +19,7 @@ from app.api.monitoring import router as monitoring_router
 from app.api.stories import router as stories_router
 from app.api.reports import router as reports_router
 from app.api.safety import router as safety_router
+from app.api.validation import router as validation_router
 from app.modules.ai.safety.live import broadcast_loop
 
 
@@ -36,7 +37,7 @@ async def lifespan(_: FastAPI):
 # documentation page which is great for judges.
 app = FastAPI(
     title="OceanVerse AI",
-    description="AI-Powered Ocean Digital Twin & Decision Intelligence Platform - Backend API",
+    description="Interactive 4D Ocean Model Validation & Decision Intelligence Platform - Backend API",
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -65,6 +66,7 @@ app.include_router(monitoring_router)
 app.include_router(stories_router)
 app.include_router(reports_router)
 app.include_router(safety_router)
+app.include_router(validation_router)
 
 
 # ---- Basic Routes (Doors) ----

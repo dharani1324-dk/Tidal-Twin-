@@ -2,13 +2,27 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Thermometer, Waves, Wind, RefreshCw, MapPin, Activity,
-  TrendingUp, TrendingDown, Sparkles, Radio, Ship,
+  TrendingUp, TrendingDown, Sparkles, Radio, Ship, CheckCircle2,
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { fetchLocations, fetchObservations, triggerRefresh } from '../api/client'
+import {
+  fetchLocations, fetchObservations, triggerRefresh, fetchValidationSituation,
+} from '../api/client'
 import './Dashboard.css'
+
+interface Situation {
+  location_id: number
+  location: string
+  status: 'safe' | 'caution' | 'danger'
+  temperature_anomaly: string
+  wave_state: string
+  observation_confidence: number
+  model_trust: number
+  disagreement: boolean
+  headline: string
+}
 
 interface Location {
   id: number
@@ -55,6 +69,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [situation, setSituation] = useState<Situation[]>([])
 
   useEffect(() => {
     fetchLocations()
@@ -74,6 +89,24 @@ export default function Dashboard() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [selected])
+
+  useEffect(() => {
+    fetchValidationSituation()
+      .then((d) => setSituation(d.regions ?? []))
+      .catch(() => {})
+  }, [])
+
+  const sit = useMemo(() => {
+    if (situation.length === 0) return null
+    const n = situation.length
+    const danger = situation.filter((s) => s.status === 'danger').length
+    const caution = situation.filter((s) => s.status === 'caution').length
+    const disagreement = situation.filter((s) => s.disagreement).length
+    const obsAvg = Math.round(situation.reduce((a, s) => a + s.observation_confidence, 0) / n)
+    const trustAvg = Math.round(situation.reduce((a, s) => a + s.model_trust, 0) / n)
+    const topAnomaly = ['HIGH', 'MODERATE'].find((lv) => situation.some((s) => s.temperature_anomaly === lv)) ?? 'LOW'
+    return { danger, caution, obsAvg, trustAvg, disagreement, topAnomaly }
+  }, [situation])
 
   const latest = obs[0]
   const score = healthScore(obs)
@@ -162,6 +195,38 @@ export default function Dashboard() {
         <div className="glass-card error-banner">
           <p>⚠️ {error} — is the backend running? (uvicorn app.main:app)</p>
         </div>
+      )}
+
+      {/* ============ OCEAN SITUATION STRIP ============ */}
+      {sit && (
+        <motion.div
+          className="ocean-situation glass-card"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.4 }}
+        >
+          <span className="sit-brand"><Activity size={14} /> OCEAN SITUATION</span>
+          <span className="sit-chip">
+            <span className={`sit-dot sit-dot-${sit.danger > 0 ? 'danger' : 'ok'}`} />
+            {sit.danger} coast{sit.danger === 1 ? '' : 's'} at risk
+          </span>
+          <span className="sit-chip">
+            <TrendingUp size={12} style={{ color: sit.topAnomaly === 'HIGH' ? '#f43f5e' : '#f59e0b' }} />
+            Temp anomaly {sit.topAnomaly}
+          </span>
+          <span className="sit-chip">
+            <Radio size={12} />
+            Obs confidence <b>{sit.obsAvg}%</b>
+          </span>
+          <span className="sit-chip">
+            <Sparkles size={12} />
+            Model trust <b>{sit.trustAvg}%</b>
+          </span>
+          <span className={`sit-chip sit-chip-agree ${sit.disagreement ? 'sit-chip-alert' : ''}`}>
+            {sit.disagreement ? <TrendingDown size={12} /> : <CheckCircle2 size={12} />}
+            {sit.disagreement ? `${sit.disagreement} disagreement${sit.disagreement === 1 ? '' : 's'} flagged` : 'Model ↔ reality tracking'}
+          </span>
+        </motion.div>
       )}
 
       {/* ============ HERO METRIC CARDS ============ */}

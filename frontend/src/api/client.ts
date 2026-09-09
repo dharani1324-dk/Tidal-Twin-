@@ -124,3 +124,23 @@ export const fetchSafetyTimeseries = async () => {
   const { data } = await api.get('/api/v1/safety/timeseries')
   return data
 }
+
+/** Get per-coast observation confidence + model agreement */
+export const fetchValidationConfidence = async () => {
+  const { data } = await api.get('/api/v1/validation/confidence')
+  return data
+}
+
+/** Get MODEL | OBSERVED | DEVIATION fields per coast (optionally one) */
+export const fetchValidationDifference = async (locationId?: number) => {
+  const { data } = await api.get('/api/v1/validation/difference', {
+    params: locationId != null ? { location_id: locationId } : {},
+  })
+  return data
+}
+
+/** Get the operational situation panel for all coasts */
+export const fetchValidationSituation = async () => {
+  const { data } = await api.get('/api/v1/validation/situation')
+  return data
+}

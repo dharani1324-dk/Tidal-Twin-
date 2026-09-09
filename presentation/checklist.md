@@ -37,14 +37,19 @@ Everything below has been verified working during development.
 - [ ] `GET /api/v1/safety/trust` → 8 regions with MAE sparkline + drift flag
 - [ ] `GET /api/v1/safety/timeseries` → 8 regions, 72 points each (48 obs + 24 forecast)
 - [ ] `WS /api/v1/safety/ws/live` → snapshot + repeated broadcasts (every 12s)
+- [ ] `GET /api/v1/validation/confidence` → per-coast obs confidence + disagreement
+- [ ] `GET /api/v1/validation/difference` → MODEL | OBSERVED | DEVIATION per field (optionally `?location_id=`)
+- [ ] `GET /api/v1/validation/situation` → operational situation strip per coast
 
 ## ✅ Frontend Pages (http://localhost:5173)
 
-- [ ] **Dashboard** — health ring, gauges, region chips, telemetry load
+- [ ] **Dashboard** — health ring, gauges, region chips, telemetry load, **Ocean Situation strip**
 - [ ] **Digital Twin** — 3D globe renders, markers appear, layers toggle
 - [ ] **Digital Twin** — Storm Track layer shows cyclone path, cone + moving eye
-- [ ] **Digital Twin** — Global Timeline scrubber plays observations → forecast
+- [ ] **Digital Twin** — **Event Replay**: Observed / Model / Difference modes + deviation readout
 - [ ] **Monitoring** — "Run AI Radar Scan" works, alerts render with severity
+- [ ] **Model Validation** — MODEL|OBSERVED|DEVIATION rows, "why it matters" panel,
+      confidence meters, forecast-vs-reality charts for any coast
 - [ ] **Ocean AI** — all 4 demo questions answered correctly
 - [ ] **Safety Center** — advisory cards, LIVE Command Feed (WebSocket), SMS phone mock,
       multilingual voice bulletins, trust sparklines
@@ -62,9 +67,11 @@ Everything below has been verified working during development.
    .venv\Scripts\python -m scripts.simulate_anomaly --kind heatwave --location goa
    ```
 2. [ ] Open **Monitoring**, watch an alert appear on "Goa" (medium, ~85%).
-3. [ ] Open **Safety Center** — Goa card shows **DANGER/CAUTION**; run **SMS Alert** mock.
-4. [ ] Open **Reports** — Goa ranked #1 ELEVATED, national gauge reflects it.
-5. [ ] Assistant answers `is it safe to go fishing in goa today?`.
+3. [ ] Open **Model Validation**, select Goa — **+1.8°C deviation**, red row,
+      "persistent surface heating" interpretation, HIGH DISAGREEMENT flag.
+4. [ ] Open **Safety Center** — Goa card shows **DANGER/CAUTION**; run **SMS Alert** mock.
+5. [ ] Open **Reports** — Goa ranked #1 ELEVATED, national gauge reflects it.
+6. [ ] Assistant answers `is it safe to go fishing in goa today?`.
 
 ## ✅ Data Integrity
 
@@ -77,8 +84,8 @@ Everything below has been verified working during development.
 - [ ] Frontend builds with zero TypeScript errors: `npm run build`.
 - [ ] No `.env` committed (contains `Dharani%407` password — it's gitignored).
 - [ ] No `node_modules`, `.venv`, or `dist` in git.
-- [ ] `git log` tells the full story (Step 1 → Step 14 → features: Safety Center,
-      Risk Map, storm + timeline, live WebSocket feed, PWA).
+- [ ] `git log` tells the full story (Step 1 → Step 14 → features: Model Validation,
+      Safety Center, Risk Map, storm + Event Replay, live WebSocket feed, PWA).
 
 ## 🚨 Smoke Test (run right before judging)
 ```
