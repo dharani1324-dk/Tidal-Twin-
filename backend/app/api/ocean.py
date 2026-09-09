@@ -16,6 +16,19 @@ from app.schemas.ocean import OceanLocationOut, ObservationOut
 router = APIRouter(prefix="/api/v1/ocean", tags=["Ocean"])
 
 
+@router.post("/refresh")
+def refresh_ocean_data(db: Session = Depends(get_db)):
+    """
+    Fetch the latest REAL ocean data for all locations
+    and store it in the database. Called by the frontend
+    or on a schedule to keep the digital twin up to date.
+    """
+    from app.services.ocean_data import refresh_all_locations
+
+    summary = refresh_all_locations(db, forecast_days=2)
+    return {"status": "refreshed", "details": summary}
+
+
 @router.get("/locations", response_model=list[OceanLocationOut])
 def list_locations(db: Session = Depends(get_db)):
     """
@@ -45,9 +58,14 @@ def list_locations(db: Session = Depends(get_db)):
 
 
 @router.get("/locations/{location_id}/observations", response_model=list[ObservationOut])
-def list_observations(location_id: int, db: Session = Depends(get_db)):
+def list_observations(
+    location_id: int,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
     """
-    Returns the observation readings for a given location.
+    Returns the most recent observation readings for a given location.
+    `limit` controls how many records to return (default 50).
     """
     location = db.query(OceanLocation).filter(OceanLocation.id == location_id).first()
     if not location:
@@ -57,6 +75,7 @@ def list_observations(location_id: int, db: Session = Depends(get_db)):
         db.query(OceanObservation)
         .filter(OceanObservation.location_id == location_id)
         .order_by(OceanObservation.timestamp.desc())
+        .limit(limit)
         .all()
     )
     return observations
