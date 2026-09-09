@@ -155,20 +155,19 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
         viewerRef.current = viewer
         viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0a2a4a')
         viewer.scene.globe.enableLighting = false
+        // A freshly created viewer sits at the default "home" view — make sure
+        // the camera is pointed at India again (StrictMode remounts viewers).
+        flownRef.current = false
         void applyBaseLayer(Cesium, viewer)
       }
 
       if (!flownRef.current) {
         flownRef.current = true
-        viewer.camera.flyTo({
-          destination: Cesium.Cartesian3.fromDegrees(78, 17, 3000000),
-          orientation: {
-            heading: 0,
-            pitch: Cesium.Math.toRadians(-65),
-            roll: 0,
-          },
-          duration: 1.4,
-        })
+        const indiaFocus = Cesium.Cartesian3.fromDegrees(78.6, 18.0, 0)
+        viewer.camera.lookAt(
+          indiaFocus,
+          new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-50), 2500000),
+        )
       }
 
       buildScene(Cesium, viewer)
