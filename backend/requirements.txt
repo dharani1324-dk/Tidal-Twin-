@@ -1,0 +1,26 @@
+# ============================================================
+# OceanVerse AI - Backend Dependencies (Core)
+# Install with:  py -3.12 -m pip install -r requirements.txt
+# ============================================================
+
+# --- Web framework (the "brain" of the backend) ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# --- Data validation (checks data is correct before use) ---
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# --- HTTP client (to fetch real ocean data from public APIs) ---
+httpx==0.28.1
+requests==2.32.3
+
+# --- Database (PostgreSQL + PostGIS) ---
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+geoalchemy2==0.16.0
+
+# --- Utility / data processing ---
+python-dotenv==1.0.1
+numpy==2.2.1
+pandas==2.2.3
