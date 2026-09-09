@@ -16,6 +16,9 @@ dist/
 build/
 *.egg-info/
 
+# Cesium runtime assets (regenerated via: npm run copy:cesium)
+frontend/public/cesium/
+
 # Test & coverage
 .pytest_cache/
 .coverage/

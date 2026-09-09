@@ -1,18 +1,10 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Thermometer, Waves, Droplets, Tag, Globe2, Crosshair, Layers } from 'lucide-react'
-import OceanGlobe from '../components/3d/globe/OceanGlobe'
-import { fetchLocations } from '../api/client'
+import CesiumGlobe from '../components/3d/globe/CesiumGlobe'
+import type { GlobeLocation } from '../components/3d/globe/CesiumGlobe'
+import { fetchLocations, fetchObservations } from '../api/client'
 import './DigitalTwin.css'
-
-interface Location {
-  id: number
-  name: string
-  region_type: string
-  country: string
-  latitude: number | null
-  longitude: number | null
-}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -20,9 +12,9 @@ const fadeUp = {
 }
 
 export default function DigitalTwin() {
-  const [locations, setLocations] = useState<Location[]>([])
+  const [locations, setLocations] = useState<GlobeLocation[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeLoc, setActiveLoc] = useState<Location | null>(null)
+  const [activeLoc, setActiveLoc] = useState<GlobeLocation | null>(null)
   const [layers, setLayers] = useState({
     temperature: false,
     waves: false,
@@ -32,9 +24,24 @@ export default function DigitalTwin() {
 
   useEffect(() => {
     fetchLocations()
-      .then((data) => {
-        setLocations(data)
-        setActiveLoc(data[0] ?? null)
+      .then(async (data: GlobeLocation[]) => {
+        const withData = await Promise.all(
+          data.map(async (loc) => {
+            try {
+              const obs = await fetchObservations(loc.id, 1)
+              const last = obs[0]
+              return {
+                ...loc,
+                temperature: last?.sea_surface_temperature ?? null,
+                wave_height: last?.wave_height ?? null,
+              }
+            } catch {
+              return loc
+            }
+          }),
+        )
+        setLocations(withData)
+        setActiveLoc(withData[0] ?? null)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -71,7 +78,7 @@ export default function DigitalTwin() {
       <motion.div variants={fadeUp} initial="hidden" animate="show" className="twin-layout">
         {/* Globe */}
         <div className="twin-globe-wrap">
-          <OceanGlobe locations={locations} layers={layers} />
+          <CesiumGlobe locations={locations} layers={layers} />
         </div>
 
         {/* Control panel */}
