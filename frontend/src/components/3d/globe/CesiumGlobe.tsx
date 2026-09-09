@@ -161,7 +161,6 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
         const camCtrl = viewer.scene.screenSpaceCameraController
         camCtrl.translateEventTypes = [Cesium.CameraEventType.LEFT_DRAG, Cesium.CameraEventType.PINCH]
         camCtrl.rotateEventTypes = Cesium.CameraEventType.RIGHT_DRAG
-        camCtrl.lookEventTypes = Cesium.CameraEventType.RIGHT_DRAG
         camCtrl.tiltEventTypes = Cesium.CameraEventType.MIDDLE_DRAG
         camCtrl.zoomEventTypes = [Cesium.CameraEventType.WHEEL, Cesium.CameraEventType.PINCH]
         camCtrl.minimumZoomDistance = 1200000
@@ -198,7 +197,12 @@ export default function CesiumGlobe({ locations, layers }: CesiumGlobeProps) {
 
   // Dispose the viewer on unmount.
   useEffect(() => {
+    const container = containerRef.current
+    // Keep the browser's context menu from stealing right-click drags.
+    const onContextMenu = (ev: Event) => ev.preventDefault()
+    container?.addEventListener('contextmenu', onContextMenu)
     return () => {
+      container?.removeEventListener('contextmenu', onContextMenu)
       viewerRef.current?.destroy()
       viewerRef.current = null
       sceneRef.current = { markers: [], temps: [], waves: [], currents: [] }
