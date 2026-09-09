@@ -1,0 +1,163 @@
+/* ============================================================
+   OceanVerse AI - Global Design System
+   Premium dark ocean theme with glassmorphism + neon accents
+   ============================================================ */
+
+/* ---- Design Tokens (the "ingredients" of our design) ---- */
+:root {
+  /* Colors */
+  --bg-deep: #040b1a;          /* deep ocean night */
+  --bg-dark: #071428;          /* darker panel */
+  --bg-card: rgba(13, 32, 66, 0.45);  /* glass card */
+  --bg-glass: rgba(20, 44, 84, 0.25); /* glass layer */
+  --neon: #22d3ee;             /* cyan neon */
+  --neon-blue: #3b82f6;        /* blue neon */
+  --neon-warm: #f59e0b;        /* warm accent */
+  --text-primary: #e6f1ff;
+  --text-secondary: #93a9c7;
+  --text-muted: #5b7493;
+  --border-glass: rgba(120, 190, 255, 0.18);
+  --shadow-glow: 0 0 24px rgba(34, 211, 238, 0.20);
+
+  /* Typography */
+  --font-sans: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Segoe UI", -apple-system, sans-serif;
+
+  /* Effects */
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --blur: 16px;
+}
+
+/* ---- Reset & Base ---- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: radial-gradient(ellipse at top, #08204a 0%, var(--bg-deep) 55%);
+  color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+/* ---- Animations ---- */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 14px rgba(34, 211, 238, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 34px rgba(34, 211, 238, 0.45);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -500px 0; }
+  100% { background-position: 500px 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-in {
+  animation: fadeInUp 0.6s ease-out both;
+}
+
+/* ---- Glass Card (the signature look) ---- */
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.glass-card:hover {
+  border-color: rgba(120, 190, 255, 0.4);
+  box-shadow: var(--shadow-glow);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+/* ---- Buttons ---- */
+.btn-primary {
+  background: linear-gradient(135deg, var(--neon), var(--neon-blue));
+  color: #fff;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.35);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 28px rgba(34, 211, 238, 0.6);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  border: 1px solid var(--border-glass);
+  padding: 10px 24px;
+  border-radius: 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(34, 211, 238, 0.5);
+}
+
+/* ---- Scrollbar (futuristic) ---- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: #1e3a5f;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neon);
+}
+
+/* ---- Utility ---- */
+.text-gradient {
+  background: linear-gradient(90deg, var(--neon) 0%, var(--neon-blue) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.title-glow {
+  text-shadow: 0 0 24px rgba(34, 211, 238, 0.4);
+}
