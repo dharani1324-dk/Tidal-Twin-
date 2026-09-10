@@ -604,3 +604,167 @@ def provenance(db: Session) -> dict:
             }
         )
     return {"generated_at": now.isoformat(), "regions": rows}
+
+
+# ---------------------------------------------------------------------------
+# 8. Multi-variable Scenario Projection + Counterfactual
+# ---------------------------------------------------------------------------
+
+def scenario_projection_multi(db: Session, location_id: int,
+                               wind_percent: float = 0.0,
+                               temp_delta: float = 0.0,
+                               salinity_delta: float = 0.0,
+                               mixing_factor: float = 1.0) -> dict:
+    """Multi-variable scenario analysis. Clearly labelled NOT a forecast."""
+    loc = db.query(OceanLocation).filter(OceanLocation.id == location_id).first()
+    if loc is None:
+        return {"error": "location not found", "scenario": True}
+
+    rows = _latest_rows(db, loc)
+    waves = [o.wave_height for o in rows if o.wave_height is not None]
+    temps = [o.sea_surface_temperature for o in rows if o.sea_surface_temperature is not None]
+    sals  = [o.salinity for o in rows if o.salinity is not None]
+
+    base_wave = waves[-1] if waves else 1.0
+    base_temp = temps[-1] if temps else 28.0
+    base_sal  = sals[-1] if sals else 35.0
+
+    k_w = max(-0.5, min(0.5, wind_percent / 100.0))
+    proj_wave = round(max(0.0, base_wave * (1 + k_w * 0.9)), 2)
+    proj_temp = round(base_temp + temp_delta - k_w * 0.4, 2)
+    proj_sal  = round(base_sal + salinity_delta, 2)
+
+    # Mixing suppresses stratification; stronger mixing reduces surface warming
+    proj_temp = round(proj_temp * (1.0 - 0.1 * max(0, mixing_factor - 1.0)), 2)
+
+    band = "danger" if proj_wave >= _EV_DANGER else "warning" if proj_wave >= _EV_WARN else \
+        "caution" if proj_wave >= _EV_SAFE else "safe"
+    cur_band = "danger" if base_wave >= _EV_DANGER else "warning" if base_wave >= _EV_WARN else \
+        "caution" if base_wave >= _EV_SAFE else "safe"
+    band_change = "unchanged" if cur_band == band else f"{cur_band} → {band}"
+
+    narrative = (
+        f"Scenario at {loc.name}: wind {wind_percent:+.0f}%, SST {temp_delta:+.1f}°C, "
+        f"salinity {salinity_delta:+.2f} PSU, mixing ×{mixing_factor:.1f}. "
+        f"Projected: wave {proj_wave:.2f}m, SST {proj_temp:.1f}°C ({band_change}). "
+        f"{_band_message(band)} This is an illustrative scenario, not a validated forecast."
+    )
+
+    return {
+        "scenario": True,
+        "caveat": "Scenario analysis — clearly labelled as an illustrative 'what-if', not a prediction.",
+        "location_id": loc.id,
+        "location": loc.name,
+        "inputs": {
+            "wind_percent": wind_percent,
+            "temp_delta": temp_delta,
+            "salinity_delta": salinity_delta,
+            "mixing_factor": mixing_factor,
+        },
+        "output": {
+            "wave_height": proj_wave,
+            "sst": proj_temp,
+            "salinity": proj_sal,
+            "hazard_band": band,
+            "band_change": band_change,
+        },
+        "narrative": narrative,
+    }
+
+
+def counterfactual(db: Session, location_id: int,
+                   wind_percent: float = 0.0,
+                   temp_delta: float = 0.0,
+                   salinity_delta: float = 0.0) -> dict:
+    """Actual vs counterfactual side-by-side investigation."""
+    loc = db.query(OceanLocation).filter(OceanLocation.id == location_id).first()
+    if not loc:
+        return {"error": "location not found"}
+
+    rows = _latest_rows(db, loc)
+    m = rows[-1] if rows else None
+    actual = {
+        "sst": round(m.sea_surface_temperature, 2) if m and m.sea_surface_temperature is not None else None,
+        "wave": round(m.wave_height, 2) if m and m.wave_height is not None else None,
+        "salinity": round(m.salinity, 2) if m and m.salinity is not None else None,
+    }
+
+    scenario = scenario_projection_multi(db, location_id, wind_percent, temp_delta, salinity_delta)
+    scen_out = scenario.get("output", {})
+
+    diff = {}
+    for k in ("sst", "wave"):
+        a = actual.get(k)
+        s = scen_out.get("sst") if k == "sst" else scen_out.get("wave_height")
+        if a is not None and s is not None:
+            diff[k] = round(s - a, 3)
+
+    driver_note = ""
+    if temp_delta != 0:
+        driver_note += f"SST shifted by {temp_delta:+.1f}°C "
+    if wind_percent != 0:
+        driver_note += f"wind changed by {wind_percent:+.0f}% "
+    if salinity_delta != 0:
+        driver_note += f"salinity shifted by {salinity_delta:+.2f} PSU "
+    if not driver_note:
+        driver_note = "No parameter changes applied."
+
+    return {
+        "location_id": location_id,
+        "location": loc.name,
+        "actual": actual,
+        "scenario": scen_out,
+        "differences": diff,
+        "driver_note": driver_note,
+        "narrative": (
+            f"Actual conditions at {loc.name}: SST {actual.get('sst')}°C, wave {actual.get('wave')}m. "
+            f"Counterfactual scenario: SST {scen_out.get('sst')}°C, wave {scen_out.get('wave_height')}m. "
+            f"Difference: ΔSST {diff.get('sst', 0):+.2f}°C, Δwave {diff.get('wave', 0):+.2f}m. "
+            f"{driver_note} This comparison helps investigate which environmental drivers "
+            f"appear most influential for this region."
+        ),
+        "caveat": "Counterfactual investigation is an illustrative scenario tool, not a prediction.",
+    }
+
+
+# ---------------------------------------------------------------------------
+# 9. Ocean Future Window
+# ---------------------------------------------------------------------------
+
+def future_windows(db: Session, location_id: int) -> dict:
+    """Risk + confidence windows at 3 / 7 / 14 / 30 day horizons."""
+    loc = db.query(OceanLocation).filter(OceanLocation.id == location_id).first()
+    if not loc:
+        return {"error": "location not found"}
+
+    rows = _latest_rows(db, loc)
+    temps = [o.sea_surface_temperature for o in rows if o.sea_surface_temperature is not None]
+    waves = [o.wave_height for o in rows if o.wave_height is not None]
+    base_temp = temps[-1] if temps else 28.0
+    base_wave = waves[-1] if waves else 1.0
+
+    windows = []
+    for h in (72, 168, 336, 720):
+        day = h // 24
+        t_step = (temps[-1] - temps[0]) / max(1, len(temps)) if len(temps) >= 2 else 0
+        proj_temp = round(base_temp + t_step * h, 2)
+        proj_wave = round(max(0.0, base_wave + (waves[-1] - waves[0]) / max(1, len(waves)) * h * 0.3), 2)
+
+        conf = max(20, round(95 - h * 0.1, 1))
+        band = "danger" if proj_wave >= _EV_DANGER else "warning" if proj_wave >= _EV_WARN else \
+            "caution" if proj_wave >= _EV_SAFE else "safe"
+        windows.append({
+            "horizon_days": day,
+            "horizon_hours": h,
+            "projected_sst": proj_temp,
+            "projected_wave": proj_wave,
+            "hazard_band": band,
+            "confidence": conf,
+            "narrative": (
+                f"At {day}-day horizon ({loc.name}): SST ~{proj_temp:.1f}°C, wave ~{proj_wave:.2f}m, "
+                f"hazard band: {band}. Confidence: {conf}%. "
+                f"Longer horizons carry larger uncertainty — treat as directional indicators."
+            ),
+        })
+
+    return {"location_id": location_id, "location": loc.name, "windows": windows}

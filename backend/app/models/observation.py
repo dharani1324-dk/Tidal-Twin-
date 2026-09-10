@@ -42,6 +42,15 @@ class OceanObservation(Base):
     salinity = Column(Float, nullable=True)                 # PSU (practical salinity units)
     current_speed = Column(Float, nullable=True)            # m/s
     current_direction = Column(Float, nullable=True)        # degrees
+    depth_m = Column(Float, nullable=True, default=0.0)     # meters below surface
+
+    # Bio-physical profile variables (v2 feature foundation)
+    dissolved_oxygen = Column(Float, nullable=True)         # mg/L
+    chlorophyll = Column(Float, nullable=True)              # mg/m3
+    ph = Column(Float, nullable=True)                       # pH units
+    pressure = Column(Float, nullable=True)                 # dbar
+    density = Column(Float, nullable=True)                  # kg/m3
+    nutrients = Column(Float, nullable=True)                # nitrate equivalent µmol/L
 
     # What source this data came from (e.g. "NOAA", "Copernicus", "model")
     source = Column(String(100), nullable=True)

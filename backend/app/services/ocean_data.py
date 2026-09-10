@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.models.location import OceanLocation
 from app.models.observation import OceanObservation
+from app.modules.physics.ocean_profiles import derive_surface
 
 # The free Open-Meteo Marine API endpoint
 MARINE_API_URL = "https://marine-api.open-meteo.com/v1/marine"
@@ -90,9 +91,26 @@ def store_observations(db: Session, location: OceanLocation, data: dict) -> int:
             wave_height=waves[i] if i < len(waves) else None,
             wave_direction=wave_dir[i] if i < len(wave_dir) else None,
             salinity=salinity[i] if i < len(salinity) else None,
+            depth_m=0.0,
             source="Open-Meteo Marine",
             data_type="observation",
         )
+
+        # Enrich with derived bio-physical variables from the physics engine
+        surf = derive_surface(
+            location,
+            obs.sea_surface_temperature,
+            obs.salinity,
+            obs.wave_height,
+            getattr(obs, "current_speed", None),
+        )
+        obs.dissolved_oxygen = surf["dissolved_oxygen"]
+        obs.chlorophyll = surf["chlorophyll"]
+        obs.ph = surf["ph"]
+        obs.pressure = surf["pressure"]
+        obs.density = surf["density"]
+        obs.nutrients = surf["nutrients"]
+
         db.add(obs)
         count += 1
 

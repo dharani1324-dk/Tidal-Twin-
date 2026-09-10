@@ -177,3 +177,156 @@ export const runScenario = async (locationId: number, windPercent: number) => {
   })
   return data
 }
+
+// --- Intelligence & Forensics API ---
+
+/** Get region coverage (observation density per coastal region) */
+export const fetchCoverage = async () => {
+  const { data } = await api.get('/api/v1/intelligence/coverage')
+  return data
+}
+
+/** Get priority map (which regions need most attention) */
+export const fetchPriority = async () => {
+  const { data } = await api.get('/api/v1/intelligence/priority')
+  return data
+}
+
+/** Get uncertainty map (data gaps & confidence per region) */
+export const fetchUncertainty = async () => {
+  const { data } = await api.get('/api/v1/intelligence/uncertainty')
+  return data
+}
+
+/** Simulate what adding more observations would do to coverage */
+export const simulateCoverage = async (locationId: number, deltaPct: number) => {
+  const { data } = await api.get('/api/v1/intelligence/coverage-sim', {
+    params: { location_id: locationId, delta_pct: deltaPct },
+  })
+  return data
+}
+
+/** Get composite ocean health score (0-100) for all or one region */
+export const fetchHealthScore = async (locationId?: number) => {
+  const { data } = await api.get('/api/v1/intelligence/health', {
+    params: locationId != null ? { location_id: locationId } : {},
+  })
+  return data
+}
+
+/** Get threat escalation chain (Normal→Watch→Warning→Critical) */
+export const fetchThreatChain = async () => {
+  const { data } = await api.get('/api/v1/intelligence/threat-chain')
+  return data
+}
+
+/** Get impact bridge (event → consequence mapping) */
+export const fetchImpact = async () => {
+  const { data } = await api.get('/api/v1/intelligence/impact')
+  return data
+}
+
+/** Get variable relationship graph (correlations) */
+export const fetchRelationships = async () => {
+  const { data } = await api.get('/api/v1/intelligence/relationships')
+  return data
+}
+
+/** Get causal chain for a specific region */
+export const fetchCausalChain = async (locationId: number) => {
+  const { data } = await api.get('/api/v1/intelligence/causal', {
+    params: { location_id: locationId },
+  })
+  return data
+}
+
+/** Get thermocline analysis for a region */
+export const fetchThermocline = async (locationId: number) => {
+  const { data } = await api.get('/api/v1/intelligence/thermocline', {
+    params: { location_id: locationId },
+  })
+  return data
+}
+
+/** Get full depth profile (temperature/salinity/density/oxygen) for a region */
+export const fetchDepthProfile = async (locationId: number) => {
+  const { data } = await api.get('/api/v1/intelligence/depth-profile', {
+    params: { location_id: locationId },
+  })
+  return data
+}
+
+/** Get classified ocean events */
+export const fetchEvents = async () => {
+  const { data } = await api.get('/api/v1/intelligence/events')
+  return data
+}
+
+/** Investigate a specific event (contributing factors, evidence, confidence) */
+export const investigateEvent = async (locationId: number) => {
+  const { data } = await api.get('/api/v1/intelligence/investigate', {
+    params: { location_id: locationId },
+  })
+  return data
+}
+
+/** Get ocean fingerprint/DNA for an event */
+export const fetchFingerprint = async (eventIndex: number) => {
+  const { data } = await api.get('/api/v1/intelligence/fingerprint', {
+    params: { event_index: eventIndex },
+  })
+  return data
+}
+
+/** Find similar historical events via cosine similarity */
+export const fetchSimilar = async (eventIndex: number) => {
+  const { data } = await api.get('/api/v1/intelligence/similar', {
+    params: { event_index: eventIndex },
+  })
+  return data
+}
+
+/** Get event timeline for a region */
+export const fetchTimeline = async (locationId: number) => {
+  const { data } = await api.get('/api/v1/intelligence/timeline', {
+    params: { location_id: locationId },
+  })
+  return data
+}
+
+/** Get full autopsy report (comprehensive post-event analysis) */
+export const fetchAutopsy = async (locationId: number) => {
+  const { data } = await api.get('/api/v1/intelligence/autopsy', {
+    params: { location_id: locationId },
+  })
+  return data
+}
+
+/** Run what-if scenario with full parameter control */
+export const runWhatIf = async (payload: {
+  location_id: number
+  wind_percent?: number
+  temperature_delta?: number
+  salinity_delta?: number
+  mixing_factor?: number
+}) => {
+  const { data } = await api.post('/api/v1/intelligence/whatif', payload)
+  return data
+}
+
+/** Run counterfactual (actual vs scenario side-by-side) */
+export const runCounterfactual = async (locationId: number, scenario: Record<string, number>) => {
+  const { data } = await api.post('/api/v1/intelligence/counterfactual', {
+    location_id: locationId,
+    ...scenario,
+  })
+  return data
+}
+
+/** Get future projection windows (3/7/14/30 day horizons) */
+export const fetchFuture = async (locationId: number) => {
+  const { data } = await api.get('/api/v1/intelligence/future', {
+    params: { location_id: locationId },
+  })
+  return data
+}

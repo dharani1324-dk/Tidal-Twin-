@@ -1,5 +1,5 @@
 import { Routes, Route, NavLink } from 'react-router-dom'
-import { Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, Activity, BookOpen, LifeBuoy, Siren, Scale } from 'lucide-react'
+import { Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, Activity, BookOpen, LifeBuoy, Siren, Scale, Search, Brain, FlaskConical } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import DigitalTwin from './pages/DigitalTwin'
 import Assistant from './pages/Assistant'
@@ -9,6 +9,9 @@ import Reports from './pages/Reports'
 import Safety from './pages/Safety'
 import RiskMap from './pages/RiskMap'
 import Validate from './pages/Validate'
+import Forensics from './pages/Forensics'
+import Intelligence from './pages/Intelligence'
+import ScenarioLab from './pages/ScenarioLab'
 import './App.css'
 
 /**
@@ -26,6 +29,9 @@ const NAV_ITEMS = [
   { to: '/globe', label: 'Digital Twin', icon: Globe2 },
   { to: '/monitoring', label: 'Monitoring', icon: Activity },
   { to: '/validate', label: 'Model Validation', icon: Scale },
+  { to: '/forensics', label: 'Forensics', icon: Search },
+  { to: '/intelligence', label: 'Intelligence', icon: Brain },
+  { to: '/scenarios', label: 'Scenario Lab', icon: FlaskConical },
   { to: '/safety', label: 'Safety Center', icon: LifeBuoy },
   { to: '/risk', label: 'Risk Map', icon: Siren },
   { to: '/stories', label: 'Story Mode', icon: BookOpen },
@@ -74,10 +80,12 @@ export default function App() {
       <main className="main-content">
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          {/* Placeholder routes for upcoming pages */}
           <Route path="/globe" element={<DigitalTwin />} />
           <Route path="/monitoring" element={<Monitoring />} />
           <Route path="/validate" element={<Validate />} />
+          <Route path="/forensics" element={<Forensics />} />
+          <Route path="/intelligence" element={<Intelligence />} />
+          <Route path="/scenarios" element={<ScenarioLab />} />
           <Route path="/safety" element={<Safety />} />
           <Route path="/risk" element={<RiskMap />} />
           <Route path="/stories" element={<Stories />} />

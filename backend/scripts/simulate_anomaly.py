@@ -24,6 +24,7 @@ from app.core.database import SessionLocal
 from app.models.location import OceanLocation
 from app.models.observation import OceanObservation
 from app.modules.ai.anomaly.detector import scan_all_locations
+from app.modules.physics.ocean_profiles import derive_surface
 
 
 LOCATION_ALIASES = {
@@ -36,6 +37,25 @@ LOCATION_ALIASES = {
     "lakshadweep": "Lakshadweep Sea",
     "puri": "Odisha Coast (Puri)",
 }
+
+
+def _enrich(obs: OceanObservation, loc: OceanLocation):
+    """Fill derived bio-physical variables from the physics engine."""
+    surf = derive_surface(
+        loc,
+        obs.sea_surface_temperature,
+        obs.salinity,
+        obs.wave_height,
+        obs.current_speed,
+    )
+    obs.depth_m = 0.0
+    obs.dissolved_oxygen = surf["dissolved_oxygen"]
+    obs.chlorophyll = surf["chlorophyll"]
+    obs.ph = surf["ph"]
+    obs.pressure = surf["pressure"]
+    obs.density = surf["density"]
+    obs.nutrients = surf["nutrients"]
+    return obs
 
 
 def simulate(db: Session, location_name: str, kind: str) -> int:
@@ -74,6 +94,7 @@ def simulate(db: Session, location_name: str, kind: str) -> int:
                 source="SIMULATED_HEATWAVE",
                 data_type="observation",
             )
+            _enrich(obs, loc)
             db.add(obs)
         db.commit()
         print(f"Simulated a marine heat-wave at {loc.name} (+{steps[-1]}°C).")
@@ -90,6 +111,7 @@ def simulate(db: Session, location_name: str, kind: str) -> int:
                 source="SIMULATED_SURGE",
                 data_type="observation",
             )
+            _enrich(obs, loc)
             db.add(obs)
         db.commit()
         print(f"Simulated a wave surge at {loc.name} (peak {(base.wave_height or 1.0) + 2.8:.1f} m).")
