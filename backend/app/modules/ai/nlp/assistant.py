@@ -44,6 +44,7 @@ SUPERLATIVE_WORDS = {
     "coldest": ["coldest", "coolest"],
     "calmest": ["calmest", "smoothest", "lowest wave"],
     "waviest": ["waviest", "roughest", "highest wave", "largest wave"],
+    "safest": ["safest", "least risky"],
 }
 
 
@@ -280,6 +281,18 @@ def answer_superlative(db: Session, kind: str) -> str:
     if kind == "waviest":
         best = max(items, key=lambda x: x["wave"] or -1)
         return f"🌊 The **roughest** water right now is at *{best['loc'].name}* with waves of **{best['wave']:.2f} m**."
+    if kind == "safest":
+        from app.modules.ai.safety.advisory import safety_advisory
+        adv = safety_advisory(db)
+        ranked = sorted(adv, key=lambda a: (a["status_order"], a["risk_index"]))
+        if not ranked:
+            return "No safety data available yet."
+        best = ranked[0]
+        return (
+            f"🛟 The **safest** coast right now is *{best['location']}* "
+            f"({best['status'].upper()}, wave {best['wave_height']:.1f} m, risk index {best['risk_index']}).\n"
+            f"Favourable window: **{best['safe_window']}**. {best['headline']}"
+        )
     return "I couldn't determine that."
 
 

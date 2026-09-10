@@ -42,9 +42,15 @@ export const triggerRefresh = async () => {
   return data
 }
 
-/** Ask the Ocean AI Assistant a natural-language question */
-export const askAssistant = async (question: string) => {
-  const { data } = await api.post('/api/v1/assistant/ask', { question })
+/** Ask the OceanVerse Copilot a natural-language question (multi-turn context) */
+export const askAssistant = async (question: string, context: Record<string, unknown> = {}) => {
+  const { data } = await api.post('/api/v1/assistant/ask', { question, context })
+  return data
+}
+
+/** Get the copilot capability/affordance list for the UI */
+export const fetchAssistantCapabilities = async () => {
+  const { data } = await api.get('/api/v1/assistant/capabilities')
   return data
 }
 
