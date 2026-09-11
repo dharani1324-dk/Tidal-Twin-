@@ -31,7 +31,7 @@ export interface GlobeLocation {
   wave_height?: number | null
 }
 
-export type LayerKey = 'labels' | 'temperature' | 'waves' | 'currents' | 'storm'
+export type LayerKey = 'labels' | 'temperature' | 'waves' | 'currents' | 'storm' | 'uncertainty' | 'priority'
 export type LayersState = Record<LayerKey, boolean>
 
 /** One merged observation/forecast point used by the time scrubber. */
@@ -201,6 +201,10 @@ interface CesiumGlobeProps {
   timeCursor?: number | null
   /** Which quantity colors the heat patches during replay. */
   timeColor?: 'temp' | 'model' | 'difference'
+  /** location_id → data-confidence 0–100 (uncertainty overlay). */
+  uncertainties?: Record<number, number>
+  /** location_id → observation-need/priority 0–100 (priority overlay). */
+  priorities?: Record<number, number>
 }
 
 interface Scene {
@@ -209,16 +213,22 @@ interface Scene {
   waves: VizEntity[]
   currents: VizEntity[]
   storm: VizEntity[]
+  rings: VizEntity[]
+  focus: VizEntity[]
 }
 
-export default function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor = 'temp' }: CesiumGlobeProps) {
+export default function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor = 'temp', uncertainties, priorities }: CesiumGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<Viz | null>(null)
-  const sceneRef = useRef<Scene>({ markers: [], temps: [], waves: [], currents: [], storm: [] })
+  const sceneRef = useRef<Scene>({ markers: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [] })
   const layersRef = useRef(layers)
   layersRef.current = layers
   const locatedRef = useRef(locations)
   locatedRef.current = locations
+  const uncertaintyRef = useRef(uncertainties)
+  uncertaintyRef.current = uncertainties
+  const prioritiesRef = useRef(priorities)
+  prioritiesRef.current = priorities
   const seriesRef = useRef<SeriesRegion[]>([])
   seriesRef.current = series ?? []
   const cursorRef = useRef<number | null>(timeCursor ?? null)
@@ -327,7 +337,7 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
       container?.removeEventListener('contextmenu', onContextMenu)
       viewerRef.current?.destroy()
       viewerRef.current = null
-      sceneRef.current = { markers: [], temps: [], waves: [], currents: [], storm: [] }
+      sceneRef.current = { markers: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [] }
     }
   }, [])
 
@@ -353,7 +363,7 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
   function buildScene(Cesium: CesiumModule, viewer: Viz) {
     viewer.entities.removeAll()
     clearStormEntities(viewer)
-    const scene: Scene = { markers: [], temps: [], waves: [], currents: [], storm: [] }
+    const scene: Scene = { markers: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [] }
 
     const valid = (locations.length > 0 ? locations : FALLBACK_LOCATIONS).filter(
       (l) => l.latitude != null && l.longitude != null,
@@ -444,6 +454,54 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
           show: layersRef.current.waves,
         })
         scene.waves.push(ripple)
+      }
+
+      // ---- Uncertainty rings (data-confidence gaps per region) ----
+      const unc = uncertaintyRef.current?.[loc.id]
+      if (unc != null) {
+        const uncColor =
+          unc >= 50 ? Cesium.Color.fromCssColorString('#f43f5e')
+            : unc >= 25 ? Cesium.Color.fromCssColorString('#f59e0b')
+            : Cesium.Color.fromCssColorString('#10b981')
+        const ring = viewer.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(lon, lat, 200),
+          ellipse: {
+            semiMajorAxis: 42000 + unc * 420,
+            semiMinorAxis: 30000 + unc * 300,
+            rotation: Cesium.Math.toRadians(phase * 13),
+            material: Cesium.Color.TRANSPARENT,
+            outline: true,
+            outlineColor: uncColor.withAlpha(0.9),
+            outlineWidth: 2,
+            height: 200,
+          },
+          show: layersRef.current.uncertainty,
+        })
+        scene.rings.push(ring)
+      }
+
+      // ---- Priority/focus rings (regions that need observation next) ----
+      const prio = prioritiesRef.current?.[loc.id]
+      if (prio != null && prio >= 10) {
+        const prioColor = Cesium.Color.fromCssColorString('#a78bfa')
+        const focusRing = viewer.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(lon, lat, 240),
+          ellipse: {
+            semiMajorAxis: new Cesium.CallbackProperty(() => 30000 + ((Date.now() % 2400) / 2400) * 42000, false),
+            semiMinorAxis: new Cesium.CallbackProperty(() => (30000 + ((Date.now() % 2400) / 2400) * 42000) * 0.85, false),
+            rotation: Cesium.Math.toRadians(phase * 29),
+            material: prioColor.withAlpha(0.04),
+            outline: true,
+            outlineColor: new Cesium.CallbackProperty(() => {
+              const k = (Date.now() % 2400) / 2400
+              return prioColor.withAlpha(Math.max(0.05, 1 - k) * 0.9)
+            }, false),
+            outlineWidth: 3,
+            height: 240,
+          },
+          show: layersRef.current.priority,
+        })
+        scene.focus.push(focusRing)
       }
     }
 
@@ -689,6 +747,8 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
     scene.waves.forEach((e) => (e.show = state.waves))
     scene.currents.forEach((e) => (e.show = state.currents))
     scene.storm.forEach((e) => (e.show = state.storm))
+    scene.rings.forEach((e) => (e.show = state.uncertainty))
+    scene.focus.forEach((e) => (e.show = state.priority))
     viewer.scene.requestRender()
   }
 

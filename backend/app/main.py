@@ -21,6 +21,7 @@ from app.api.reports import router as reports_router
 from app.api.safety import router as safety_router
 from app.api.validation import router as validation_router
 from app.api.intelligence import router as intelligence_router
+from app.api.apex import router as apex_router
 from app.modules.ai.safety.live import broadcast_loop
 
 
@@ -69,6 +70,7 @@ app.include_router(reports_router)
 app.include_router(safety_router)
 app.include_router(validation_router)
 app.include_router(intelligence_router)
+app.include_router(apex_router)
 
 
 # ---- Basic Routes (Doors) ----

@@ -41,6 +41,11 @@ from app.modules.ai.validation.engine import (
     provenance,
     scenario_projection,
 )
+from app.modules.ai.apex.adaptive import adaptive_identification
+from app.modules.ai.apex.carbon import carbon_monitoring
+from app.modules.ai.apex.light import light_pollution
+from app.modules.ai.apex.sensing import remote_sensing_fusion
+from app.modules.ai.apex.recommend import build_recommendations
 
 # ---------------------------------------------------------------------------
 # Location resolution (explicit mention only — context fills the rest)
@@ -121,6 +126,16 @@ def resolve_context(db: Session, text: str, context: dict) -> tuple[OceanLocatio
 # ---------------------------------------------------------------------------
 
 INTENT_KEYWORDS = {
+    "carbon": ["carbon", "co2", "sink", "sequestration", "blue carbon", "absorb",
+               "flux", "emission", "uptake", "carbon flux", " co2 ", "co₂"],
+    "lights": ["light pollution", "night light", "artificial light", "aln",
+               "lighting", "lit at night", "lamp"],
+    "sensing": ["satellite", "remote sensing", "fusion", "revisit", "spatial resolution",
+                "harmoniz", "sensor data", "instrument", "sentinel", "avhrr", "viirs", "slstr"],
+    "recommend": ["recommend", "sampling", "where should", "observation plan", "deploy",
+                  "collect data", "sample next", "monitor now", "recon", "where to sample"],
+    "adaptive": ["adaptive", "self-calibrat", "self calibrat", "threshold", "maturity",
+                 "learning band", "calibrat"],
     "events": ["event", "heatwave", "anomaly", "flood", "watch", "phenomenon",
                "cold water", "alerts near", "what's happening", "activity"],
     "risk": ["risk", "risk index", "danger zone", "riskier", "riskiest",
@@ -183,6 +198,21 @@ def _sparkline(label: str, values: list[float]) -> dict:
 
 def _suggest_for(intent: str) -> list[str]:
     follow_ups = {
+        "carbon": ["Which coast is the strongest CO2 sink?",
+                   "How much carbon is the network absorbing?",
+                   "Explain how the CO2 flux is calculated.",],
+        "lights": ["Which coast has the worst light pollution?",
+                   "How does artificial light affect sea turtles?",
+                   "What should Kochi do about light pollution?",],
+        "sensing": ["What satellites does the system fuse?",
+                    "How confident is the harmonized satellite data?",
+                    "Which coast gains most from sensor fusion?",],
+        "recommend": ["Where should we sample next?",
+                      "Which region needs observations most?",
+                      "How many extra observations are needed?",],
+        "adaptive": ["Which regions have adaptive thresholds?",
+                     "Would adaptive detection change any alerts?",
+                     "How do the thresholds learn?",],
         "safety": ["How rough are the waves right now?",
                    "Which coast is riskiest today?",
                    "What causes the dangerous conditions?",],
@@ -611,6 +641,152 @@ def ans_superlative(db, text) -> dict:
             "sources": [SOURCE_API], "steps": ["Ranked all regions", f"Picked {kind}"]}
 
 
+def ans_carbon(db) -> dict:
+    res = carbon_monitoring(db)
+    rows = res["regions"]
+    if not rows:
+        return {"answer": "Not enough surface data to estimate air-sea CO2 flux yet.",
+                "intent": "carbon", "location": None, "location_id": None, "data": None,
+                "suggestions": _suggest_for("carbon"), "sources": [SOURCE_ENGINE],
+                "steps": ["Read latest SST", "Estimated CO2 flux"]}
+    total = res["national_total_uptake_MtC_per_yr"]
+    sink_dir = "absorbing" if total < 0 else "releasing"
+    top = rows[0]
+    answer = (
+        f"**Marine carbon dashboard** — the monitored network is currently "
+        f"**{sink_dir} ~{abs(total):.2f} Mt C per year**.\n\n"
+        f"- Strongest sink: **{res['strongest_co2_sink']}** "
+        f"({top['flux']['flux_gc_per_m2_yr']:+.1f} g-C/m²/yr)\n"
+        f"- Atmospheric reference: **{res['atmosphere_reference_pco2']} µatm CO₂**\n"
+        f"- Surface ΔpCO₂ ranges "
+        f"{rows[0]['flux']['pco2_gradient']:+.0f} "
+        f"to {rows[-1]['flux']['pco2_gradient']:+.0f} µatm across coasts\n\n"
+        f"_Takahashi-style pCO₂ + Wanninkhof gas transfer + Weiss solubility._"
+    )
+    return {"answer": answer, "intent": "carbon", "location": res["strongest_co2_sink"],
+            "location_id": None,
+            "data": _table(
+                ["Coast", "ΔpCO2 (µatm)", "Flux gC/m²/yr", "Role"],
+                [[r["location"], f"{r['flux']['pco2_gradient']:+.0f}",
+                  f"{r['flux']['flux_gc_per_m2_yr']:+.1f}", r["flux"]["category"]]
+                 for r in rows[:8]]),
+            "suggestions": _suggest_for("carbon"), "sources": [SOURCE_ENGINE],
+            "steps": ["Read latest SST per coast", "Applied Takahashi pCO₂", "Wanninkhof gas transfer"]}
+
+
+def ans_lights(db) -> dict:
+    res = light_pollution(db)
+    rows = res["regions"]
+    extreme = [r for r in rows if r["severity"] == "extreme"]
+    worst = rows[0]
+    answer = (
+        f"**Light pollution scan** — {len(extreme)} coast{'s' if len(extreme) != 1 else ''} at "
+        f"**extreme** exposure. Most-lit coast: **{worst['location']}** "
+        f"({worst['aln_exposure_score']}/100, {worst['severity']}).\n\n"
+        f"Top impact there: turtle hatchling disorientation "
+        f"**{worst['biota_impact']['sea_turtle_hatchling_disorientation']}%** and zooplankton "
+        f"migration disruption **{worst['biota_impact']['zooplankton_diel_migration_disruption']}%**.\n\n"
+        f"_Advisory: {worst['recommendation']}_"
+    )
+    return {"answer": answer, "intent": "lights", "location": worst["location"],
+            "location_id": worst["location_id"],
+            "data": _table(
+                ["Coast", "Exposure", "Severity", "Turtle impact"],
+                [[r["location"], str(r["aln_exposure_score"]), r["severity"].upper(),
+                  f"{r['biota_impact']['sea_turtle_hatchling_disorientation']}%"]
+                 for r in rows[:8]]),
+            "suggestions": _suggest_for("lights"), "sources": [SOURCE_ENGINE],
+            "steps": ["Scored ALAN exposure proxy", "Scored biota impacts"]}
+
+
+def ans_sensing(db) -> dict:
+    res = remote_sensing_fusion(db)
+    rows = res["regions"]
+    if not rows:
+        return {"answer": "No regions to harmonize with satellite sources yet.",
+                "intent": "sensing", "location": None, "location_id": None, "data": None,
+                "suggestions": _suggest_for("sensing"), "sources": [SOURCE_ENGINE],
+                "steps": ["Read observation streams"]}
+    avg_conf = sum(r["harmonized_confidence"] for r in rows) / len(rows)
+    best = max(rows, key=lambda r: r["fused_confidence_boost_pct"])
+    sources = ", ".join(sorted({s for r in rows for s in r["sources_used"]}))
+    answer = (
+        f"**Remote-sensing harmonization** — fusing {sources} lifts average analytical confidence "
+        f"to **{avg_conf:.0f}/100** (single-source baseline only ~{rows[0]['single_source_confidence']}).\n\n"
+        f"- Biggest fusion gain: **{best['location']}** "
+        f"(+{best['fused_confidence_boost_pct']}% over its best sensor)\n"
+        f"- Best source available for SST is **Sentinel-3 SLSTR** (1 km, 12h revisit)\n\n"
+        f"_Multi-instrument fusion reduces blind-spot probability vs any single pixel._"
+    )
+    return {"answer": answer, "intent": "sensing", "location": None, "location_id": None,
+            "data": _table(
+                ["Coast", "Harmonized", "Boost", "Sources"],
+                [[r["location"], f"{r['harmonized_confidence']}",
+                  f"+{r['fused_confidence_boost_pct']}%", ", ".join(r["sources_used"])]
+                 for r in rows[:8]]),
+            "suggestions": _suggest_for("sensing"), "sources": [SOURCE_ENGINE],
+            "steps": ["Mapped variables to satellites", "Scored fusion confidence"]}
+
+
+def ans_recommend(db) -> dict:
+    res = build_recommendations(db, min_priority=0.0)
+    recs = res["recommendations"]
+    if not recs:
+        return {"answer": res["summary"], "intent": "recommend", "location": None,
+                "location_id": None, "data": None,
+                "suggestions": _suggest_for("recommend"), "sources": [SOURCE_ENGINE],
+                "steps": ["Billed coverage vs uncertainty", "Ranked sampling needs"]}
+    top = recs[0]
+    vars_text = ", ".join(top["variables_to_sample"]) if top["variables_to_sample"] else "wave height"
+    answer = (
+        f"{res['summary']}\n\n"
+        f"Top priority — **{top['location']}** (obs need {top['obs_need']}/100, "
+        f"impact {top['decision_impact']}): sample **{vars_text}** "
+        f"{'because of an **active event**' if top['active_event'] else 'to close the coverage gap'}.\n"
+        f"~**{res['estimated_observations_needed']}** extra passes network-wide would clear the action threshold."
+    )
+    data_items = [
+        ("Samples needed", str(res["estimated_observations_needed"]), "#a78bfa"),
+        ("Network gap", f"{res['network_average_obs_need']}/100", "#f59e0b"),
+        ("First target", top["location"], "#34d399"),
+    ]
+    return {"answer": answer, "intent": "recommend", "location": top["location"],
+            "location_id": top["location_id"],
+            "data": _metrics(data_items),
+            "suggestions": _suggest_for("recommend"), "sources": [SOURCE_ENGINE],
+            "steps": ["Combined coverage + uncertainty + events", "Ranked decision impact"]}
+
+
+def ans_adaptive(db) -> dict:
+    res = adaptive_identification(db)
+    rows = res["regions"]
+    changed = []
+    for r in rows:
+        for v in r.get("variables", []):
+            if v.get("classification_changed"):
+                changed.append((r["location"], v["label"], v["adaptive_threshold"], v["static_threshold"]))
+    confident = sum(1 for r in rows if r["maturity"] == "confident")
+    answer = (
+        f"**Adaptive detection** — {confident}/{len(rows)} regions now run **confident** "
+        f"self-calibrating thresholds instead of fixed legacy rules.\n\n"
+    )
+    if changed:
+        answer += f"- {len(changed)} classification(s) would change under adaptive bands, e.g. "
+        answer += f"**{changed[0][0]}** {changed[0][1]} adaptive {changed[0][2]} vs static {changed[0][3]}.\n"
+    else:
+        answer += "- No region currently flips its classification between static and adaptive rules.\n"
+    answer += (f"\n_Bands tune within [60% of static rule, data-driven σ] as history grows — "
+               f"{res['note']}_")
+    return {"answer": answer, "intent": "adaptive", "location": None, "location_id": None,
+            "data": _table(
+                ["Coast", "Maturity", "Adapt. index", "Changing"],
+                [[r["location"], r["maturity"].upper(), str(r["adaptation_index"]),
+                  "YES" if any(v.get("classification_changed") for v in r.get("variables", [])) else "no"]
+                 for r in rows[:8]]),
+            "suggestions": _suggest_for("adaptive"), "sources": [SOURCE_ENGINE],
+            "steps": ["Learned per-region variance", "Re-classified under adaptive rules"]}
+
+
 def ans_general() -> dict:
     answer = (
         "I'm **OceanVerse Copilot**. 🌊 I read the live ocean data and our AI engines "
@@ -624,6 +800,11 @@ def ans_general() -> dict:
         "- **Forecast** — next 12 hours for any region\n"
         "- **What-If** — 'what if wind increases 20%?'\n"
         "- **Storm / Cyclone** — live track status\n"
+        "- **Carbon** — air-sea CO₂ flux, sinks, blue-carbon potential\n"
+        "- **Light pollution** — ALAN exposure + biota impact per coast\n"
+        "- **Satellites** — remote-sensing fusion & harmonized confidence\n"
+        "- **Observation planning** — 'where should we sample next?'\n"
+        "- **Adaptive detection** — self-calibrating anomaly thresholds\n"
         "- **Provenance** — where every number came from\n\n"
         "And I remember context — try _'how about Kochi?'_ after a question about Goa."
     )
@@ -677,6 +858,11 @@ def copilot_answer(db: Session, question: str, context: dict | None = None) -> d
         "compare": lambda: ans_compare(db, text),
         "superlative": lambda: ans_superlative(db, text),
         "current": lambda: ans_current(db, loc, variables),
+        "carbon": lambda: ans_carbon(db),
+        "lights": lambda: ans_lights(db),
+        "sensing": lambda: ans_sensing(db),
+        "recommend": lambda: ans_recommend(db),
+        "adaptive": lambda: ans_adaptive(db),
         "general": ans_general,
     }
     handler = handlers.get(intent, handlers["current"])

@@ -1,5 +1,5 @@
 import { Routes, Route, NavLink } from 'react-router-dom'
-import { Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, Activity, BookOpen, LifeBuoy, Siren, Scale, Search, Brain, FlaskConical } from 'lucide-react'
+import { Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, Activity, BookOpen, LifeBuoy, Siren, Scale, Search, Brain, FlaskConical, Sparkles } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import DigitalTwin from './pages/DigitalTwin'
 import Assistant from './pages/Assistant'
@@ -12,6 +12,7 @@ import Validate from './pages/Validate'
 import Forensics from './pages/Forensics'
 import Intelligence from './pages/Intelligence'
 import ScenarioLab from './pages/ScenarioLab'
+import OceanVision from './pages/OceanVision'
 import './App.css'
 
 /**
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { to: '/validate', label: 'Model Validation', icon: Scale },
   { to: '/forensics', label: 'Forensics', icon: Search },
   { to: '/intelligence', label: 'Intelligence', icon: Brain },
+  { to: '/oceanvision', label: 'Ocean Vision', icon: Sparkles },
   { to: '/scenarios', label: 'Scenario Lab', icon: FlaskConical },
   { to: '/safety', label: 'Safety Center', icon: LifeBuoy },
   { to: '/risk', label: 'Risk Map', icon: Siren },
@@ -85,6 +87,7 @@ export default function App() {
           <Route path="/validate" element={<Validate />} />
           <Route path="/forensics" element={<Forensics />} />
           <Route path="/intelligence" element={<Intelligence />} />
+          <Route path="/oceanvision" element={<OceanVision />} />
           <Route path="/scenarios" element={<ScenarioLab />} />
           <Route path="/safety" element={<Safety />} />
           <Route path="/risk" element={<RiskMap />} />

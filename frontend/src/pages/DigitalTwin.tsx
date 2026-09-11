@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Thermometer, Waves, Droplets, Tag, Globe2, Crosshair, Layers, Tornado, Clock, Play, Pause, Repeat } from 'lucide-react'
+import { Thermometer, Waves, Droplets, Tag, Globe2, Crosshair, Layers, Tornado, Clock, Play, Pause, Repeat, Target } from 'lucide-react'
 import CesiumGlobe from '../components/3d/globe/CesiumGlobe'
 import type { GlobeLocation, SeriesRegion, StormTrackData } from '../components/3d/globe/CesiumGlobe'
-import { fetchLocations, fetchObservations, fetchStormTrack, fetchSafetyTimeseries } from '../api/client'
+import { fetchLocations, fetchObservations, fetchStormTrack, fetchSafetyTimeseries, fetchUncertainty, fetchRecommendations } from '../api/client'
 import './DigitalTwin.css'
 
 const fadeUp = {
@@ -33,9 +33,13 @@ export default function DigitalTwin() {
     currents: true,
     labels: true,
     storm: false,
+    uncertainty: false,
+    priority: false,
   })
   const [storm, setStorm] = useState<StormTrackData | null>(null)
   const [series, setSeries] = useState<SeriesRegion[]>([])
+  const [uncertainties, setUncertainties] = useState<Record<number, number>>({})
+  const [priorities, setPriorities] = useState<Record<number, number>>({})
   const [cursor, setCursor] = useState<number>(0)
   const [playing, setPlaying] = useState(false)
   const [replayMode, setReplayMode] = useState<ReplayMode>('temp')
@@ -74,6 +78,30 @@ export default function DigitalTwin() {
         setCursor(0)
       })
       .catch(() => {})
+
+    // Overlay data: data-confidence gaps + regions that need observation next.
+    fetchUncertainty()
+      .then((d) => {
+        const map: Record<number, number> = {}
+        for (const r of d.regions ?? []) {
+          if (r.location_id != null && r.uncertainty != null) {
+            map[r.location_id] = r.uncertainty
+          }
+        }
+        setUncertainties(map)
+      })
+      .catch(() => {})
+    fetchRecommendations(0)
+      .then((d) => {
+        const map: Record<number, number> = {}
+        for (const r of d.recommendations ?? []) {
+          if (r.location_id != null && r.obs_need != null) {
+            map[r.location_id] = r.obs_need
+          }
+        }
+        setPriorities(map)
+      })
+      .catch(() => {})
   }, [])
 
   // Timeline auto-play
@@ -94,6 +122,8 @@ export default function DigitalTwin() {
     { key: 'waves' as const, icon: <Waves size={16} />, name: 'Wave Height', desc: 'Wave energy layer' },
     { key: 'currents' as const, icon: <Droplets size={16} />, name: 'Ocean Currents', desc: 'Flow field layer' },
     { key: 'storm' as const, icon: <Tornado size={16} />, name: 'Storm Track', desc: 'Simulated cyclone path + eye' },
+    { key: 'uncertainty' as const, icon: <Crosshair size={16} />, name: 'Data Uncertainty', desc: 'Confidence-gap rings per region' },
+    { key: 'priority' as const, icon: <Target size={16} />, name: 'Sampling Priority', desc: 'Pulse where observation is needed' },
   ]
 
   const cursorTime = series[0]?.points[cursor]?.time
@@ -156,6 +186,8 @@ export default function DigitalTwin() {
             series={series}
             timeCursor={series.length > 0 ? cursor : null}
             timeColor={replayMode}
+            uncertainties={uncertainties}
+            priorities={priorities}
           />
         </div>
 

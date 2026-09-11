@@ -73,6 +73,11 @@ def capabilities() -> dict:
             {"key": "whatif", "label": "What-If scenarios", "desc": "'What if wind increases by 20%?'"},
             {"key": "storm", "label": "Cyclone watch", "desc": "Live storm track status"},
             {"key": "provenance", "label": "Provenance", "desc": "Where every number came from"},
+            {"key": "carbon", "label": "Carbon flux", "desc": "Air-sea CO₂ flux, sinks, blue-carbon potential"},
+            {"key": "lights", "label": "Light pollution", "desc": "ALAN exposure + biota impact per coast"},
+            {"key": "sensing", "label": "Satellite fusion", "desc": "Remote-sensing harmonization & confidence"},
+            {"key": "recommend", "label": "Observation planner", "desc": "Where to sample next, and why"},
+            {"key": "adaptive", "label": "Adaptive detection", "desc": "Self-calibrating anomaly thresholds"},
         ],
         "examples": [
             "Is it safe to fish near Puri today?",
@@ -81,5 +86,7 @@ def capabilities() -> dict:
             "Rank all coasts by risk today.",
             "What if wind increases by 30%?",
             "Where did the Mumbai temperature come from?",
+            "Which coast is the strongest CO2 sink?",
+            "Where should we sample next?",
         ],
     }

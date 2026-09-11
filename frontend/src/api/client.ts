@@ -330,3 +330,39 @@ export const fetchFuture = async (locationId: number) => {
   })
   return data
 }
+
+// --- Apex Intelligence API (advanced decision-support engines) ---
+
+/** Get adaptive identification (self-calibrating detection thresholds) */
+export const fetchAdaptive = async (locationId?: number) => {
+  const { data } = await api.get('/api/v1/apex/adaptive', {
+    params: locationId != null ? { location_id: locationId } : {},
+  })
+  return data
+}
+
+/** Get marine carbon monitoring (CO2 fluxes & blue-carbon potential) */
+export const fetchCarbon = async () => {
+  const { data } = await api.get('/api/v1/apex/carbon')
+  return data
+}
+
+/** Get light pollution & artificial-light-at-night impact */
+export const fetchLightPollution = async () => {
+  const { data } = await api.get('/api/v1/apex/light-pollution')
+  return data
+}
+
+/** Get remote-sensing harmonization & multi-source fusion */
+export const fetchRemoteSensing = async () => {
+  const { data } = await api.get('/api/v1/apex/remote-sensing')
+  return data
+}
+
+/** Get ranked observation recommendations (what to sample next, where, why) */
+export const fetchRecommendations = async (minPriority = 0) => {
+  const { data } = await api.get('/api/v1/apex/recommendations', {
+    params: { min_priority: minPriority },
+  })
+  return data
+}
