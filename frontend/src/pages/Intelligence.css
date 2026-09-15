@@ -1,8 +1,12 @@
 /* Decision Intelligence Page */
 
 .intel-page {
-  padding: 1.25rem;
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
 }
 
 .intel-header {
@@ -133,7 +137,7 @@
 
 .intel-all-clear {
   font-size: 0.72rem;
-  color: #10b981;
+  color: var(--ok);
   font-weight: 600;
 }
 
@@ -429,7 +433,7 @@
 }
 
 .rel-edge.negative .rel-edge-line {
-  background: #f43f5e;
+  background: var(--danger);
 }
 
 .rel-edge-r {
@@ -453,7 +457,7 @@
 
 .rel-edge-strength.moderate {
   background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  color: var(--warn);
 }
 
 .rel-edge-strength.weak {

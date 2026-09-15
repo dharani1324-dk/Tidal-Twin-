@@ -161,7 +161,14 @@ export default function OceanVision() {
       fetchRemoteSensing().catch(() => ({ regions: [] })),
       fetchRecommendations(0).catch(() => ({ recommendations: [], network_average_obs_need: 0, estimated_observations_needed: 0, summary: '' })),
     ]).then(([a, c, l, s, r]) => {
-      setAdaptive(Array.isArray(a.regions) ? a.regions : [])
+      setAdaptive(Array.isArray(a.regions) ? a.regions.map((r: AdaptiveRegion) => ({
+        ...r,
+        variables: Array.isArray(r.variables) ? r.variables : [],
+        sample_count: r.sample_count ?? 0,
+        learning_hours: r.learning_hours ?? 0,
+        maturity: r.maturity ?? 'n/a',
+        adaptation_index: r.adaptation_index ?? 0,
+      })) : [])
       setCarbon(Array.isArray(c.regions) ? c.regions : [])
       setCarbonMeta({ national_total_uptake_MtC_per_yr: c.national_total_uptake_MtC_per_yr, strongest_co2_sink: c.strongest_co2_sink, atmosphere_reference_pco2: c.atmosphere_reference_pco2 })
       setLight(Array.isArray(l.regions) ? l.regions : [])
@@ -305,7 +312,7 @@ export default function OceanVision() {
                 </div>
                 <div className="ov-score-card glass-card">
                   <CheckCircle2 size={20} />
-                  <div className="ov-score-value" style={{ fontSize: '1.05rem' }}>{carbonMeta.strongest_co2_sink}</div>
+                  <div className="ov-score-value" style={{ fontSize: '1.05rem' }}>{carbonMeta.strongest_co2_sink ?? '—'}</div>
                   <div className="ov-score-label">Strongest CO2 sink</div>
                 </div>
                 <div className="ov-score-card glass-card">

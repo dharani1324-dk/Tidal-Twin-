@@ -91,7 +91,7 @@ interface OceanEvent {
   event_type: string
   label: string
   icon: string
-  intensity: 'high' | 'medium' | 'low'
+  intensity: 'high' | 'medium' | 'low' | 'danger' | 'warning'
   confidence: number
   variable: string
   value: number | null
@@ -150,7 +150,9 @@ const STATUS_META = {
 
 const LEVEL_COLOR: Record<string, string> = {
   high: '#f43f5e',
+  danger: '#f43f5e',
   moderate: '#f59e0b',
+  warning: '#f59e0b',
   low: '#34d399',
   unknown: '#64748b',
 }
@@ -391,7 +393,7 @@ export default function Validate() {
                     <b className="conf-comp-pct">{c.pct}%</b>
                   </div>
                 ))}
-                <div className="conf-weights">Weighted blend · {conf.component_weights}</div>
+                <div className="conf-weights">Weighted blend · {conf.component_weights ?? '—'}</div>
               </div>
               <div className="conf-facts">
                 <span>Coverage <b>{Math.round(conf.field_coverage * 100)}%</b> of fields</span>

@@ -13,6 +13,7 @@ from app.modules.ai.apex.carbon import carbon_monitoring
 from app.modules.ai.apex.light import light_pollution
 from app.modules.ai.apex.sensing import remote_sensing_fusion
 from app.modules.ai.apex.recommend import build_recommendations
+from app.modules.ai.forecast.argo import get_argo_trajectories
 
 router = APIRouter(prefix="/api/v1/apex", tags=["Apex Intelligence"])
 
@@ -40,3 +41,10 @@ def get_remote_sensing(db: Session = Depends(get_db)):
 @router.get("/recommendations")
 def get_recommendations(min_priority: float = Query(30.0), db: Session = Depends(get_db)):
     return build_recommendations(db, min_priority)
+
+
+@router.get("/argo")
+def get_argo(location_id: int | None = Query(None),
+             n_floats: int = Query(3, ge=1, le=5),
+             db: Session = Depends(get_db)):
+    return get_argo_trajectories(db, location_id=location_id, n_floats=n_floats)

@@ -106,7 +106,7 @@
 }
 
 .diff-col-obs {
-  color: #34d399;
+  color: var(--ok);
 }
 
 .diff-col-dev {
@@ -360,7 +360,7 @@
 .conf-comp-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #22d3ee, #34d399);
+  background: linear-gradient(90deg, var(--accent), var(--ok));
   transition: width 0.6s ease;
 }
 
@@ -438,7 +438,7 @@
 
 .skill-row b {
   text-align: right;
-  color: #f59e0b;
+  color: var(--warn);
 }
 
 .skill-row-head {
@@ -455,13 +455,13 @@
 }
 
 .skill-good {
-  color: #34d399 !important;
+  color: var(--ok) !important;
 }
 
 /* ---- what-if ---- */
 .whatif-caveat {
   font-size: 0.68rem;
-  color: #f59e0b;
+  color: var(--warn);
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.25);
   padding: 0.45rem 0.7rem;
@@ -492,7 +492,7 @@
 
 .whatif-range {
   width: 100%;
-  accent-color: #22d3ee;
+  accent-color: var(--accent);
 }
 
 .whatif-run {
@@ -501,7 +501,7 @@
   font-size: 0.8rem;
   font-weight: 800;
   color: #04101f;
-  background: linear-gradient(90deg, #22d3ee, #38bdf8);
+  background: linear-gradient(90deg, var(--accent), var(--accent-blue));
   border: none;
   border-radius: 10px;
   cursor: pointer;
@@ -550,10 +550,10 @@
   color: #e6f1ff;
 }
 
-.band-danger { color: #f43f5e !important; }
-.band-warning { color: #f59e0b !important; }
-.band-caution { color: #fbbf24 !important; }
-.band-safe { color: #34d399 !important; }
+.band-danger { color: var(--danger) !important; }
+.band-warning { color: var(--warn) !important; }
+.band-caution { color: var(--warn) !important; }
+.band-safe { color: var(--ok) !important; }
 
 .whatif-narrative {
   margin-top: 0.6rem;
@@ -610,8 +610,10 @@
 }
 
 .event-high { background: rgba(244, 63, 94, 0.16); color: #fb7185; }
-.event-medium { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
-.event-low { background: rgba(52, 211, 153, 0.16); color: #34d399; }
+.event-danger { background: rgba(244, 63, 94, 0.24); color: #fb7185; }
+.event-medium { background: rgba(245, 158, 11, 0.16); color: var(--warn); }
+.event-warning { background: rgba(245, 158, 11, 0.24); color: var(--warn); }
+.event-low { background: rgba(52, 211, 153, 0.16); color: var(--ok); }
 
 .event-loc {
   margin-top: 0.35rem;

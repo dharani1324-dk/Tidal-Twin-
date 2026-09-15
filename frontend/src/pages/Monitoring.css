@@ -196,7 +196,7 @@
 
 .alert-resolved-tag {
   font-size: 9px;
-  color: #34d399;
+  color: var(--ok);
   border: 1px solid rgba(52, 211, 153, 0.4);
   background: rgba(52, 211, 153, 0.1);
   padding: 1px 6px;
@@ -277,7 +277,7 @@
   font-size: 26px;
   font-weight: 800;
   margin: 6px 0 4px;
-  background: linear-gradient(90deg, #22d3ee, #38bdf8);
+  background: linear-gradient(90deg, var(--accent), var(--accent-blue));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;

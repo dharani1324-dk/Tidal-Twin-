@@ -54,6 +54,12 @@ export const fetchAssistantCapabilities = async () => {
   return data
 }
 
+/** Multimodal Ocean AI: fuse a pasted document/news/NetCDF summary with live sensors */
+export const askMultimodal = async (text: string, media?: Record<string, unknown>) => {
+  const { data } = await api.post('/api/v1/assistant/multimodal', { text, media })
+  return data
+}
+
 /** Get monitoring alerts (active/resolved/all) */
 export const fetchAlerts = async (status = 'all') => {
   const { data } = await api.get('/api/v1/monitoring/alerts', { params: { status } })
@@ -306,7 +312,7 @@ export const fetchAutopsy = async (locationId: number) => {
 export const runWhatIf = async (payload: {
   location_id: number
   wind_percent?: number
-  temperature_delta?: number
+  temp_delta?: number
   salinity_delta?: number
   mixing_factor?: number
 }) => {
@@ -363,6 +369,137 @@ export const fetchRemoteSensing = async () => {
 export const fetchRecommendations = async (minPriority = 0) => {
   const { data } = await api.get('/api/v1/apex/recommendations', {
     params: { min_priority: minPriority },
+  })
+  return data
+}
+
+/** Get simulated Argo float trajectories (paths + T/S profiles) */
+export const fetchArgo = async (locationId?: number, nFloats = 3) => {
+  const { data } = await api.get('/api/v1/apex/argo', {
+    params: { location_id: locationId, n_floats: nFloats },
+  })
+  return data
+}
+
+/** Get fish-aggregation zones + seasonal fishing calendar */
+export const fetchFisheries = async () => {
+  const { data } = await api.get('/api/v1/coastal/fisheries')
+  return data
+}
+
+/** Get coral bleaching thermal-stress risk index */
+export const fetchCoral = async () => {
+  const { data } = await api.get('/api/v1/coastal/coral')
+  return data
+}
+
+/** Run an oil-spill / search-and-rescue drift simulation */
+export const postDriftSim = async (payload: Record<string, unknown>) => {
+  const { data } = await api.post('/api/v1/coastal/spill', payload)
+  return data
+}
+
+/** Get sea-level-rise inundation estimate for a scenario (metres) */
+export const fetchSLR = async (scenario = 1.0) => {
+  const { data } = await api.get('/api/v1/coastal/slr', { params: { scenario } })
+  return data
+}
+
+/** Get rip-current / beach safety flags */
+export const fetchBeachSafety = async () => {
+  const { data } = await api.get('/api/v1/coastal/beach')
+  return data
+}
+
+/** Get economic impact estimate (INR) for active events */
+export const fetchEconomicImpact = async () => {
+  const { data } = await api.get('/api/v1/coastal/impact')
+  return data
+}
+
+// --- Ocean Digital Twin API (model-vs-observation intelligence) ---
+
+/** Model-vs-observation comparison for one region+variable. */
+export const fetchTwinCompare = async (locationId: number, variable = 'temperature', depthM = 0) => {
+  const { data } = await api.get('/api/v1/twin/compare', {
+    params: { location_id: locationId, variable, depth_m: depthM },
+  })
+  return data
+}
+
+/** Per-region disagreement map (colors the globe patches). */
+export const fetchTwinDisagreement = async (variable = 'temperature', depthM = 0) => {
+  const { data } = await api.get('/api/v1/twin/disagreement', {
+    params: { variable, depth_m: depthM },
+  })
+  return data
+}
+
+/** Model-vs-observation depth profile for one region. */
+export const fetchTwinProfile = async (locationId: number, variable = 'temperature') => {
+  const { data } = await api.get('/api/v1/twin/profile', {
+    params: { location_id: locationId, variable },
+  })
+  return data
+}
+
+/** Ranked anomaly intelligence across the network. */
+export const fetchAnomalies = async (params: Record<string, string | number | undefined> = {}) => {
+  const { data } = await api.get('/api/v1/twin/anomalies', { params })
+  return data
+}
+
+/** Detected ocean events (enriched with model-vs-observed evidence). */
+export const fetchTwinEvents = async (locationId?: number) => {
+  const { data } = await api.get('/api/v1/twin/events', {
+    params: locationId != null ? { location_id: locationId } : {},
+  })
+  return data
+}
+
+/** Transparent confidence scoring for a region+variable. */
+export const fetchTwinConfidence = async (locationId: number, variable = 'temperature') => {
+  const { data } = await api.get('/api/v1/twin/confidence', {
+    params: { location_id: locationId, variable },
+  })
+  return data
+}
+
+/** Evidence-driven AI explanation for a region+variable. */
+export const fetchTwinExplain = async (locationId: number, variable = 'temperature', depthM = 0) => {
+  const { data } = await api.get('/api/v1/twin/explain', {
+    params: { location_id: locationId, variable, depth_m: depthM },
+  })
+  return data
+}
+
+/** Data-source registry + health. */
+export const fetchDataSources = async () => {
+  const { data } = await api.get('/api/v1/twin/sources')
+  return data
+}
+
+/** Aggregated decision-support ocean situation. */
+export const fetchSituation = async () => {
+  const { data } = await api.get('/api/v1/twin/situation')
+  return data
+}
+
+/** 3D vertical transect curtain between two picked ocean points. */
+export const fetchTransect = async (params: {
+  lat1: number; lon1: number; lat2: number; lon2: number;
+  variable?: string; depth_max?: number; n_samples?: number;
+}) => {
+  const { data } = await api.get('/api/v1/twin/transect', {
+    params: {
+      lat1: params.lat1,
+      lon1: params.lon1,
+      lat2: params.lat2,
+      lon2: params.lon2,
+      variable: params.variable ?? 'temperature',
+      depth_max: params.depth_max ?? 2000,
+      n_samples: params.n_samples ?? 48,
+    },
   })
   return data
 }

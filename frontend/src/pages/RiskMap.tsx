@@ -26,7 +26,7 @@ interface StormPoint {
 }
 
 interface MapLoc {
-  location_id: number
+  id: number
   name: string
   latitude: number | null
   longitude: number | null
@@ -186,7 +186,7 @@ export default function RiskMap() {
 
             {/* coastal markers colored by risk band */}
             {advisory.map((r) => {
-              const loc = locs.find((l) => l.location_id === r.location_id)
+              const loc = locs.find((l) => l.id === r.location_id)
               if (!loc || loc.latitude == null || loc.longitude == null) return null
               const [x, y] = proj(loc.longitude, loc.latitude)
               const color = STATUS_META[r.status].color

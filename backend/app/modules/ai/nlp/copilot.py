@@ -46,6 +46,13 @@ from app.modules.ai.apex.carbon import carbon_monitoring
 from app.modules.ai.apex.light import light_pollution
 from app.modules.ai.apex.sensing import remote_sensing_fusion
 from app.modules.ai.apex.recommend import build_recommendations
+from app.modules.ai.nlp.multimodal import multimodal_fuse
+from app.modules.ai.coastal.fisheries import compute_fisheries
+from app.modules.ai.coastal.coral import compute_coral
+from app.modules.ai.coastal.spill import simulate_drift
+from app.modules.ai.coastal.slr import slr_inundation
+from app.modules.ai.coastal.beach import compute_beach_safety
+from app.modules.ai.coastal.impact import compute_economic_impact
 
 # ---------------------------------------------------------------------------
 # Location resolution (explicit mention only — context fills the rest)
@@ -136,6 +143,18 @@ INTENT_KEYWORDS = {
                   "collect data", "sample next", "monitor now", "recon", "where to sample"],
     "adaptive": ["adaptive", "self-calibrat", "self calibrat", "threshold", "maturity",
                  "learning band", "calibrat"],
+    "multimodal": ["multimodal", "cross-check", "cross check", "verify this", "analyze this",
+                   "field report", "news report", "document says", "netcdf summary", "glider data",
+                   " drone ", " report says", "fish catch report", "multimodal fusion"],
+    "impact": ["economic", "impact", "loss", "cost", "inr", "crore", "lakh", "damage",
+               "how much money", "monetary"],
+    "fisheries": ["fishing", "fishing zone", "fishing ground", "fish aggregat", "fish catch",
+                  "best fishing", "where to fish", "open fishing", "where to catch", "faz"],
+    "coral": ["coral", "bleach", "reef", "dhw", "reef health", "thermal stress", "heat stress"],
+    "spill": ["oil spill", "spill", "slick", "oil", "search and rescue", "overboard",
+              "missing", "drift", "stranded", "sar mission", "person at sea"],
+    "slr": ["sea level", "slr", "inundat", "submerg", "sea rise", "land loss", "rise scenario"],
+    "beach": ["rip current", "rip tide", " beaching", "beach", "swim", "surfing", "surfer", "lifeguard"],
     "events": ["event", "heatwave", "anomaly", "flood", "watch", "phenomenon",
                "cold water", "alerts near", "what's happening", "activity"],
     "risk": ["risk", "risk index", "danger zone", "riskier", "riskiest",
@@ -213,6 +232,27 @@ def _suggest_for(intent: str) -> list[str]:
         "adaptive": ["Which regions have adaptive thresholds?",
                      "Would adaptive detection change any alerts?",
                      "How do the thresholds learn?",],
+        "multimodal": ["Cross-check this: 'SST at Goa hit 30.1°C with low oxygen.'",
+                       "Analyze this news: 'Chlorophyll bloom reported near Kochi.'",
+                       "Verify a NetCDF summary against live sensors.",],
+        "fisheries": ["Where is the best fishing zone today?",
+                      "What fish are likely near Kochi right now?",
+                      "Which coast scores highest for fishing?",],
+        "coral": ["Which reef is at most bleaching risk?",
+                  "What is the DHW at Gulf of Mannar?",
+                  "How is coral health trending?",],
+        "spill": ["Simulate a 24h oil spill from Goa.",
+                  "Where would a drifting person be after 12h near Puri?",
+                  "Which coast should get rescue priority?",],
+        "slr": ["What floods at +1m sea level rise?",
+                "How many towns are inundated at +2m?",
+                "Which coast loses the most land?",],
+        "beach": ["Is it safe to swim at Goa?",
+                  "Which beach has the strongest rip currents?",
+                  "Why is Chennai flagged caution?",],
+        "impact": ["What is the economic impact of current events?",
+                   "How much is the fishing loss worth?",
+                   "Which coast suffers the most damage?",],
         "safety": ["How rough are the waves right now?",
                    "Which coast is riskiest today?",
                    "What causes the dangerous conditions?",],
@@ -787,6 +827,170 @@ def ans_adaptive(db) -> dict:
             "steps": ["Learned per-region variance", "Re-classified under adaptive rules"]}
 
 
+def ans_fisheries(db, loc) -> dict:
+    res = compute_fisheries(db)
+    regions = res["regions"]
+    best = res["summary"].get("best_zone")
+    seasons = next((
+        r["seasonal_calendar"] for r in regions
+        if loc is not None and r["location_id"] == loc.id), None)
+    this_month = seasons[datetime.now().month - 1].get("index", 0) if seasons else None
+    target = next((r for r in regions if loc is not None and r["location_id"] == loc.id), regions[0])
+    lines = [
+        f"**Fisheries advisory** — the network scores **{res['summary']['coasts']}** coasts for productivity.",
+        f"- Best zone today: **{best}** (FAZ {res['summary']['best_score']}/100).",
+    ]
+    if loc is not None:
+        months_desc = f" — fishing calendar at **{target['location']}** is at **{this_month}/100** for this month." if this_month is not None else ""
+        lines.append(f"- {target['location']}: FAZ **{target['faz_score']}/100** ({target['category']}).{months_desc}")
+    lines.append("- Biophysical drivers explain the score (SST + chlorophyll + current convergence).")
+    return {"answer": "\n".join(lines), "intent": "fisheries",
+            "location": target["location"], "location_id": target["location_id"],
+            "data": _table(
+                ["Coast", "FAZ", "Category", "Top species"],
+                [[r["location"], str(r["faz_score"]), r["category"].upper(),
+                  ", ".join(sp["name"] for sp in r["top_species"][:2])] for r in regions[:8]]),
+            "suggestions": _suggest_for("fisheries"), "sources": [SOURCE_ENGINE],
+            "steps": ["Scored FAZ for every coast", "Matched species likelihood", "Read seasonal calendar"]}
+
+
+def ans_coral(db) -> dict:
+    res = compute_coral(db)
+    regions = res["regions"]
+    worst = next((r for r in regions if r["level"] in ("critical", "warning")), regions[0])
+    lines = [
+        f"**Coral status** — {res['summary']['reefs_monitored']} reef regions monitored with NOAA-style DHW.",
+        f"- Watchpoint: **{worst['location']}** is at **{worst['level_label']}** "
+        f"(DHW **{worst['dhw']}**, bleaching risk **{worst['bleaching_risk_pct']}%**).",
+        "- DHW ≥ 4 = warning; ≥ 8 = critical (24h of +1°C above the reef MMM ≈ 1 DHW).",
+    ]
+    return {"answer": "\n".join(lines), "intent": "coral",
+            "location": worst["location"], "location_id": worst["location_id"],
+            "data": _table(
+                ["Reef", "DHW", "Level", "Risk", "Advice"],
+                [[r["location"], str(r["dhw"]), r["level_label"].upper(),
+                  f"{r['bleaching_risk_pct']}%", r["recommendation"][:42]] for r in regions]),
+            "suggestions": _suggest_for("coral"), "sources": [SOURCE_ENGINE],
+            "steps": ["Accumulated heat above MMM", "Scored DHW bands", "Issued bleaching status"]}
+
+
+def ans_spill(db, loc, text) -> dict:
+    lower = text.lower()
+    scenario = "sar" if any(w in lower for w in (
+        "search and rescue", "sar", "overboard", "missing", "person", "rescue", "drifting person")) else "spill"
+    m = re.search(r"(\d{1,3})\s*h", lower)
+    duration = max(4, min(120, int(m.group(1)) if m else 24))
+    res = simulate_drift(db, scenario=scenario,
+                         location_id=loc.id if loc else None,
+                         duration_h=duration)
+    sigma = {k: v for k, v in res["origin"].items()}
+    top = res["response_priority"]
+    target = top[0] if top else None
+    lines = [
+        f"**{scenario.upper()} drift run** — origin **{res['origin']['location']}** "
+        f"({res['origin']['lat']}, {res['origin']['lon']}), {duration}h at "
+        f"bearing **{res['forcing']['current_bearing_deg']}°**.",
+    ]
+    if target:
+        lines.append(f"- Top reachable coast: **{target['location']}** — "
+                     f"{target['distance_km']} km away, ETA **{target['eta_hours']}h**, "
+                     f"**{target['probability_pct']}%** contact probability.")
+    lines.append(f"- _Recommendation: {res['recommendation']}_")
+    return {"answer": "\n".join(lines), "intent": "spill",
+            "location": res["origin"]["location"], "location_id": None,
+            "data": _table(
+                ["Coast", "Dist (km)", "ETA (h)", "Prob.", "Priority"],
+                [[z["location"], str(z["distance_km"]), str(z["eta_hours"]),
+                  f"{z['probability_pct']}%", f"#{i + 1}"] for i, z in enumerate(top[:5])]),
+            "suggestions": _suggest_for("spill"), "sources": [SOURCE_ENGINE],
+            "steps": ["Seeded drift at origin", "Advected with coastal current", "Ranked landfall probability"]}
+
+
+def ans_slr(db, text) -> dict:
+    m = re.search(r"\+?\s*(\d+(?:\.\d+)?)\s*m(?:\b|eter|etre)", text.lower())
+    scenario = max(0.1, min(5.0, float(m.group(1)) if m else 1.0))
+    res = slr_inundation(db, scenario)
+    s = res["summary"]
+    lines = [
+        f"**Sea-level rise +{scenario} m** — {s['towns_inundated']} coastal towns inundated, "
+        f"approx. **₹{s['total_population_at_risk'] / 1e7:.1f} cr** people at risk.",
+        f"- Area lost ≈ **{s['total_land_area_lost_km2']} km²** across {s['coasts_analyzed']} coasts; "
+        f"**{s['most_affected']}** is hardest hit.",
+        "- Bathymetry + coast geometry drive the flood footprint (not a flat bathtub model).",
+    ]
+    return {"answer": "\n".join(lines), "intent": "slr", "location": s["most_affected"],
+            "location_id": None,
+            "data": _table(
+                ["Coast", "Towns hit", "Pop. at risk", "Land lost (km²)", "Impact"],
+                [[r["location"], str(r["affected_count"]),
+                  f"{r['population_at_risk'] / 1e7:.1f}cr", f"{r['land_area_lost_km2']}",
+                  r["level"].upper()] for r in res["regions"][:8]]),
+            "suggestions": _suggest_for("slr"), "sources": [SOURCE_ENGINE],
+            "steps": ["Flooded land below scenario + high tide", "Counted settlements at risk"]}
+
+
+def ans_beach(db, loc) -> dict:
+    res = compute_beach_safety(db)
+    rows = res["regions"]
+    s = res["summary"]
+    target = next((r for r in rows if loc is not None and r["location_id"] == loc.id), rows[0])
+    danger_list = [r for r in rows if r["flag"] == "danger"]
+    lines = [
+        f"**Beach safety sweep** — {s['safe']} SAFE, {s['caution']} CAUTION, "
+        f"{s['danger']} DANGER across {len(rows)} beaches.",
+        f"- **{target['location']}**: {target['flag_label']} (rip index **{target['rip_current_index']}/100**, "
+        f"waves {target['wave_height']} m, current {target['current_speed']} m/s).",
+    ]
+    if danger_list:
+        lines.append(f"- 🚨 Danger beaches: " + ", ".join(r["location"] for r in danger_list) + ".")
+    lines.append(f"- _Action for top pick: {target['action']}_")
+    return {"answer": "\n".join(lines), "intent": "beach",
+            "location": target["location"], "location_id": target["location_id"],
+            "data": _table(
+                ["Beach", "Flag", "Rip index", "Waves", "Why"],
+                [[r["location"], r["flag_label"], str(r["rip_current_index"]),
+                  f"{r['wave_height']} m", ", ".join(r["reasons"][:1])] for r in rows[:8]]),
+            "suggestions": _suggest_for("beach"), "sources": [SOURCE_ENGINE],
+            "steps": ["Scored rip-current proxy", "Applied flag thresholds", "Set lifeguard action"]}
+
+
+def ans_impact(db) -> dict:
+    res = compute_economic_impact(db)
+    s = res["summary"]
+    b = s["breakdown"]
+    lines = [
+        f"**Economic impact** — {s['active_events']} active events across {s['coasts_impacted']} coasts: "
+        f"**₹{s['total_estimated_loss_cr']:.1f} crore** estimated damage.",
+        f"- Fishing ₹{b['fishing_loss_inr'] / 1e7:.1f} cr · ports ₹{b['port_loss_inr'] / 1e7:.1f} cr · "
+        f"tourism ₹{b['tourism_loss_inr'] / 1e7:.1f} cr.",
+        f"- Worst coast: **{s['largest_loss_coast']}**.",
+    ]
+    return {"answer": "\n".join(lines), "intent": "impact",
+            "location": s["largest_loss_coast"], "location_id": None,
+            "data": _metrics([
+                ("Total", f"₹{s['total_estimated_loss_cr']} cr", "#22d3ee"),
+                ("Fishing", f"₹{b['fishing_loss_inr'] / 1e7:.1f} cr", "#0ea5e9"),
+                ("Ports", f"₹{b['port_loss_inr'] / 1e7:.1f} cr", "#f59e0b"),
+                ("Tourism", f"₹{b['tourism_loss_inr'] / 1e7:.1f} cr", "#a78bfa"),
+            ]),
+            "suggestions": _suggest_for("impact"), "sources": [SOURCE_ENGINE],
+            "steps": ["Priced intensity-duration damage", "Broke out sector losses"]}
+
+
+def ans_multimodal(db, text: str) -> dict:
+    """Multimodal Ocean AI: verify a pasted report/news/NetCDF summary."""
+    clean = text
+    for prefix in ("analyze this", "cross-check", "cross check", "verify this",
+                   "multimodal", "report says", "document says"):
+        if clean.lower().startswith(prefix):
+            clean = clean[len(prefix):].lstrip(" :,-").strip()
+    if clean.lower().startswith("report:"):
+        clean = clean[len("report:"):].strip()
+    if not clean:
+        clean = text
+    return multimodal_fuse(db, clean)
+
+
 def ans_general() -> dict:
     answer = (
         "I'm **OceanVerse Copilot**. 🌊 I read the live ocean data and our AI engines "
@@ -805,7 +1009,13 @@ def ans_general() -> dict:
         "- **Satellites** — remote-sensing fusion & harmonized confidence\n"
         "- **Observation planning** — 'where should we sample next?'\n"
         "- **Adaptive detection** — self-calibrating anomaly thresholds\n"
-        "- **Provenance** — where every number came from\n\n"
+        "- **Provenance** — where every number came from\n"
+        "- **Fisheries** — fishing zones, target species, seasonal calendar\n"
+        "- **Coral** — bleaching stress index (DHW) per reef\n"
+        "- **Spill & SAR** — oil-slick and drifting-person prediction\n"
+        "- **Sea-level rise** — inundation for +0.3…+2 m scenarios\n"
+        "- **Beach safety** — rip-current flags & lifeguard action\n"
+        "- **Economic impact** — ₹ losses by sector\n\n"
         "And I remember context — try _'how about Kochi?'_ after a question about Goa."
     )
     return {"answer": answer, "intent": "general", "location": None, "location_id": None,
@@ -829,9 +1039,11 @@ def copilot_answer(db: Session, question: str, context: dict | None = None) -> d
     loc, variables = resolve_context(db, text, context)
     intent = detect_intent(text)
 
-    # Safety supercedes other intents when explicitly asked (but not superlatives)
+    # Safety supercedes other intents when explicitly asked (but not superlatives
+    # or the coastal decision intents, which read safer against the experts).
     superlative = detect_superlative(text)
-    if superlative is None and any(w in text.lower() for w in ("safe to", "how safe", "safety", "sailing", "fish")):
+    if superlative is None and intent not in ("fisheries", "spill", "beach", "impact") \
+            and any(w in text.lower() for w in ("safe to", "how safe", "safety", "sailing", "fish")):
         intent = "safety"
     if superlative is not None:
         intent = "superlative"
@@ -863,6 +1075,13 @@ def copilot_answer(db: Session, question: str, context: dict | None = None) -> d
         "sensing": lambda: ans_sensing(db),
         "recommend": lambda: ans_recommend(db),
         "adaptive": lambda: ans_adaptive(db),
+        "multimodal": lambda: ans_multimodal(db, text),
+        "fisheries": lambda: ans_fisheries(db, loc),
+        "coral": lambda: ans_coral(db),
+        "spill": lambda: ans_spill(db, loc, text),
+        "slr": lambda: ans_slr(db, text),
+        "beach": lambda: ans_beach(db, loc),
+        "impact": lambda: ans_impact(db),
         "general": ans_general,
     }
     handler = handlers.get(intent, handlers["current"])

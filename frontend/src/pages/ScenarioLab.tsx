@@ -657,7 +657,7 @@ export default function ScenarioLab() {
     try {
       const params = {
         wind_percent: windPercent,
-        temperature_delta: tempDelta,
+        temp_delta: tempDelta,
         salinity_delta: salinityDelta,
         mixing_factor: mixingFactor,
       }

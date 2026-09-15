@@ -568,7 +568,7 @@
 }
 
 .autopsy-uncertainty h4 {
-  color: #fbbf24;
+  color: var(--warn);
 }
 
 .autopsy-recommendations li {

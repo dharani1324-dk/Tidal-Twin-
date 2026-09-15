@@ -35,6 +35,12 @@ MIN_SAMPLES = 6           # need at least this many readings for stats
 # Temperature score for severity: >1.5°C above norm = high
 SEVERITY_TEMP_DC = 1.5
 
+# Multi-variable radar thresholds (z-score + absolute deviation for severity)
+VAR_ALERT_Z = 2.0
+SALINITY_SEV_PSU = 0.5     # ±0.5 PSU from normal = notable
+OXYGEN_SEV_MGL = 1.0       # mg/L oxygen swing = notable
+CHLORO_SEV_MGM3 = 1.5      # mg/m3 chlorophyll swing = notable
+
 
 # ------------------------------------------------------------------
 # Statistical anomaly detection (z-score), per location & variable
@@ -52,6 +58,62 @@ def _zscore_stats(series: list[float]) -> tuple[float, float, float] | None:
     latest = float(arr[-1])
     z = (latest - mean) / std
     return mean, std, z
+
+
+def _var_anomaly(loc: OceanLocation, obs: list[OceanObservation], attr: str,
+                 z_thresh: float, sev_dev: float, alert_type: str,
+                 label: str, unit: str, low_is_bad: bool, high_hint: str,
+                 low_hint: str) -> OceanAlert | None:
+    """
+    Generic single-variable anomaly detector for the ocean "radar".
+    Raises an alert when the latest reading deviates far (z-score) from
+    recent normal, with severity scaled by the absolute deviation.
+    """
+    series = [getattr(o, attr) for o in obs]
+    series = [float(s) for s in series if s is not None]
+    if len(series) < MIN_SAMPLES:
+        return None
+
+    stats = _zscore_stats(series)
+    if stats is None:
+        return None
+    m, _s, z = stats
+    latest = series[-1]
+    delta = latest - m
+    absd = abs(delta)
+
+    hit = z >= z_thresh or absd >= sev_dev
+    if not hit:
+        return None
+
+    bad_side = (low_is_bad and delta < 0) or (not low_is_bad and delta > 0)
+    if absd >= sev_dev * 2.2:
+        sev, conf = "high", min(0.96, 0.58 + absd / max(sev_dev * 2, 1e-6) / 2.5)
+    elif absd >= sev_dev:
+        sev, conf = "medium", min(0.9, 0.5 + absd / max(sev_dev * 2, 1e-6))
+    else:
+        sev, conf = None, None
+    if sev is None:
+        return None
+
+    direction = "surged" if delta > 0 else "dropped"
+    hint = high_hint if delta > 0 else low_hint
+    desc = (
+        f"{label} at {loc.name} has {direction} sharply: "
+        f"{latest:.2f} {unit} vs recent normal {m:.2f} {unit} "
+        f"(Δ {delta:+.2f}). {hint}"
+    )
+    return OceanAlert(
+        location_id=loc.id,
+        alert_type=alert_type,
+        severity=sev,
+        description=desc,
+        confidence=round(conf, 2),
+        latitude=loc.lat_center if hasattr(loc, "lat_center") else None,
+        longitude=loc.lon_center if hasattr(loc, "lon_center") else None,
+        source="ai_anomaly",
+        status="active",
+    )
 
 
 def analyze_location(db: Session, loc: OceanLocation,
@@ -142,6 +204,36 @@ def analyze_location(db: Session, loc: OceanLocation,
                         status="active",
                     )
                 )
+
+    # --- salinity anomaly ---
+    sal = _var_anomaly(
+        loc, obs, "salinity", VAR_ALERT_Z, SALINITY_SEV_PSU,
+        "salinity_anomaly", "Salinity", "PSU", low_is_bad=False,
+        high_hint="Possible evaporation dominance or advection of saltier water.",
+        low_hint="Possible freshwater plume from river discharge or rainfall.",
+    )
+    if sal is not None:
+        alerts.append(sal)
+
+    # --- dissolved oxygen anomaly ---
+    oxy = _var_anomaly(
+        loc, obs, "dissolved_oxygen", VAR_ALERT_Z, OXYGEN_SEV_MGL,
+        "oxygen_anomaly", "Dissolved oxygen", "mg/L", low_is_bad=True,
+        high_hint="Possible productive bloom raising oxygen supersaturation.",
+        low_hint="Possible hypoxia / deoxygenation — a growing dead-zone risk.",
+    )
+    if oxy is not None:
+        alerts.append(oxy)
+
+    # --- chlorophyll anomaly ---
+    chl = _var_anomaly(
+        loc, obs, "chlorophyll", VAR_ALERT_Z, CHLORO_SEV_MGM3,
+        "chlorophyll_anomaly", "Chlorophyll", "mg/m3", low_is_bad=True,
+        high_hint="Elevated chlorophyll may signal a harmful algal bloom (HAB) onset.",
+        low_hint="Chlorophyll collapse may signal a bloom crash or nutrient exhaustion.",
+    )
+    if chl is not None:
+        alerts.append(chl)
 
     return alerts
 
@@ -257,6 +349,19 @@ def resolve_stale_alerts(db: Session, history: int = 48) -> int:
                 if abs(z) < 0.8:
                     a.status = "resolved"
                     resolved += 1
+            elif a.alert_type in ("salinity_anomaly", "oxygen_anomaly", "chlorophyll_anomaly"):
+                attr = {
+                    "salinity_anomaly": "salinity",
+                    "oxygen_anomaly": "dissolved_oxygen",
+                    "chlorophyll_anomaly": "chlorophyll",
+                }[a.alert_type]
+                series = [getattr(o, attr) for o in obs]
+                series = [float(s) for s in series if s is not None]
+                if len(series) >= MIN_SAMPLES:
+                    m, s, z = _zscore_stats(series)
+                    if abs(z) < 0.8:
+                        a.status = "resolved"
+                        resolved += 1
     db.commit()
     return resolved
 

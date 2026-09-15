@@ -119,6 +119,80 @@ const INTENSITY_COLOR: Record<string, string> = {
   high: '#f43f5e',
   medium: '#f59e0b',
   low: '#10b981',
+  danger: '#f43f5e',
+  warning: '#f59e0b',
+}
+
+/* ---- normalize backend payloads into the page's data model ---- */
+function normalizeInvestigation(inv: any): Investigation | null {
+  if (!inv) return null
+  const change = inv.change ?? {}
+  const range = inv.depth_range ?? {}
+  const summary = [
+    Number.isFinite(change.dT) && `SST ${change.dT > 0 ? '+' : ''}${change.dT}°C`,
+    Number.isFinite(change.dW) && `wave ${change.dW}m`,
+    Number.isFinite(change.dS) && `salinity ${change.dS}psu`,
+  ].filter(Boolean).join(' · ')
+  const depthStr = [
+    range.mld != null ? `MLD ${range.mld}m` : null,
+    range.thermocline_depth != null ? `thermocline ${range.thermocline_depth}m` : null,
+    range.modeled_to_depth != null ? `modeled to ${range.modeled_to_depth}m` : null,
+  ].filter(Boolean).join(', ')
+  return {
+    location: inv.location ?? '',
+    location_id: inv.location_id ?? 0,
+    what_happened: (inv.variables_affected?.length ? `${inv.variables_affected.join(', ')} affected · ` : '') + (summary || 'No significant change'),
+    change: summary || 'No significant change',
+    contributing_factors: (inv.contributing_factors ?? []).map((f: any) => ({
+      factor: f.factor,
+      contribution: Math.round((f.weight ?? 0) * 100),
+      evidence: f.description ?? f.evidence ?? '',
+      confidence: f.confidence ?? 0,
+    })),
+    depth_range: depthStr || '—',
+    started_at: inv.started_at ?? '',
+    investigation_confidence: inv.confidence ?? inv.investigation_confidence ?? 0,
+  }
+}
+
+function normalizeAutopsy(aut: any): AutopsyReport | null {
+  if (!aut) return null
+  const change = aut.what_happened ?? {}
+  const uncertainty = aut.uncertainty ?? {}
+  const whatHappened = [
+    Number.isFinite(change.dT) && `SST ${change.dT > 0 ? '+' : ''}${change.dT}°C`,
+    Number.isFinite(change.dW) && `wave ${change.dW}m`,
+    Number.isFinite(change.dS) && `salinity ${change.dS}psu`,
+  ].filter(Boolean).join(' · ') || 'No significant change'
+  return {
+    title: aut.title ?? 'Ocean Autopsy',
+    generated_at: aut.started_at ?? aut.generated_at ?? '',
+    location: aut.location ?? '',
+    location_id: aut.location_id ?? 0,
+    what_happened: whatHappened,
+    timeline_summary: aut.timeline_summary ?? '',
+    contributing_factors: (aut.contributing_factors ?? []).map((f: any) => ({
+      factor: f.factor,
+      contribution: Math.round((f.weight ?? 0) * 100),
+      evidence: f.description ?? f.evidence ?? '',
+      confidence: f.confidence ?? 0,
+    })),
+    evidence: (aut.evidence ?? []).map((e: any) =>
+      typeof e === 'string' ? e : `${e.label}: ${e.value}`),
+    uncertainty: uncertainty.message
+      ? `${uncertainty.message} (overall confidence ${uncertainty.overall_confidence ?? aut.confidence ?? 0}%)`
+      : '',
+    similar_events: (aut.similar_historical_events ?? aut.similar_events ?? []).map((s: any) => ({
+      location: s.label ?? s.location ?? 'Unknown',
+      similarity: (s.similarity ?? 0) / 100,
+      match_label: s.match_label ?? '',
+    })),
+    ecosystem_risk: aut.ecosystem_risk
+      ?? `Dominant driver: ${uncertainty.dominant_factor ?? '—'}`,
+    recommendations: aut.observation_priorities ?? aut.recommendations ?? [],
+    executive_summary: aut.executive_summary
+      ?? `${aut.title ?? 'Ocean Autopsy'} — ${whatHappened}.`,
+  }
 }
 
 export default function Forensics() {
@@ -166,9 +240,21 @@ export default function Forensics() {
         const local = allEvents.filter((e) => e.location_id === selectedId)
         const rest = allEvents.filter((e) => e.location_id !== selectedId)
         setEvents([...local, ...rest])
-        setTimeline(tlRes.timeline ?? [])
-        setInvestigation(inv)
-        setAutopsy(aut)
+
+        // --- timeline: backend returns {time,sst,anomaly,stage} → normalize to temp/wave/event ---
+        setTimeline((tlRes.timeline ?? []).map((p: any) => ({
+          time: p.time,
+          temp: p.sst ?? p.temp ?? null,
+          wave: p.wave ?? p.wave_height ?? null,
+          event: p.stage ?? p.event ?? null,
+          event_type:
+            p.stage === 'Severe' || p.stage === 'Turning point' ? 'high'
+            : p.stage === 'Intensifying' || p.stage === 'Observed' ? 'medium'
+            : null,
+        })))
+
+        setInvestigation(normalizeInvestigation(inv))
+        setAutopsy(normalizeAutopsy(aut))
       })
       .catch(() => {})
       .finally(() => setPanelLoading(false))

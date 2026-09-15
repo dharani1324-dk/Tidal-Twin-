@@ -94,9 +94,9 @@
   border: 1px solid;
 }
 
-.b-chip.crit { color: #f43f5e; border-color: rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.08); }
-.b-chip.elev { color: #f59e0b; border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08); }
-.b-chip.stable { color: #34d399; border-color: rgba(52, 211, 153, 0.4); background: rgba(52, 211, 153, 0.08); }
+.b-chip.crit { color: var(--danger); border-color: rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.08); }
+.b-chip.elev { color: var(--warn); border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08); }
+.b-chip.stable { color: var(--ok); border-color: rgba(52, 211, 153, 0.4); background: rgba(52, 211, 153, 0.08); }
 
 /* ---- Executive summary ---- */
 .exec-panel {
@@ -221,13 +221,13 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  color: #34d399;
+  color: var(--ok);
 }
 
 .inline-icon {
   display: inline-block;
   vertical-align: -2px;
-  color: #38bdf8;
+  color: var(--accent-blue);
 }
 
 .btn-primary .inline-icon { display: none; }
@@ -239,8 +239,8 @@
   color: var(--text-secondary);
 }
 
-.alert-flag { color: #f59e0b; }
-.clear-flag { color: #34d399; }
+.alert-flag { color: var(--warn); }
+.clear-flag { color: var(--ok); }
 
 .alert-count {
   font-variant-numeric: tabular-nums;

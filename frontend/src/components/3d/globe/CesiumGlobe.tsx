@@ -31,7 +31,17 @@ export interface GlobeLocation {
   wave_height?: number | null
 }
 
-export type LayerKey = 'labels' | 'temperature' | 'waves' | 'currents' | 'storm' | 'uncertainty' | 'priority'
+export type LayerKey =
+  | 'labels'
+  | 'temperature'
+  | 'waves'
+  | 'currents'
+  | 'storm'
+  | 'uncertainty'
+  | 'priority'
+  | 'argo'
+  | 'disagreement'
+  | 'anomalies'
 export type LayersState = Record<LayerKey, boolean>
 
 /** One merged observation/forecast point used by the time scrubber. */
@@ -55,6 +65,114 @@ export interface StormTrackData {
   name?: string
   headline?: string
   points: { hour?: number; time?: string; lat: number; lon: number; wind_kmh?: number; radius_km?: number }[]
+}
+
+/** Argo float trajectory point (from /api/v1/apex/argo). */
+export interface ArgoPoint {
+  lat: number
+  lon: number
+  depth_m: number
+  timestamp: string
+  temperature: number
+  salinity: number
+}
+
+export interface ArgoFloat {
+  float_id: string
+  label: string
+  location_id: number
+  location: string
+  points: ArgoPoint[]
+}
+
+/** Per-region model-vs-observation disagreement (from /api/v1/twin/disagreement). */
+export interface DisagreementPoint {
+  location_id: number
+  location: string
+  latitude: number | null
+  longitude: number | null
+  variable: string
+  model: number | null
+  observed: number | null
+  difference: number | null
+  percent_difference: number | null
+  status: string
+  severity: string
+  band: string
+  confidence: number | null
+  confidence_level?: string
+  data_status: string
+}
+
+/** Ranked anomaly marker (from /api/v1/twin/anomalies). */
+export interface AnomalyPoint {
+  location_id: number
+  location: string
+  latitude: number | null
+  longitude: number | null
+  variable: string
+  label: string
+  unit: string
+  model: number | null
+  observed: number | null
+  difference: number | null
+  severity: string
+  confidence: number
+  score: number
+  data_status?: string
+}
+
+/** One vertical column of the 3D transect curtain (from /api/v1/twin/transect). */
+export interface TransectSample {
+  lat: number
+  lon: number
+  distance_km: number
+  surface_temp: number | null
+  surface_data_status: string
+  surface_coverage: string
+  surface_hint: string
+  thermocline: {
+    mixed_layer_depth: number | null
+    thermocline_depth: number
+    strength_c_per_m: number | null
+    isotherm_20_c: number | null
+  }
+  values: (number | null)[]
+}
+
+/** Argo profiler float intersecting the transect buffer (in-situ vs model). */
+export interface TransectArgo {
+  float_id: string
+  label: string
+  location: string
+  latitude: number
+  longitude: number
+  distance_km: number
+  max_depth_m: number
+  in_situ: { depths: number[]; temperature: (number | null)[]; salinity: (number | null)[] }
+  model: { depths: number[]; temperature: (number | null)[]; salinity: (number | null)[] }
+  difference_temperature: (number | null)[]
+  data_status: string
+  source: string
+}
+
+/** Full 3D vertical transect 'curtain' payload. */
+export interface TransectData {
+  a: { lat: number; lon: number }
+  b: { lat: number; lon: number }
+  distance_km: number
+  variable: string
+  label: string
+  unit: string
+  depth_max_m: number
+  depths: number[]
+  samples: TransectSample[]
+  surface_series: (number | null)[]
+  argos: TransectArgo[]
+  thermocline_polyline: { lat: number; lon: number; depth_m: number }[]
+  notes?: Record<string, string>
+  /** Present when the transect is invalid (points too close, etc.). */
+  error?: string
 }
 
 type CesiumModule = typeof import('cesium')
@@ -182,6 +300,62 @@ function deviationColor(Cesium: CesiumModule, dev: number) {
   return Cesium.Color.lerp(neutral, warm, c / span, new Cesium.Color())
 }
 
+/** Disagreement band palette used by the model-vs-observation globe layer. */
+function bandColor(Cesium: CesiumModule, band: string | undefined) {
+  switch (band) {
+    case 'red':
+      return Cesium.Color.fromCssColorString('#f43f5e')
+    case 'orange':
+      return Cesium.Color.fromCssColorString('#f97316')
+    case 'yellow':
+      return Cesium.Color.fromCssColorString('#eab308')
+    case 'green':
+      return Cesium.Color.fromCssColorString('#10b981')
+    case 'no data':
+    case 'unknown':
+      return Cesium.Color.fromCssColorString('#64748b')
+    default:
+      return Cesium.Color.fromCssColorString('#22d3ee')
+  }
+}
+
+let anomalySpriteCache: Record<string, string> = {}
+
+function getAnomalySprite(severity: string) {
+  const key = severity || 'medium'
+  if (anomalySpriteCache[key]) return anomalySpriteCache[key]
+  const size = 96
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const ctx = c.getContext('2d')!
+  const cx = size / 2
+  const color =
+    key === 'high' ? '#f43f5e' : key === 'medium' ? '#f59e0b' : key === 'low' ? '#22d3ee' : '#64748b'
+  // Filled diamond beacon with a softly pulsing ring.
+  const g = ctx.createRadialGradient(cx, cx, 0, cx, cx, 46)
+  g.addColorStop(0, 'rgba(255,255,255,0.95)')
+  g.addColorStop(0.25, color + 'cc')
+  g.addColorStop(1, color + '00')
+  ctx.fillStyle = g
+  ctx.beginPath()
+  ctx.arc(cx, cx, 46, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.save()
+  ctx.translate(cx, cx)
+  ctx.rotate(Math.PI / 4)
+  ctx.fillStyle = color
+  ctx.shadowColor = color
+  ctx.shadowBlur = 14
+  ctx.fillRect(-12, -12, 24, 24)
+  ctx.restore()
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath()
+  ctx.arc(cx, cx, 5, 0, Math.PI * 2)
+  ctx.fill()
+  anomalySpriteCache[key] = c.toDataURL()
+  return anomalySpriteCache[key]
+}
+
 /** Rolling 12h baseline of a region's merged timeline up to (excluding) idx. */
 function rollingBaseline(reg: SeriesRegion, idx: number): number | null {
   const windowPoints = reg.points.slice(Math.max(0, idx - 12), idx)
@@ -189,6 +363,8 @@ function rollingBaseline(reg: SeriesRegion, idx: number): number | null {
   if (temps.length === 0) return null
   return temps.reduce((a, b) => a + b, 0) / temps.length
 }
+
+type Cartesian2 = InstanceType<CesiumModule['Cartesian2']>
 
 /* ------------------ component ------------------ */
 
@@ -205,22 +381,42 @@ interface CesiumGlobeProps {
   uncertainties?: Record<number, number>
   /** location_id → observation-need/priority 0–100 (priority overlay). */
   priorities?: Record<number, number>
+  /** Argo float trajectories to draw as paths + current-position markers. */
+  argoFloats?: ArgoFloat[]
+  /** Per-region model-vs-observation disagreement (colors the patches). */
+  disagreement?: DisagreementPoint[]
+  /** Ranked anomalies to draw as focus beacons. */
+  anomalies?: AnomalyPoint[]
+  /** 3D vertical transect curtain (subsurface wall + thermocline + Argo). */
+  transect?: TransectData | null
+  /** When true, left-clicking the ocean picks transect endpoints (A then B). */
+  transectActive?: boolean
+  /** Fired when the user left-clicks a region beacon/label on the globe. */
+  onRegionClick?: (locId: number) => void
+  /** Fired when the user picks a transect endpoint on the ocean surface. */
+  onTransectPick?: (pt: { lat: number; lon: number }) => void
+  /** Fly the camera to a region. Bump `n` to re-trigger. */
+  flyToTarget?: { locId: number; n: number } | null
 }
 
 interface Scene {
   markers: VizEntity[]
-  temps: { locId: number; entity: VizEntity }[]
+  markerMap: { entity: VizEntity; locId: number }[]
+  temps: { locId: number; entity: VizEntity; temp: number | null }[]
   waves: VizEntity[]
   currents: VizEntity[]
   storm: VizEntity[]
   rings: VizEntity[]
   focus: VizEntity[]
+  argo: VizEntity[]
+  anomalies: VizEntity[]
+  transect: (InstanceType<CesiumModule['Primitive']> | VizEntity)[]
 }
 
-export default function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor = 'temp', uncertainties, priorities }: CesiumGlobeProps) {
+export default function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor = 'temp', uncertainties, priorities, argoFloats, disagreement, anomalies, transect, transectActive, onRegionClick, onTransectPick, flyToTarget }: CesiumGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<Viz | null>(null)
-  const sceneRef = useRef<Scene>({ markers: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [] })
+  const sceneRef = useRef<Scene>({ markers: [], markerMap: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [], argo: [], anomalies: [], transect: [] })
   const layersRef = useRef(layers)
   layersRef.current = layers
   const locatedRef = useRef(locations)
@@ -229,13 +425,26 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
   uncertaintyRef.current = uncertainties
   const prioritiesRef = useRef(priorities)
   prioritiesRef.current = priorities
+  const argoRef = useRef<ArgoFloat[]>([])
+  argoRef.current = argoFloats ?? []
   const seriesRef = useRef<SeriesRegion[]>([])
   seriesRef.current = series ?? []
   const cursorRef = useRef<number | null>(timeCursor ?? null)
   cursorRef.current = timeCursor ?? null
   const timeColorRef = useRef(timeColor)
   timeColorRef.current = timeColor
+  const disagreementRef = useRef(disagreement ?? [])
+  disagreementRef.current = disagreement ?? []
+  const anomaliesRef = useRef(anomalies ?? [])
+  anomaliesRef.current = anomalies ?? []
+  const onRegionClickRef = useRef(onRegionClick)
+  onRegionClickRef.current = onRegionClick
+  const transectActiveRef = useRef(transectActive ?? false)
+  transectActiveRef.current = transectActive ?? false
+  const onTransectPickRef = useRef(onTransectPick)
+  onTransectPickRef.current = onTransectPick
   const flownRef = useRef(false)
+  const handlersRef = useRef<InstanceType<CesiumModule['ScreenSpaceEventHandler']>[]>([])
 
   // Build / rebuild the scene whenever the location list changes.
   useEffect(() => {
@@ -288,7 +497,7 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
       }
 
       buildScene(Cesium, viewer)
-      applyLayers(viewer, layersRef.current)
+      applyLayers(Cesium, viewer, layersRef.current)
       const curs = cursorRef.current
       if (curs != null) applyCursor(Cesium, viewer, curs)
     })
@@ -302,7 +511,7 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
   useEffect(() => {
     const viewer = viewerRef.current
     if (!viewer) return
-    loadCesium().then(() => applyLayers(viewer, layers))
+    loadCesium().then((Cesium) => applyLayers(Cesium, viewer, layers))
   }, [layers])
 
   // Keep the temperature patches in sync with the timeline scrubber.
@@ -337,9 +546,96 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
       container?.removeEventListener('contextmenu', onContextMenu)
       viewerRef.current?.destroy()
       viewerRef.current = null
-      sceneRef.current = { markers: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [] }
+      sceneRef.current = { markers: [], markerMap: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [], argo: [], anomalies: [], transect: [] }
     }
   }, [])
+
+  // Left-click any region beacon/label → onRegionClick(locId).
+  useEffect(() => {
+    let active = true
+    loadCesium().then((Cesium) => {
+      if (!active) return
+      const viewer = viewerRef.current
+      if (!viewer) return
+      const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+      handler.setInputAction(
+        (click: unknown) => {
+          const pos = (click as { position: Cartesian2 }).position
+          if (!pos) return
+          // Transect pick mode: capture the ocean point under the cursor.
+          if (transectActiveRef.current) {
+            const cartesian = viewer.camera.pickEllipsoid(pos, viewer.scene.globe.ellipsoid)
+            if (cartesian) {
+              const cart = Cesium.Cartographic.fromCartesian(cartesian)
+              onTransectPickRef.current?.({
+                lat: Cesium.Math.toDegrees(cart.latitude),
+                lon: Cesium.Math.toDegrees(cart.longitude),
+              })
+            }
+            return
+          }
+          const picked = viewer.scene.pick(pos)
+          const entity = picked?.id
+          if (!entity || !entity.id) return
+          const hit = sceneRef.current.markerMap.find((m) => m.entity === entity)
+          if (hit) {
+            onRegionClickRef.current?.(hit.locId)
+            ;(viewer.container as HTMLElement).style.cursor = 'default'
+          }
+        },
+        Cesium.ScreenSpaceEventType.LEFT_CLICK,
+      )
+      // Friendly pointer affordance when hovering a region beacon.
+      handler.setInputAction(
+        (movement: unknown) => {
+          const pos = (movement as { endPosition?: Cartesian2 }).endPosition
+          if (!pos) return
+          if (transectActiveRef.current) {
+            const ell = viewer.camera.pickEllipsoid(pos, viewer.scene.globe.ellipsoid)
+            ;(viewer.container as HTMLElement).style.cursor = ell ? 'crosshair' : 'default'
+            return
+          }
+          const picked = viewer.scene.pick(pos)
+          const hit = picked?.id && sceneRef.current.markerMap.find((m) => m.entity === picked.id)
+          ;(viewer.container as HTMLElement).style.cursor = hit ? 'pointer' : 'default'
+        },
+        Cesium.ScreenSpaceEventType.MOUSE_MOVE,
+      )
+      handlersRef.current.push(handler)
+    })
+    return () => {
+      active = false
+      for (const h of handlersRef.current) h.destroy()
+      handlersRef.current = []
+    }
+  }, [])
+
+  // Fly the camera to a region when flyToTarget changes.
+  useEffect(() => {
+    if (!flyToTarget) return
+    const viewer = viewerRef.current
+    if (!viewer) return
+    loadCesium().then((Cesium) => {
+      const loc = locatedRef.current.find((l) => l.id === flyToTarget.locId)
+      if (!loc || loc.latitude == null || loc.longitude == null) return
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(loc.longitude, loc.latitude, 2400000),
+        orientation: { heading: 0, pitch: Cesium.Math.toRadians(-52), roll: 0 },
+        duration: 2.6,
+      })
+    })
+  }, [flyToTarget])
+
+  // 3D vertical transect 'curtain': subsurface globe mode + wall + thermocline.
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    loadCesium().then((Cesium) => {
+      if (transect) buildTransect(Cesium, viewer, transect)
+      else if (transectActive) enableSubsurface(Cesium, viewer)
+      else clearTransect(viewer)
+    })
+  }, [transect, transectActive])
 
   // Try Cesium Ion satellite imagery first; if the token can't load it,
   // fall back to free OpenStreetMap tiles so the globe never stays empty.
@@ -363,7 +659,7 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
   function buildScene(Cesium: CesiumModule, viewer: Viz) {
     viewer.entities.removeAll()
     clearStormEntities(viewer)
-    const scene: Scene = { markers: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [] }
+    const scene: Scene = { markers: [], markerMap: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [], argo: [], anomalies: [], transect: [] }
 
     const valid = (locations.length > 0 ? locations : FALLBACK_LOCATIONS).filter(
       (l) => l.latitude != null && l.longitude != null,
@@ -405,24 +701,31 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
         },
       })
       scene.markers.push(marker)
+      scene.markerMap.push({ entity: marker, locId: loc.id })
 
-      // ---- Temperature heat patches ----
+      // ---- Temperature heat patches (recolored by model-vs-obs disagreement
+      // when the disagreement layer is on) ----
       const tempC = tempColor(Cesium, loc.temperature ?? 28)
+      const disagree = disagreementRef.current.find((d) => d.location_id === loc.id)
+      const disagreeOn = layersRef.current.disagreement
+      const baseShow = layersRef.current.temperature
+      const patchBand = disagreeOn && disagree ? disagree.band : null
+      const patchColor = patchBand ? bandColor(Cesium, patchBand) : tempC
       const temp = viewer.entities.add({
         position: Cesium.Cartesian3.fromDegrees(lon, lat, 300),
         ellipse: {
           semiMajorAxis: 62000,
           semiMinorAxis: 45000,
           rotation: Cesium.Math.toRadians(phase * 17),
-          material: tempC.withAlpha(0.38),
+          material: patchColor.withAlpha(patchBand ? 0.46 : 0.38),
           outline: true,
-          outlineColor: tempC.withAlpha(0.9),
-          outlineWidth: 2,
+          outlineColor: patchColor.withAlpha(patchBand ? 0.95 : 0.9),
+          outlineWidth: patchBand ? 3 : 2,
           height: 300,
         },
-        show: layersRef.current.temperature,
+        show: baseShow || (disagreeOn && disagree != null),
       })
-      scene.temps.push({ locId: loc.id, entity: temp })
+      scene.temps.push({ locId: loc.id, entity: temp, temp: loc.temperature ?? null })
 
       // ---- Wave ripples (3 expanding rings) ----
       for (let r = 0; r < 3; r++) {
@@ -503,6 +806,79 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
         })
         scene.focus.push(focusRing)
       }
+    }
+
+    // ---- Anomaly beacons (ranked model-vs-observation anomalies) ----
+    const anomalyShow = layersRef.current.anomalies
+    for (const a of anomaliesRef.current) {
+      if (a.latitude == null || a.longitude == null) continue
+      const pulse = 0.82 + 0.3 * (0.5 + 0.5 * Math.sin(Date.now() / 1000 * 4 + a.location_id))
+      const beacon = viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(a.longitude, a.latitude, 350),
+        billboard: {
+          image: getAnomalySprite(a.severity),
+          width: 64,
+          height: 64,
+          scale: new Cesium.CallbackProperty(() => pulse, false),
+          scaleByDistance: new Cesium.NearFarScalar(1.0e6, 1.0, 5.0e6, 0.5),
+          verticalOrigin: Cesium.VerticalOrigin.CENTER,
+        },
+        label: {
+          text: `${a.label} ${a.difference != null ? (a.difference > 0 ? '+' : '') + a.difference.toFixed(1) : ''}${a.unit}`,
+          font: '700 12px Inter, sans-serif',
+          fillColor: Cesium.Color.fromCssColorString('#ffffff'),
+          showBackground: true,
+          backgroundColor: Cesium.Color.fromCssColorString('#0a1526').withAlpha(0.9),
+          backgroundPadding: new Cesium.Cartesian2(6, 4),
+          pixelOffset: new Cesium.Cartesian2(0, -18),
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          outlineColor: Cesium.Color.fromCssColorString('#000000').withAlpha(0.5),
+          outlineWidth: 2,
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 4.5e6),
+        },
+        show: anomalyShow,
+      })
+      scene.anomalies.push(beacon)
+      scene.markerMap.push({ entity: beacon, locId: a.location_id })
+    }
+
+    // ---- Argo float trajectories ----
+    for (const flt of argoRef.current) {
+      if (!flt.points || flt.points.length < 2) continue
+      // Trail polyline: rising = red→yellow, sinking = cyan→blue
+      const positions = flt.points.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 50 + p.depth_m * 0.4))
+      const trail = viewer.entities.add({
+        polyline: {
+          positions,
+          width: 2.0,
+          material: new Cesium.PolylineGlowMaterialProperty({
+            glowPower: 0.15,
+            color: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.75),
+          }),
+          clampToGround: false,
+        },
+        show: layersRef.current.argo,
+      })
+      scene.argo.push(trail)
+      // Current-position sphere
+      const last = flt.points[flt.points.length - 1]
+      const tempNorm = Math.max(0, Math.min(1, (last.temperature - 4) / 25))
+      const sphereColor = Cesium.Color.fromHsl(0.6 - tempNorm * 0.55, 0.85, 0.55)
+      const sphere = viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(last.lon, last.lat, 50 + last.depth_m * 0.4),
+        point: { pixelSize: 10, color: sphereColor, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+        label: {
+          text: flt.label,
+          font: '11px monospace',
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -12),
+        },
+        show: layersRef.current.argo,
+      })
+      scene.argo.push(sphere)
     }
 
     // ---- Currents: glowing arcs along the coastline + streaming dots ----
@@ -707,13 +1083,245 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
     viewer.scene.requestRender()
   }
 
+  /** Make the globe translucent so subsurface layers are visible. */
+  function enableSubsurface(Cesium: CesiumModule, viewer: Viz) {
+    const globe = viewer.scene.globe
+    if (globe.translucency) {
+      globe.translucency.enabled = true
+      globe.translucency.frontFaceAlphaByDistance = new Cesium.NearFarScalar(1e2, 0.4, 1e6, 0.7)
+      globe.translucency.backFaceAlpha = 0.5
+      globe.undergroundColor = Cesium.Color.fromCssColorString('#020b14')
+    }
+    viewer.scene.requestRender()
+  }
+
+  /** Remove the curtain / thermocline / Argo transect layer + restore the globe. */
+  function clearTransect(viewer: Viz | null) {
+    if (!viewer) return
+    for (const obj of sceneRef.current.transect) {
+      try {
+        viewer.scene.primitives.remove(obj)
+      } catch {
+        /* already removed */
+      }
+      try {
+        viewer.entities.remove(obj as VizEntity)
+      } catch {
+        /* already removed */
+      }
+    }
+    sceneRef.current = { ...sceneRef.current, transect: [] }
+    const globe = viewer.scene.globe
+    if (globe.translucency) {
+      globe.translucency.enabled = false
+      globe.undergroundColor = undefined as unknown as InstanceType<CesiumModule['Color']>
+    }
+    viewer.scene.requestRender()
+  }
+
+  /** Ocean temperature colormap: deep navy -> cyan -> teal -> amber -> crimson. */
+  function tempToRgb(t: number) {
+    const k = Math.max(0, Math.min(1, t))
+    const stops: [number, number, number, number][] = [
+      [0.0, 10, 20, 45],
+      [0.22, 23, 163, 199],
+      [0.45, 45, 212, 191],
+      [0.6, 125, 211, 252],
+      [0.75, 251, 191, 36],
+      [0.9, 249, 115, 22],
+      [1.0, 244, 63, 94],
+    ]
+    for (let i = 1; i < stops.length; i++) {
+      if (k <= stops[i][0]) {
+        const [t0, r0, g0, b0] = stops[i - 1]
+        const [t1, r1, g1, b1] = stops[i]
+        const f = (k - t0) / (t1 - t0)
+        return [
+          Math.round(r0 + (r1 - r0) * f),
+          Math.round(g0 + (g1 - g0) * f),
+          Math.round(b0 + (b1 - b0) * f),
+        ]
+      }
+    }
+    const last = stops[stops.length - 1]
+    return [last[1], last[2], last[3]]
+  }
+
+  /** Build the 3D transect curtain: textured subsurface wall + thermocline + Argo. */
+  function buildTransect(Cesium: CesiumModule, viewer: Viz, data: TransectData) {
+    clearTransect(viewer)
+    enableSubsurface(Cesium, viewer)
+
+    const scene = sceneRef.current
+    const samples = data.samples ?? []
+    if (samples.length < 2) return
+
+    // ---- 1. The subsurface curtain wall (procedurally textured) ----
+    const positions = samples.map((s) => Cesium.Cartesian3.fromDegrees(s.lon, s.lat, 0))
+    const W = Math.max(192, samples.length * 6)
+    const H = Math.max(128, (data.depths ?? []).length * 6)
+    const canvas = document.createElement('canvas')
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      let tMin = Infinity
+      let tMax = -Infinity
+      for (const s of samples) {
+        for (const v of s.values ?? []) {
+          if (v == null) continue
+          if (v < tMin) tMin = v
+          if (v > tMax) tMax = v
+        }
+      }
+      if (!isFinite(tMin) || !isFinite(tMax) || tMax - tMin < 1e-6) {
+        tMin = (data.variable === 'salinity' ? 34 : 4)
+        tMax = (data.variable === 'salinity' ? 37 : 30)
+      }
+      const nS = samples.length
+      const nD = (data.depths ?? []).length
+      const cellW = Math.ceil(W / Math.max(1, nS))
+      const cellH = Math.max(2, Math.ceil(H / Math.max(1, nD - 1)))
+      for (let si = 0; si < nS; si++) {
+        const x0 = Math.floor((si / Math.max(1, nS - 1)) * (W - 1))
+        const values = samples[si].values ?? []
+        for (let di = 0; di < nD; di++) {
+          const v = values[di]
+          if (v == null) continue
+          const y = Math.floor((di / Math.max(1, nD - 1)) * (H - 1))
+          const [r, g, b] = tempToRgb((v - tMin) / (tMax - tMin))
+          ctx.fillStyle = `rgb(${r},${g},${b})`
+          ctx.fillRect(x0, y, cellW, cellH)
+        }
+      }
+    }
+
+    const depth = -Math.max(200, Math.round(data.depth_max_m || 2000))
+    const wall = new Cesium.Primitive({
+      geometryInstances: new Cesium.GeometryInstance({
+        geometry: new Cesium.WallGeometry({
+          positions,
+          maximumHeights: positions.map(() => 0),
+          minimumHeights: positions.map(() => depth),
+          granularity: Cesium.Math.toRadians(1.5),
+        }),
+      }),
+      appearance: new Cesium.MaterialAppearance({
+        material: Cesium.Material.fromType('Image', { image: canvas }),
+        flat: true,
+      }),
+      asynchronous: false,
+    })
+    viewer.scene.primitives.add(wall)
+    scene.transect.push(wall)
+
+    // ---- 2. Glowing thermocline polyline (max-gradient layer) ----
+    const thermoPoints = (data.thermocline_polyline ?? []).filter(
+      (p) => p.depth_m > 0 && p.depth_m < Math.max(200, Math.round(data.depth_max_m || 2000)),
+    )
+    if (thermoPoints.length > 1) {
+      const thermoPositions = thermoPoints.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, -p.depth_m))
+      scene.transect.push(
+        viewer.entities.add({
+          polyline: {
+            positions: thermoPositions,
+            width: 4,
+            clampToGround: false,
+            material: new Cesium.PolylineGlowMaterialProperty({
+              color: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.95),
+              glowPower: 0.4,
+            }),
+          },
+        }),
+      )
+      // Endpoint labels
+      const tm = thermoPoints[Math.floor(thermoPoints.length / 2)]
+      scene.transect.push(
+        viewer.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(tm.lon, tm.lat, -tm.depth_m),
+          label: {
+            text: `THERMOCLINE · ${Math.round(tm.depth_m)}m`,
+            font: '700 11px Inter, sans-serif',
+            fillColor: Cesium.Color.fromCssColorString('#bae6fd'),
+            showBackground: true,
+            backgroundColor: Cesium.Color.fromCssColorString('#06122a').withAlpha(0.9),
+            backgroundPadding: new Cesium.Cartesian2(6, 4),
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            outlineColor: Cesium.Color.fromCssColorString('#000000').withAlpha(0.6),
+            outlineWidth: 2,
+          },
+        }),
+      )
+    }
+
+    // ---- 3. Argo in-situ subsurface profile markers (model-vs-in-situ) ----
+    for (const f of data.argos ?? []) {
+      const zs = (f.in_situ?.depths ?? [])
+      const temps = (f.in_situ?.temperature ?? [])
+      const pts: InstanceType<CesiumModule['Cartesian3']>[] = []
+      zs.forEach((d, i) => {
+        const t = temps[i]
+        if (t != null && d <= Math.max(200, Math.round(data.depth_max_m || 2000))) {
+          pts.push(Cesium.Cartesian3.fromDegrees(f.longitude, f.latitude, -d))
+        }
+      })
+      if (pts.length < 2) continue
+      const seg = viewer.entities.add({
+        polyline: {
+          positions: pts,
+          width: 3,
+          clampToGround: false,
+          material: new Cesium.PolylineGlowMaterialProperty({
+            color: Cesium.Color.fromCssColorString('#f59e0b').withAlpha(0.9),
+            glowPower: 0.2,
+          }),
+        },
+        label: {
+          text: `ARGO ${f.label} · ${Math.round(f.max_depth_m)}m`,
+          font: '600 11px monospace',
+          fillColor: Cesium.Color.fromCssColorString('#fde68a'),
+          showBackground: true,
+          backgroundColor: Cesium.Color.fromCssColorString('#121a2a').withAlpha(0.92),
+          backgroundPadding: new Cesium.Cartesian2(6, 4),
+          pixelOffset: new Cesium.Cartesian2(10, 0),
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 5e6),
+        },
+      })
+      scene.transect.push(seg)
+      const mrk = viewer.entities.add({
+        position: pts[0],
+        point: {
+          pixelSize: 7,
+          color: Cesium.Color.fromCssColorString('#fbbf24'),
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2,
+        },
+      })
+      scene.transect.push(mrk)
+    }
+
+    // Frame the transect slightly above the surface so the whole water column reads.
+    const mid = samples[Math.floor(samples.length / 2)]
+    if (mid) {
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(mid.lon, mid.lat, 1500000),
+        orientation: { heading: 0, pitch: Cesium.Math.toRadians(-48), roll: 0 },
+        duration: 2.0,
+      })
+    }
+    viewer.scene.requestRender()
+  }
+
   /** Recolor temperature patches from the merged timeline at the cursor. */
   function applyCursor(Cesium: CesiumModule, viewer: Viz, cursor: number) {
     const scene = sceneRef.current
     const mode = timeColorRef.current
+    const disagreeActive = layersRef.current.disagreement
     for (const tge of scene.temps) {
       const reg = seriesRef.current.find((r) => r.location_id === tge.locId)
       if (!reg) continue
+      // Regions colored by the disagreement layer keep their status colors.
+      if (disagreeActive && disagreementRef.current.some((d) => d.location_id === tge.locId)) continue
       const idx = Math.min(cursor, reg.points.length - 1)
       const p = reg.points[idx]
       const entity = tge.entity
@@ -738,17 +1346,34 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
     viewer.scene.requestRender()
   }
 
-  function applyLayers(viewer: Viz, state: LayersState) {
+  function applyLayers(Cesium: CesiumModule, viewer: Viz, state: LayersState) {
     const scene = sceneRef.current
     scene.markers.forEach((m) => {
       if (m.label) (m.label as unknown as Showable).show = state.labels
     })
-    scene.temps.forEach((t) => (t.entity.show = state.temperature))
+    scene.temps.forEach((t) => {
+      const disagree = disagreementRef.current.find((d) => d.location_id === t.locId)
+      const disagreeOn = state.disagreement && disagree != null
+      t.entity.show = state.temperature || disagreeOn
+      if (disagreeOn && t.entity.ellipse) {
+        const col = bandColor(Cesium, disagree.band)
+        t.entity.ellipse.material = new Cesium.ColorMaterialProperty(col.withAlpha(disagree.band === 'red' ? 0.5 : 0.42))
+        t.entity.ellipse.outlineColor = new Cesium.ConstantProperty(col.withAlpha(0.95))
+        t.entity.ellipse.outlineWidth = new Cesium.ConstantProperty(3)
+      } else if (state.temperature && t.entity.ellipse && !disagreeOn) {
+        const def = tempColor(Cesium, t.temp ?? 28)
+        t.entity.ellipse.material = new Cesium.ColorMaterialProperty(def.withAlpha(0.38))
+        t.entity.ellipse.outlineColor = new Cesium.ConstantProperty(def.withAlpha(0.9))
+        t.entity.ellipse.outlineWidth = new Cesium.ConstantProperty(2)
+      }
+    })
     scene.waves.forEach((e) => (e.show = state.waves))
     scene.currents.forEach((e) => (e.show = state.currents))
     scene.storm.forEach((e) => (e.show = state.storm))
     scene.rings.forEach((e) => (e.show = state.uncertainty))
     scene.focus.forEach((e) => (e.show = state.priority))
+    scene.argo.forEach((e) => (e.show = state.argo))
+    scene.anomalies.forEach((e) => (e.show = state.anomalies))
     viewer.scene.requestRender()
   }
 

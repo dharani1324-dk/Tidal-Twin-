@@ -188,8 +188,9 @@ export default function Monitoring() {
         </div>
         <div className="forecast-grid">
           {forecasts.slice(0, 8).map((f) => {
-            const last = f.forecast[f.forecast.length - 1]
-            const isUp = last && f.forecast[0] ? last.wave_height! >= f.forecast[0].wave_height! : true
+            const last = f.forecast?.[f.forecast.length - 1]
+            const first = f.forecast?.[0]
+            const isUp = last && first && last.wave_height != null && first.wave_height != null ? last.wave_height >= first.wave_height : true
             return (
               <div key={f.location} className="forecast-card">
                 <div className="forecast-name">{f.location.split(' (')[0]}</div>

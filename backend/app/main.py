@@ -22,6 +22,11 @@ from app.api.safety import router as safety_router
 from app.api.validation import router as validation_router
 from app.api.intelligence import router as intelligence_router
 from app.api.apex import router as apex_router
+from app.api.coastal import router as coastal_router
+from app.api.twin import router as twin_router
+from app.api.currents import router as currents_router
+from app.api.edr import router as edr_router
+from app.api.lens import router as lens_router
 from app.modules.ai.safety.live import broadcast_loop
 
 
@@ -71,6 +76,11 @@ app.include_router(safety_router)
 app.include_router(validation_router)
 app.include_router(intelligence_router)
 app.include_router(apex_router)
+app.include_router(coastal_router)
+app.include_router(twin_router)
+app.include_router(currents_router)
+app.include_router(edr_router)
+app.include_router(lens_router)
 
 
 # ---- Basic Routes (Doors) ----

@@ -624,15 +624,18 @@ def scenario_projection_multi(db: Session, location_id: int,
     waves = [o.wave_height for o in rows if o.wave_height is not None]
     temps = [o.sea_surface_temperature for o in rows if o.sea_surface_temperature is not None]
     sals  = [o.salinity for o in rows if o.salinity is not None]
+    currs = [o.current_speed for o in rows if o.current_speed is not None]
 
     base_wave = waves[-1] if waves else 1.0
     base_temp = temps[-1] if temps else 28.0
     base_sal  = sals[-1] if sals else 35.0
+    base_curr = currs[-1] if currs else 0.4
 
     k_w = max(-0.5, min(0.5, wind_percent / 100.0))
     proj_wave = round(max(0.0, base_wave * (1 + k_w * 0.9)), 2)
     proj_temp = round(base_temp + temp_delta - k_w * 0.4, 2)
     proj_sal  = round(base_sal + salinity_delta, 2)
+    proj_curr = round(max(0.0, base_curr * (1 + k_w * 0.5) * (1 + 0.1 * max(0, mixing_factor - 1.0))), 2)
 
     # Mixing suppresses stratification; stronger mixing reduces surface warming
     proj_temp = round(proj_temp * (1.0 - 0.1 * max(0, mixing_factor - 1.0)), 2)
@@ -665,6 +668,7 @@ def scenario_projection_multi(db: Session, location_id: int,
             "wave_height": proj_wave,
             "sst": proj_temp,
             "salinity": proj_sal,
+            "current_speed": proj_curr,
             "hazard_band": band,
             "band_change": band_change,
         },
@@ -736,12 +740,14 @@ def future_windows(db: Session, location_id: int) -> dict:
     loc = db.query(OceanLocation).filter(OceanLocation.id == location_id).first()
     if not loc:
         return {"error": "location not found"}
-
     rows = _latest_rows(db, loc)
     temps = [o.sea_surface_temperature for o in rows if o.sea_surface_temperature is not None]
     waves = [o.wave_height for o in rows if o.wave_height is not None]
+    currs = [o.current_speed for o in rows if o.current_speed is not None]
+
     base_temp = temps[-1] if temps else 28.0
     base_wave = waves[-1] if waves else 1.0
+    base_curr = currs[-1] if currs else 0.4
 
     windows = []
     for h in (72, 168, 336, 720):
@@ -749,6 +755,8 @@ def future_windows(db: Session, location_id: int) -> dict:
         t_step = (temps[-1] - temps[0]) / max(1, len(temps)) if len(temps) >= 2 else 0
         proj_temp = round(base_temp + t_step * h, 2)
         proj_wave = round(max(0.0, base_wave + (waves[-1] - waves[0]) / max(1, len(waves)) * h * 0.3), 2)
+        c_step = (currs[-1] - currs[0]) / max(1, len(currs)) if len(currs) >= 2 else 0
+        proj_curr = round(max(0.0, base_curr + c_step * h * 0.2), 2)
 
         conf = max(20, round(95 - h * 0.1, 1))
         band = "danger" if proj_wave >= _EV_DANGER else "warning" if proj_wave >= _EV_WARN else \
@@ -758,6 +766,7 @@ def future_windows(db: Session, location_id: int) -> dict:
             "horizon_hours": h,
             "projected_sst": proj_temp,
             "projected_wave": proj_wave,
+            "projected_current_speed": proj_curr,
             "hazard_band": band,
             "confidence": conf,
             "narrative": (

@@ -1,8 +1,12 @@
 /* Ocean Vision Page (Apex Intelligence Engines) */
 
 .ov-page {
-  padding: 1.25rem;
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
 }
 
 .ov-header {
@@ -58,7 +62,7 @@
 }
 
 .ov-badge-live {
-  color: #34d399;
+  color: var(--ok);
   border-color: rgba(52, 211, 153, 0.35);
 }
 
@@ -66,8 +70,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #34d399;
-  box-shadow: 0 0 10px #34d399;
+  background: var(--ok);
+  box-shadow: 0 0 10px var(--ok);
   animation: ovPulse 1.6s infinite;
 }
 
@@ -290,7 +294,7 @@
   align-items: center;
   gap: 0.25rem;
   font-size: 0.7rem;
-  color: #34d399;
+  color: var(--ok);
 }
 
 .ov-flag-changed {

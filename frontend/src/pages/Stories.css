@@ -243,7 +243,7 @@
 }
 
 .trend-up { color: #fb7185; }
-.trend-down { color: #38bdf8; }
+.trend-down { color: var(--accent-blue); }
 
 .chips-row {
   display: flex;
@@ -311,7 +311,7 @@
 }
 
 .wave-fill {
-  background: linear-gradient(90deg, #38bdf8, #22d3ee);
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent));
 }
 
 .bar-val {
@@ -339,7 +339,7 @@
 .gauge-fill {
   height: 100%;
   border-radius: 99px;
-  background: linear-gradient(90deg, #34d399, #fbbf24);
+  background: linear-gradient(90deg, var(--ok), var(--warn));
 }
 
 .gauge-labels {
@@ -379,7 +379,7 @@
 .mae-val {
   font-size: 13px;
   font-weight: 700;
-  color: #a5b4fc;
+  color: #c7c9ff;
 }
 
 /* ---- Time Explorer ---- */
@@ -445,8 +445,8 @@
   display: inline-block;
 }
 
-.forecast-dot { background: #38bdf8; }
-.observed-dot { background: #34d399; }
+.forecast-dot { background: var(--accent-blue); }
+.observed-dot { background: var(--ok); }
 
 .compare-footer {
   margin-top: 8px;
