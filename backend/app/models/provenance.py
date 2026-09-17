@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Provenance Registry Model
+TidalTwin - Provenance Registry Model
 =========================================
 One row per ingestion batch. Records, for that batch:
 

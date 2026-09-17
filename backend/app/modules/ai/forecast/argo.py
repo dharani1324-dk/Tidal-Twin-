@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Argo Float Trajectory Simulator
+TidalTwin - Argo Float Trajectory Simulator
 ===============================================
 Generates deterministic, reproducible simulated Argo float paths
 around each monitored location. Floats drift with regional currents,

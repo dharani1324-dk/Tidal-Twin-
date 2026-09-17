@@ -1,4 +1,4 @@
-"""Generate OceanVerse AI SIH pitch deck (4 slides, light theme)."""
+"""Generate TidalTwin SIH pitch deck (4 slides, light theme)."""
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
@@ -112,7 +112,7 @@ TITLE_BAR = Inches(0.85)
 # ============================================================ SLIDE 1
 s = prs.slides.add_slide(BLANK); _bg(s)
 _box(s, 0, 0, SW, Inches(0.28), fill=BLUE, line=None, rounded=False)
-_txt(s, Inches(0.9), Inches(2.0), Inches(11.5), Inches(1.2), "OceanVerse AI", size=56, color=NAVY, bold=True)
+_txt(s, Inches(0.9), Inches(2.0), Inches(11.5), Inches(1.2), "TidalTwin", size=56, color=NAVY, bold=True)
 _txt(s, Inches(0.95), Inches(3.05), Inches(11.4), Inches(0.6),
      "Interactive 4D Ocean Model Validation & Decision Intelligence Platform", size=24, color=BLUE, bold=True)
 _box(s, Inches(0.95), Inches(3.95), Inches(11.4), Inches(0.04), fill=DEEP, line=None, rounded=False)
@@ -126,7 +126,7 @@ _txt(s, Inches(1.35), Inches(4.62), Inches(10.6), Inches(1.0),
 _txt(s, Inches(0.95), Inches(6.35), Inches(11.4), Inches(0.5),
      "Smart India Hackathon 2026  ·  Problem Statement SIH-26067  ·  Ocean Data Utilization for Coastal Community Services",
      size=14, color=MUT, bold=False)
-_txt(s, Inches(0.95), Inches(6.9), Inches(11.4), Inches(0.4), "Team OceanVerse AI  ·  Mumbai",
+_txt(s, Inches(0.95), Inches(6.9), Inches(11.4), Inches(0.4), "Team TidalTwin  ·  Mumbai",
      size=14, color=MUT, bold=True)
 
 # ============================================================ SLIDE 2
@@ -255,5 +255,5 @@ _txt(s, Inches(1.6), Inches(6.18), Inches(10.1), Inches(0.75),
      "a decision-intelligence dashboard in the hands of every coast.",
      size=17, color=WHITE, bold=True, align=PP_ALIGN.CENTER, line_spacing=1.15)
 
-prs.save(r"C:\Project 2.0\presentation\OceanVerse_SIH_Pitch.pptx")
-print("saved: presentation/OceanVerse_SIH_Pitch.pptx")
+prs.save(r"C:\Project 2.0\presentation\TidalTwin_SIH_Pitch.pptx")
+print("saved: presentation/TidalTwin_SIH_Pitch.pptx")

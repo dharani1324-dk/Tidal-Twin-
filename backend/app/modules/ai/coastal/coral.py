@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Coral Bleaching Risk
+TidalTwin - Coral Bleaching Risk
 ====================================
 Thermal-stress index for India's major coral ecosystems
 (Gulf of Mannar, Lakshadweep, Andaman & Nicobar).

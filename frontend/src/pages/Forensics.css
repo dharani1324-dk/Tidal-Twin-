@@ -191,6 +191,29 @@
   border-radius: 8px;
 }
 
+.replay-link {
+  margin-top: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #67e8f9;
+  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 8px;
+  padding: 0.32rem 0.6rem;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.replay-link:hover {
+  color: #03131c;
+  background: #67e8f9;
+  border-color: #67e8f9;
+}
+
 .investigation-headline {
   font-size: 1.02rem;
   font-weight: 800;

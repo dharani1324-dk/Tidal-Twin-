@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Multimodal Ocean Intelligence
+TidalTwin - Multimodal Ocean Intelligence
 =============================================
 Fuses *different kinds of input* (a pasted field report / news snippet /
 satellite metadata / NetCDF summary + our live sensor engines) into one
@@ -267,7 +267,7 @@ def multimodal_fuse(db: Session, text: str, media: dict | None = None) -> dict:
 
     answer = (
         f"{note_loc} **{loc_names}**\n\n"
-        f"**Fusion summary** — {source_label} cross-checked against the OceanVerse live network. "
+        f"**Fusion summary** — {source_label} cross-checked against the TidalTwin live network. "
         f"{verdict_sentence}{media_clause}\n\n"
         f"**Claim-by-claim traceability:**\n{agree_lines}\n\n"
         f"**Sensor context on the ground:**\n{alert_line}\n{event_line}"

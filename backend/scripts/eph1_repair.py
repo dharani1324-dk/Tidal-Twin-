@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Phase-1 HONESTY REPAIR (honest, authoritative, SQL-truth ref)
+TidalTwin - Phase-1 HONESTY REPAIR (honest, authoritative, SQL-truth ref)
 =============================================================================
 Session-verified facts encoded here (NOT guessed):
   * Probe-confirmed model exports: AisTrack, DerivedCurrent, ProvenanceRecord
@@ -76,7 +76,7 @@ sim_batch = db.query(ProvenanceRecord).filter_by(
 ).one_or_none()
 if sim_batch is None:
     sim_batch = ProvenanceRecord(
-        source_name="OceanVerse - Demo Simulator",
+        source_name="TidalTwin - Demo Simulator",
         source_url="internal://simulator/demo",
         batch_key=SIM_BATCH_KEY,
         method_tag="SIMULATED",
@@ -112,7 +112,7 @@ der_batch = db.query(ProvenanceRecord).filter_by(
 ).one_or_none()
 if der_batch is None:
     der_batch = ProvenanceRecord(
-        source_name="OceanVerse - Derived Current Engine",
+        source_name="TidalTwin - Derived Current Engine",
         source_url="internal://derived-engine/algo-v1",
         batch_key=DER_BATCH_KEY,
         method_tag="DERIVED",

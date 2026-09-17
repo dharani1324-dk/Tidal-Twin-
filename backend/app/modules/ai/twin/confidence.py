@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Transparent Confidence Scoring
+TidalTwin - Transparent Confidence Scoring
 ==============================================
 Confidence is never random. It is derived from meaningful, explainable
 factors:

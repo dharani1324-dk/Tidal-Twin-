@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Fisheries Advisory
+TidalTwin - Fisheries Advisory
 ==================================
 Computes Fish Aggregation Zones (FAZ): where fish are most likely to
 concentrate *right now* (temperature + chlorophyll + nutrients + currents)

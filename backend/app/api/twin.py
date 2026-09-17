@@ -1,4 +1,4 @@
-"""OceanVerse AI - Ocean Digital Twin API.
+"""TidalTwin - Ocean Digital Twin API.
 
 One router exposing the AI-powered digital-twin intelligence layer:
 

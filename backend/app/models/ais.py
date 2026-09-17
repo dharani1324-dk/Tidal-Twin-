@@ -1,5 +1,5 @@
 """
-OceanVerse AI - AIS Track & Derived Current Models
+TidalTwin - AIS Track & Derived Current Models
 ===================================================
 The "ships as sensors" pipeline. Two additive tables:
 

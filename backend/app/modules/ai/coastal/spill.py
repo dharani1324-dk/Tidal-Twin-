@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Oil-Spill Drift & Search-and-Rescue Engine
+TidalTwin - Oil-Spill Drift & Search-and-Rescue Engine
 =========================================================
 Deterministic Lagrangian drift simulation. Given an origin (a monitored
 coast or an explicit lat/lon) it advects a plume/search-target over time

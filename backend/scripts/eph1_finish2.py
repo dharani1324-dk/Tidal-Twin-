@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Phase 1 FINISH (eph1_finish2.py)  --  ONE clean, honest pass.
+TidalTwin - Phase 1 FINISH (eph1_finish2.py)  --  ONE clean, honest pass.
 =============================================================================
 Real, probe-confirmed API surface (no guesses, no greps of my own output):
   ORM : AisTrack, DerivedCurrent, ProvenanceRecord   (from app.models)
@@ -47,7 +47,7 @@ der_batch = (
 )
 if der_batch is None:
     der_batch = ProvenanceRecord(
-        source_name="OceanVerse AI - Derivation Engine (Eph1)",
+        source_name="TidalTwin - Derivation Engine (Eph1)",
         source_url="internal://derivation/eph1",
         batch_key=DER_BATCH_KEY,
         method_tag="DERIVED",

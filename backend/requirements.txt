@@ -1,5 +1,5 @@
 # ============================================================
-# OceanVerse AI - Backend Dependencies (Core)
+# TidalTwin - Backend Dependencies (Core)
 # Install with:  py -3.12 -m pip install -r requirements.txt
 # ============================================================
 

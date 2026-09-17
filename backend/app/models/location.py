@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Ocean Location Model
+TidalTwin - Ocean Location Model
 ====================================
 Represents a named ocean region (e.g. "Arabian Sea", "Bay of Bengal",
 or a specific coastal point near a city).

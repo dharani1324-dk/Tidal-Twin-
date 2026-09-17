@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Phase 3: OGC API - Environmental Data Retrieval (EDR)
+TidalTwin - Phase 3: OGC API - Environmental Data Retrieval (EDR)
 ====================================================================
 Honest OGC EDR service over the REAL `derived_currents` corpus.
 
@@ -68,8 +68,8 @@ def list_collections(db: Session = Depends(get_db)):
     return {
         "collections": [
             {
-                "id": "oceanverse-derived-currents",
-                "title": "OceanVerse AI - Derived Surface Currents (Phase 3 EDR)",
+                "id": "tidaltwin-derived-currents",
+                "title": "TidalTwin - Derived Surface Currents (Phase 3 EDR)",
                 "description": (
                     "Real DERIVED surface-current vectors over the Indian EEZ "
                     "corridor. Every cell is gated + provenance-linked. Gaps "
@@ -107,7 +107,7 @@ def list_collections(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/collections/oceanverse-derived-currents/position")
+@router.get("/collections/tidaltwin-derived-currents/position")
 def position_query(
     coords: str = Query(..., description="lon,lat or lon1,lat1,lon2,lat2 (WGS84)"),
     datetime: str = Query(None, description="optional instant or interval (ISO-8601 UTC)"),

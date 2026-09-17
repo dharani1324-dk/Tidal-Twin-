@@ -45,7 +45,7 @@ def _compose(db: Session, loc_id: int) -> dict:
     sim = similar_events(db, aut.get("fingerprint", {}), limit=3) if aut.get("fingerprint") else []
 
     report = {
-        "title": f"OceanVerse Scientific Report — {loc.name}",
+        "title": f"TidalTwin Scientific Report — {loc.name}",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "location": loc.name,
         "location_id": loc_id,

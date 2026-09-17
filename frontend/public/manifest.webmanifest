@@ -1,6 +1,6 @@
 {
-  "name": "OceanVerse AI — Ocean Digital Twin",
-  "short_name": "OceanVerse",
+  "name": "TidalTwin — Ocean Digital Twin",
+  "short_name": "TidalTwin",
   "description": "AI-powered ocean digital twin & coastal safety command center for India.",
   "start_url": "/",
   "display": "standalone",
@@ -10,9 +10,9 @@
   "categories": ["productivity", "utilities"],
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "/logo.png",
       "sizes": "any",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

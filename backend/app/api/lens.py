@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Phase 2: TRUST / FOG LENS over derived currents
+TidalTwin - Phase 2: TRUST / FOG LENS over derived currents
 ================================================
 Real endpoint. Over the REAL `derived_currents` corpus. Honest by
 construction: the "fog" is real — cells are only ever DERIVED from

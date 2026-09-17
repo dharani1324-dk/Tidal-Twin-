@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Ocean Event Detection
+TidalTwin - Ocean Event Detection
 =====================================
 Surface-level events are detected only when the available data satisfies
 defined thresholds (reusing the core classifier). Each event is enriched

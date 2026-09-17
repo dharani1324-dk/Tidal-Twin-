@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Models Package
+TidalTwin - Models Package
 ==============================
 Importing all models here makes SQLAlchemy aware of every table.
 We must import them so `Base.metadata` can create the tables.

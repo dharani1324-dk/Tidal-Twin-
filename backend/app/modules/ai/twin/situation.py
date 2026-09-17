@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Ocean Situation / Decision Intelligence Summary
+TidalTwin - Ocean Situation / Decision Intelligence Summary
 ===============================================================
 Aggregates the full twin state into a single "Ocean Situation" payload:
 normal / watch / high-risk split, active events, high disagreements,

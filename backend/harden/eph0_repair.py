@@ -1,5 +1,5 @@
 """
-OceanVerse AI - PROOF-OF-HONESTY repair (Eph0): purge mis-tagged demo rows.
+TidalTwin - PROOF-OF-HONESTY repair (Eph0): purge mis-tagged demo rows.
 ======================================================================
 Ground truth on this machine (verified via offline JWT math, NOT the wire):
   - GFW token is a VALID user-application JWT (correct signature, not expired).
@@ -50,13 +50,13 @@ try:
     print(f"  PURGED {purged} mis-tagged/orphaned rows")
 
     print("\n=== (3) RE-SIMULATE with PROVABLY SIMULATED tags + provenance ===")
-    src = "OCEANVERSE-DEMO-SIMULATOR"
+    src = "TIDALTWIN-DEMO-SIMULATOR"
     now = datetime.now(timezone.utc)
     batch = ProvenanceRecord(
         source_name=src,
         source_url="internal://demo",
         method_tag="SIMULATED",
-        notes=f"OceanVerse demo synthetic tracks at {now.isoformat()}. NOT real GFW.",
+        notes=f"TidalTwin demo synthetic tracks at {now.isoformat()}. NOT real GFW.",
     )
     db.add(batch)
     db.flush()

@@ -1,4 +1,4 @@
-"""OceanVerse AI - Apex Intelligence API.
+"""TidalTwin - Apex Intelligence API.
 
 New feature endpoints: adaptive identification, carbon monitoring,
 light pollution, remote-sensing fusion, and observation recommendations.

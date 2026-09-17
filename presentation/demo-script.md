@@ -1,4 +1,4 @@
-# OceanVerse AI — Live Demo Script (5 Minutes)
+# TidalTwin — Live Demo Script (5 Minutes)
 
 A timed, judge-facing walkthrough. Practice this flow so it becomes muscle
 memory. **Total: 5 minutes** with room for questions.
@@ -26,7 +26,7 @@ memory. **Total: 5 minutes** with room for questions.
 ## The Script
 
 ### 0:00–0:30 — OPENING (on the Dashboard)
-> "This is OceanVerse AI — an interactive ocean **model-validation** and
+> "This is TidalTwin — an interactive ocean **model-validation** and
 > decision-intelligence platform. Everything here runs on live data and
 > machine learning."
 

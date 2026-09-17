@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Story Mode Module
+TidalTwin - Story Mode Module
 =================================
 Interactive guided narratives that explain ocean science using
 REAL data from our monitored regions. Think of it as a mini

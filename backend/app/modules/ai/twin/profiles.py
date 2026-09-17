@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Model vs Observation Depth Profile Comparison
+TidalTwin - Model vs Observation Depth Profile Comparison
 ==============================================================
 Interactive profile comparison: for a selected location and variable,
 returns a model column (physics-based sub-surface profile, depth_profiles

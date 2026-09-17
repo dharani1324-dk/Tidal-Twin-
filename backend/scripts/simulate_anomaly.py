@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Demo Anomaly Simulator
+TidalTwin - Demo Anomaly Simulator
 ======================================
 Simulates a realistic ocean event (e.g. a marine heat-wave / wave surge)
 so judges can SEE the anomaly-detection AI fire an alert.
@@ -58,7 +58,7 @@ def _enrich(obs: OceanObservation, loc: OceanLocation):
     return obs
 
 
-def simulate(db: Session, location_name: str, kind: str) -> int:
+def simulate(db: Session, location_name: str, kind: str, *, scan: bool = True) -> int:
     loc = (
         db.query(OceanLocation)
         .filter(OceanLocation.name == location_name)
@@ -118,7 +118,11 @@ def simulate(db: Session, location_name: str, kind: str) -> int:
     else:
         raise SystemExit("kind must be 'heatwave' or 'surge'")
 
-    # Now run the AI radar to detect the event we just engineered
+    # Optionally run the AI radar to create alerts for the event we engineered.
+    # The Phase 9 demo seed passes scan=False so it never writes alerts; events
+    # are still derived directly from the observations by the event detector.
+    if not scan:
+        return 0
     summary = scan_all_locations(db)
     print(f"AI scan: {summary}")
     return summary["alerts_created"]

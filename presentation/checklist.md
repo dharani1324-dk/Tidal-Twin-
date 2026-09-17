@@ -1,4 +1,4 @@
-# OceanVerse AI — Final Verification Checklist
+# TidalTwin — Final Verification Checklist
 
 Run this BEFORE the demo, the final submission, or any judge preview.
 Everything below has been verified working during development.
@@ -8,9 +8,9 @@ Everything below has been verified working during development.
 ## ✅ Core Services
 
 - [ ] PostgreSQL service is running (`postgresql-x64-18` in Services).
-- [ ] Database `oceanverse` exists with PostGIS enabled:
+- [ ] Database `tidaltwin` exists with PostGIS enabled:
   ```
-  psql -U postgres -h localhost -d oceanverse -c "SELECT PostGIS_Version();"
+  psql -U postgres -h localhost -d tidaltwin -c "SELECT PostGIS_Version();"
   ```
 - [ ] Backend starts cleanly: `uvicorn app.main:app --reload` (port 8000).
 - [ ] Frontend starts cleanly: `npm run dev` (port 5173).

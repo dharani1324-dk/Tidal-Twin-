@@ -1,4 +1,4 @@
-"""OceanVerse AI - Coastal Intelligence bundle.
+"""TidalTwin - Coastal Intelligence bundle.
 
 Six decision-support engines that go beyond observation validation:
 

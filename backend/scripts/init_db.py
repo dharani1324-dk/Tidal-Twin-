@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Database Schema Setup / Migration Helper
+TidalTwin - Database Schema Setup / Migration Helper
 =======================================================
 Run this to create all database tables from our models.
 

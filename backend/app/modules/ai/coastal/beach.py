@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Rip-Current & Beach Safety Index
+TidalTwin - Rip-Current & Beach Safety Index
 ================================================
 Determines SAFE / CAUTION / DANGER flags for each beach/coast based on
 wave height, current speed and a simulated nearshore-current intensity

@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Reports API
+TidalTwin - Reports API
 ============================
 Endpoints for the National Ocean Risk Index, the auto-generated executive
 summary, and downloadable CSV exports.
@@ -67,7 +67,7 @@ def download_csv(db: Session = Depends(get_db)):
         ])
 
     buf.seek(0)
-    filename = f"oceanverse_report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+    filename = f"tidaltwin_report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="text/csv",

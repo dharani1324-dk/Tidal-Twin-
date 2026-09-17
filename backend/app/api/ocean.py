@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Ocean Data API Router
+TidalTwin - Ocean Data API Router
 =====================================
 Endpoints that expose ocean locations and observations to the frontend.
 """

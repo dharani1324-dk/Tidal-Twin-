@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Phase-1 final honest derivation (eph1_derive_done.py)
+TidalTwin - Phase-1 final honest derivation (eph1_derive_done.py)
 =====================================================================
 ALL API surface probe-confirmed live this session (nothing guessed):
   * app.models exports: AisTrack, DerivedCurrent, ProvenanceRecord
@@ -66,7 +66,7 @@ DER_KEY = f"eph1-derived-{uuid4().hex[:8]}"
 der = db.query(ProvenanceRecord).filter_by(batch_key=DER_KEY).one_or_none()
 if der is None:
     der = ProvenanceRecord(
-        source_name="OceanVerse AI - Derivation Engine",
+        source_name="TidalTwin - Derivation Engine",
         source_url="internal://derivation/eph1",
         batch_key=DER_KEY,
         method_tag="DERIVED",

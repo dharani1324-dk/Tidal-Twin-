@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Patch: never store SIMULATED as OBSERVED (Phase-1 honesty)
+TidalTwin - Patch: never store SIMULATED as OBSERVED (Phase-1 honesty)
 =========================================================================
 Authoritative, assert-guarded, minimal repair of `scripts/ingest_ais.py`:
 

@@ -194,7 +194,7 @@ export default function OceanVision() {
           <Sparkles size={28} className="ov-icon" />
           <div>
             <h1>Ocean Vision</h1>
-            <p>OceanVerse Apex Intelligence Engines — advanced decision support</p>
+            <p>TidalTwin Apex Intelligence Engines — advanced decision support</p>
           </div>
         </div>
         <div className="ov-badge-row">

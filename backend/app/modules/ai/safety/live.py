@@ -1,4 +1,4 @@
-"""OceanVerse AI - Live broadcast (WebSocket push)"""
+"""TidalTwin - Live broadcast (WebSocket push)"""
 
 import asyncio
 from datetime import datetime, timezone

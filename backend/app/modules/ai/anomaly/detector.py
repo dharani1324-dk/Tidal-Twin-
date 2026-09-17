@@ -1,5 +1,5 @@
 """
-OceanVerse AI - AI Anomaly Detection Module
+TidalTwin - AI Anomaly Detection Module
 ===========================================
 This module watches real ocean observations and flags UNUSUAL events —
 temperature spikes, wave-height surges — that could signal:

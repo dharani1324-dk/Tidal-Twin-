@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Natural Language Assistant
+TidalTwin - Natural Language Assistant
 ==========================================
 This module understands plain-English questions about the ocean
 and answers them using real data from our database.

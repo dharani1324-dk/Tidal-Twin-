@@ -1,5 +1,5 @@
 """
-OceanVerse AI - AIS-derived surface current estimation module
+TidalTwin - AIS-derived surface current estimation module
 =============================================================
 Implementation of Phase 1 (SIH26067): "ships as sensors".
 
@@ -152,7 +152,7 @@ def estimate_cell_currents(
 
     # Provenance: one record per derivation batch so rows are traceable.
     rec = ProvenanceRecord(
-        source_name="OceanVerse AIS-derived surface current",
+        source_name="TidalTwinS-derived surface current",
         source_url=None,
         batch_key=f"derive-{clat:.2f}-{clon:.2f}-{start:%Y%m%dT%H%M%SZ}",
         method_tag="DERIVED",

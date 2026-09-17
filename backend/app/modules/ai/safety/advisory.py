@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Safety & Advisory
+TidalTwin - Safety & Advisory
 ===================================
 Higher-level intelligence for coastal safety:
 

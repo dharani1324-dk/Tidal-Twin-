@@ -187,7 +187,7 @@ export default function Safety() {
       `SST ${r.latest_temperature?.toFixed(1) ?? '—'}°C (Δ${r.temperature_anomaly > 0 ? '+' : ''}${r.temperature_anomaly.toFixed(2)}°C) · ` +
       `Wave ${r.wave_height?.toFixed(1) ?? '—'} m\n` +
       `Safe window: ${r.safe_window}\n\n` +
-      `${r.headline}\n\n— OceanVerse AI · fisherman safety`
+      `${r.headline}\n\n— TidalTwin · fisherman safety`
     try {
       if (navigator.share) {
         await navigator.share({ title: 'Coastal Safety Bulletin', text })
@@ -357,7 +357,7 @@ export default function Safety() {
                 <div className="phone-brand">
                   <span className="phone-avatar">OV</span>
                   <div>
-                    <div className="phone-appname">OceanVerse AI</div>
+                    <div className="phone-appname">TidalTwin</div>
                     <div className="phone-typing"><span className="live-dot" /> broadcasting</div>
                   </div>
                 </div>

@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Model vs Reality Comparison
+TidalTwin - Model vs Reality Comparison
 ===========================================
 This module compares our AI's forecast against what the ocean ACTUALLY did.
 

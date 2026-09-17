@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Reports & Risk Intelligence Module
+TidalTwin - Reports & Risk Intelligence Module
 ===================================================
 Computes a National Ocean Risk Index for every monitored region and
 auto-generates an executive summary in plain stakeholder language.
@@ -165,7 +165,7 @@ def build_executive_summary(db: Session) -> str:
         )
 
     lines.append(
-        "This report was generated automatically by the OceanVerse AI decision "
+        "This report was generated automatically by the TidalTwin decision "
         "intelligence platform using live sensor observations and the anomaly "
         "detection engine."
     )

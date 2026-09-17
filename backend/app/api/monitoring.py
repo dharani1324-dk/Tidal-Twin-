@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Monitoring API
+TidalTwin - Monitoring API
 ==============================
 Endpoints for AI anomaly detection, alerts feed, and forecasting.
 """

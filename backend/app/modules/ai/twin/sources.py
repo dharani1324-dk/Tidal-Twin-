@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Data Source Registry & Health
+TidalTwin - Data Source Registry & Health
 =============================================
 A normalised registry of the data streams feeding the twin. Every source
 carries: status, last update, variables, coverage and a plain-language

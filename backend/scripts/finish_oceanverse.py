@@ -1,5 +1,5 @@
 """
-OceanVerse AI - FINAL COMPLETION (finish_oceanverse.py)
+TidalTwin - FINAL COMPLETION (finish_tidaltwin.py)
 =====================================================
 The single authoritative thread that finishes everything ON THIS DISK,
 in order, verifying at each real gate with the LIVE stack. NO guesses.
@@ -107,7 +107,7 @@ def step_docs() -> None:
     d = ROOT / "docs"
     d.mkdir(exist_ok=True)
     (d / "JUDGE_BRIEF.md").write_text(
-        "# OceanVerse AI - Judge Brief\n\n"
+        "# TidalTwin - Judge Brief\n\n"
         "## Honest state (verified, real)\n"
         "- Real GFW token validated offline (RS256, iss/aud=gfw, exp 2036) in `backend/.env`.\n"
         "- Live GFW wire is sealed by this network's egress filter: TLS handshake EOF on "
@@ -134,7 +134,7 @@ def step_commit() -> None:
     print(f"  git add exit: {r.returncode}")
     r = subprocess.run(
         ["git", "commit", "-m",
-         "OceanVerse AI: Phase-1 AIS-as-sensors + provenance, Phase-2 trust lens, Phase-3 OGC EDR, judge docs"],
+         "TidalTwin: Phase-1 AIS-as-sensors + provenance, Phase-2 trust lens, Phase-3 OGC EDR, judge docs"],
         capture_output=True, text=True)
     print(f"  git commit exit: {r.returncode}")
     print(r.stdout.strip()[-900:])

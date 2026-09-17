@@ -24,7 +24,7 @@
   <rect width="1320" height="820" fill="url(#bg)"/>
 
   <!-- Title -->
-  <text x="660" y="40" text-anchor="middle" font-size="24" font-weight="800" fill="#e6f1ff">OceanVerse AI — System Architecture &amp; Scientific Intelligence Pipeline</text>
+  <text x="660" y="40" text-anchor="middle" font-size="24" font-weight="800" fill="#e6f1ff">TidalTwin — System Architecture &amp; Scientific Intelligence Pipeline</text>
   <text x="660" y="62" text-anchor="middle" font-size="12" fill="#7dd3fc">Interactive 4D Ocean Model Validation &amp; Decision Intelligence Platform</text>
 
   <!-- ============ PIPELINE BAND ============ -->

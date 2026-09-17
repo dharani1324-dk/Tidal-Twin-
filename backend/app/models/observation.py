@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Ocean Observation Model
+TidalTwin - Ocean Observation Model
 =======================================
 Represents a single measurement of ocean conditions at a time and place.
 

@@ -1,4 +1,4 @@
-"""OceanVerse AI - Model Validation & Confidence API"""
+"""TidalTwin - Model Validation & Confidence API"""
 
 from pydantic import BaseModel
 

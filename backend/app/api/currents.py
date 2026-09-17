@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Derived Current API Router (Phase 1, SIH26067)
+TidalTwin - Derived Current API Router (Phase 1, SIH26067)
 ==============================================================
 Exposes the "ships as sensors" product: surface-current vectors that
 were robustly derived from REAL, provenance-tagged vessel tracks.

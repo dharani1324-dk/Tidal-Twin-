@@ -7,12 +7,13 @@ import {
   Database, ShieldCheck, Gauge, ChevronRight, Radar, Route, ScanLine, X, Loader2,
 } from 'lucide-react'
 import CesiumGlobe from '../components/3d/globe/CesiumGlobe'
-import type { GlobeLocation, SeriesRegion, StormTrackData, ArgoFloat, DisagreementPoint, AnomalyPoint, TransectData } from '../components/3d/globe/CesiumGlobe'
+import type { GlobeLocation, SeriesRegion, StormTrackData, ArgoFloat, DisagreementPoint, AnomalyPoint, TransectData, TideGlobeMarker } from '../components/3d/globe/CesiumGlobe'
 import TransectHUD from '../components/transect/TransectHUD'
 import {
   fetchLocations, fetchObservations, fetchStormTrack, fetchSafetyTimeseries, fetchUncertainty,
   fetchRecommendations, fetchArgo, fetchTwinCompare, fetchTwinExplain, fetchTwinProfile,
   fetchTwinDisagreement, fetchAnomalies, fetchSituation, fetchDataSources, fetchTransect,
+  fetchTideCandidates,
 } from '../api/client'
 import './DigitalTwin.css'
 
@@ -112,6 +113,7 @@ export default function DigitalTwin() {
     argo: false,
     disagreement: true,
     anomalies: true,
+    tide: false,
   })
   const [storm, setStorm] = useState<StormTrackData | null>(null)
   const [series, setSeries] = useState<SeriesRegion[]>([])
@@ -125,6 +127,7 @@ export default function DigitalTwin() {
   // --- Ocean Digital Twin intelligence state ---
   const [disagreement, setDisagreement] = useState<DisagreementPoint[]>([])
   const [anomalyRows, setAnomalyRows] = useState<AnomalyPoint[]>([])
+  const [tideCandidates, setTideCandidates] = useState<TideGlobeMarker[]>([])
   const [compare, setCompare] = useState<ComparePayload | null>(null)
   const [explainData, setExplainData] = useState<ExplainPayload | null>(null)
   const [profileData, setProfileData] = useState<ProfilePayload | null>(null)
@@ -247,6 +250,12 @@ export default function DigitalTwin() {
     fetchAnomalies({ sort: 'severity' })
       .then((d) => setAnomalyRows(d.anomalies ?? []))
       .catch(() => {})
+    fetchTideCandidates({ variable })
+      .then((d) => {
+        const list = (d as { data?: TideGlobeMarker[] }).data ?? []
+        setTideCandidates(list.map((c, i) => ({ ...c, rank: i + 1 })))
+      })
+      .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -317,6 +326,7 @@ export default function DigitalTwin() {
     { key: 'uncertainty' as const, icon: <Crosshair size={16} />, name: 'Data Uncertainty', desc: 'Confidence-gap rings per region' },
     { key: 'priority' as const, icon: <Target size={16} />, name: 'Sampling Priority', desc: 'Pulse where observation is needed' },
     { key: 'argo' as const, icon: <Navigation size={16} />, name: 'Argo Floats', desc: 'Simulated float trajectories + T/S profiles' },
+    { key: 'tide' as const, icon: <Radar size={16} />, name: 'TIDE Decisions', desc: 'Ranked observation recommendation markers' },
   ]
 
   const activeVar = VARIABLES.find((v) => v.key === variable) ?? VARIABLES[0]
@@ -409,6 +419,7 @@ export default function DigitalTwin() {
             argoFloats={argoFloats}
             disagreement={disagreement}
             anomalies={anomalyRows.filter((a) => a.severity !== 'low').slice(0, 8)}
+            tideCandidates={tideCandidates}
             onRegionClick={handleRegionClick}
             flyToTarget={flyToTarget}
             transect={transectData}

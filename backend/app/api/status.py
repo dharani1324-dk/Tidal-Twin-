@@ -1,5 +1,5 @@
 """
-OceanVerse AI - API Router for System Status
+TidalTwin - API Router for System Status
 ============================================
 Endpoints that tell us about the system health,
 including the database connection.
@@ -27,11 +27,11 @@ def db_status(db: Session = Depends(get_db)):
         return {
             "database": "connected",
             "postgis": postgis_version,
-            "service": "OceanVerse AI",
+            "service": "TidalTwin",
         }
     except Exception as e:  # pragma: no cover
         return {
             "database": "error",
             "detail": str(e),
-            "service": "OceanVerse AI",
+            "service": "TidalTwin",
         }

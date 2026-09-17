@@ -1,4 +1,4 @@
-/* OceanVerse AI - service worker (offline-first app shell) */
+/* TidalTwin - service worker (offline-first app shell) */
 
 const CACHE = 'ov-cache-v1'
 

@@ -12,6 +12,7 @@ import {
 import {
   fetchLocations, fetchObservations, triggerRefresh, fetchValidationSituation,
 } from '../api/client'
+import IntelligenceWorkspace from '../components/workspace/IntelligenceWorkspace'
 import './Dashboard.css'
 
 interface Situation {
@@ -281,6 +282,9 @@ export default function Dashboard() {
           </span>
         </motion.div>
       )}
+
+      {/* ============ UNIFIED INTELLIGENCE WORKSPACE (Phase 7) ============ */}
+      <IntelligenceWorkspace />
 
       {/* ============ METRIC CARDS ============ */}
       <div className="stats-grid">

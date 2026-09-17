@@ -1,4 +1,4 @@
-# OceanVerse AI - Backend Image
+# TidalTwin - Backend Image
 # Python 3.12 + FastAPI + UVicorn
 # ---------------------------------
 FROM python:3.12-slim

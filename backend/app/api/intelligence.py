@@ -1,4 +1,4 @@
-"""OceanVerse AI - Intelligence + Forensics API (all new endpoints).
+"""TidalTwin - Intelligence + Forensics API (all new endpoints).
 
 One router covering: data gaps, priorities, uncertainty heatmap, health,
 threat chain, impact bridge, relationship graph, causal chain, thermocline,

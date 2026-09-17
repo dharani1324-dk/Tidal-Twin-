@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Ocean Data Refresh Script
+TidalTwin - Ocean Data Refresh Script
 =========================================
 Fetches REAL ocean data from Open-Meteo Marine API
 and stores it for every location in the database.

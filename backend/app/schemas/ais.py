@@ -1,5 +1,5 @@
 """
-OceanVerse AI - AIS / Derived-Current Pydantic Schemas
+TidalTwin - AIS / Derived-Current Pydantic Schemas
 ======================================================
 Shapes for the Phase-1 (SIH26067 "ships as sensors") endpoints.
 

@@ -1,4 +1,4 @@
-"""OceanVerse AI - Phase-1 derivation over SIMULATED-only corpus. CLEAN. Honest.
+"""TidalTwin - Phase-1 derivation over SIMULATED-only corpus. CLEAN. Honest.
 Only probe-confirmed API: app.models exports AisTrack, DerivedCurrent,
 ProvenanceRecord. to_shape/from_shape from geoalchemy2. No fabrication:
 u=v=0 (no direction info in corpus), honest uncertainty from sog spread.
@@ -51,7 +51,7 @@ key = f"eph1-derived-{uuid4().hex[:8]}"
 b = db.query(ProvenanceRecord).filter_by(batch_key=key).one_or_none()
 if b is None:
     b = ProvenanceRecord(
-        source_name="OceanVerse AI - Derivation Engine",
+        source_name="TidalTwin - Derivation Engine",
         source_url="internal://derivation/eph1",
         batch_key=key,
         method_tag="DERIVED",

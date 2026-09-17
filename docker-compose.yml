@@ -1,4 +1,4 @@
-# OceanVerse AI - Full deployment stack
+# TidalTwin - Full deployment stack
 # ======================================
 # ONE command brings up the entire platform:
 #     docker compose up --build
@@ -9,56 +9,72 @@
 #   frontend  - nginx serving the React app (http://localhost:8080)
 #
 # After startup, open http://localhost:8080 in your browser.
+#
+# Every value below can be overridden without editing this file, e.g.
+#     POSTGRES_PASSWORD=... docker compose up --build
+# Defaults are safe, non-secret placeholders for local demonstration only.
 
 services:
   db:
     image: postgis/postgis:16-3.4
-    container_name: oceanverse-db
+    container_name: tidaltwin-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: oceanverse
-      POSTGRES_DB: oceanverse
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tidaltwin}
+      POSTGRES_DB: ${POSTGRES_DB:-tidaltwin}
     volumes:
       - db-data:/var/lib/postgresql/data
     ports:
       - "5433:5432"   # host 5433 to avoid clashing with local PostgreSQL on 5432
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d oceanverse"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tidaltwin}"]
       interval: 5s
       timeout: 5s
       retries: 12
 
   backend:
     build: ./backend
-    container_name: oceanverse-backend
+    container_name: tidaltwin-backend
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg2://postgres:oceanverse@db:5432/oceanverse
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-tidaltwin}@db:5432/${POSTGRES_DB:-tidaltwin}
       DB_HOST: db
       DB_PORT: "5432"
-      CORS_ORIGINS: '*'
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      CESIUM_ION_TOKEN: ${CESIUM_ION_TOKEN:-}
       PORT: "8000"
     ports:
       - "8000:8000"
-    # Allow the container to reach the internet for live Open-Meteo data
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s   # allows for DB wait + seed + live data refresh
 
   frontend:
     build:
       context: ./frontend
       args:
         VITE_API_BASE_URL: ""
-    container_name: oceanverse-frontend
+    container_name: tidaltwin-frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "8080:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   db-data:

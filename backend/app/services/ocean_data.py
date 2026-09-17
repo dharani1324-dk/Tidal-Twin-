@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Ocean Data Service
+TidalTwin - Ocean Data Service
 ==================================
 This service fetches REAL ocean data from the Open-Meteo Marine API
 (no API key needed) and stores it in our database.

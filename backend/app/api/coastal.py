@@ -1,4 +1,4 @@
-"""OceanVerse AI - Coastal Intelligence API.
+"""TidalTwin - Coastal Intelligence API.
 
 Decision-support endpoints built on the coastal module bundle:
 fisheries, coral bleaching, oil-spill/SAR drift, sea-level rise,

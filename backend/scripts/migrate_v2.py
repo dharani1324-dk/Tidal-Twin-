@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Migration v2: Ocean variable columns
+TidalTwin - Migration v2: Ocean variable columns
 ====================================================
 Adds the bio-physical variable columns (deep profile foundation) to
 ocean_observations so the 4D forensics features have a place to live.

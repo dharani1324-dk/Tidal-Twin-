@@ -1,4 +1,4 @@
-# OceanVerse AI — Judge Brief (honest truth)
+# TidalTwin — Judge Brief (honest truth)
 
 **Project:** Ocean Digital Twin — AIS as sensors → derived surface currents (SIH26067).
 **Repo root:** `C:\Project 2.0`. **Backend:** `C:\Project 2.0\backend`.

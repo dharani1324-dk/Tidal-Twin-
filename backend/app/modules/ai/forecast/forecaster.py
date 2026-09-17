@@ -1,5 +1,5 @@
 """
-OceanVerse AI - AI Forecast Module
+TidalTwin - AI Forecast Module
 ==================================
 Predicts short-term ocean conditions (temperature/waves) for each region
 using a simple, explainable model: linear regression on recent readings

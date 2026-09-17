@@ -1,4 +1,4 @@
-"""OceanVerse AI - Model-Observation Twin Intelligence Engine.
+"""TidalTwin - Model-Observation Twin Intelligence Engine.
 
 Reusable, data-transparent engine that compares numerical model
 expectations against real in-situ observations for any location,

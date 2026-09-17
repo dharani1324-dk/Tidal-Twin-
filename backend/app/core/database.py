@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Database Connection
+TidalTwin - Database Connection
 ===================================
 This module creates the connection between our backend and the
 PostgreSQL + PostGIS database.

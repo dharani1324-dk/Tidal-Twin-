@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Sea-Level-Rise Inundation Simulator
+TidalTwin - Sea-Level-Rise Inundation Simulator
 ===================================================
 For a chosen sea-level-rise scenario (e.g. +0.5 m, +1.0 m) estimates which
 coastal settlements, land area and population would be inundated.

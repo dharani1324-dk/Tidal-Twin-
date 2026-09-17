@@ -1,4 +1,4 @@
-# OceanVerse AI — Served endpoints (verbatim from live smoke, no invented paths)
+# TidalTwin — Served endpoints (verbatim from live smoke, no invented paths)
 
 `GET` on the headline Phase routes, all HTTP 200 with real payloads:
 
@@ -30,6 +30,9 @@ path needing a real `{location_id}` — all *correct* HTTP semantics, not defect
 - `/api/v1/stories` — 200
 - `/api/v1/twin/*` — anomalies, disagreement, events, situation, sources (200);
   compare/confidence/explain/profile/transect need params
+- `/api/v1/tide/*` — candidates, rankings, uncertainty, data-gaps,
+  disagreements, evidence, verdict, events, explanation, decision (200);
+  virtual-observation POST
 - `/api/v1/validation/*` — confidence, difference, events, provenance,
   situation, skill (200); scenario POST
 

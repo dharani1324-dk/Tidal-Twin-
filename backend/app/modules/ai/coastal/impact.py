@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Economic Impact Estimator
+TidalTwin - Economic Impact Estimator
 ========================================
 Converts classified ocean events into monetary impact (INR) for
 decision-makers: fishing-fleet hours lost, port disruption, tourism loss.

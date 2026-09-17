@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Pydantic Schemas
+TidalTwin - Pydantic Schemas
 ================================
 These define the "shape" of data sent/received by the API.
 They validate incoming data and shape outgoing JSON.

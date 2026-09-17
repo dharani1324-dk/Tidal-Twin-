@@ -1,5 +1,5 @@
 """
-OceanVerse AI - AIS Event Ingestor (Global Fishing Watch)
+TidalTwin - AIS Event Ingestor (Global Fishing Watch)
 ==========================================================
 Reads fishing events from the Global Fishing Watch Events API
 (real AIS-derived vessel activity covering the open Indian EEZ)
@@ -400,7 +400,7 @@ def simulate_demo_tracks(db: Session, n_tracks: int = 40) -> dict:
     """
     batch = _commit_batch(
         db,
-        source_name="OceanVerse demo simulator",
+        source_name="TidalTwin demo simulator",
         url="internal",
         method_tag="SIMULATED",
         notes=(
@@ -437,7 +437,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="scripts.ingest_ais",
         description=(
-            "OceanVerse - Global Fishing Watch AIS event ingester. "
+            "TidalTwin - Global Fishing Watch AIS event ingester. "
             "Stores hashed, plausible, provenance-tagged vessel tracks."
         ),
     )

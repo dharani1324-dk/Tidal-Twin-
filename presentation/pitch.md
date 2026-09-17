@@ -1,6 +1,6 @@
-# OceanVerse AI — The Presentation & Explanation Guide
+# TidalTwin — The Presentation & Explanation Guide
 
-> How to explain OceanVerse AI when judges ask *"what did you build and why is
+> How to explain TidalTwin when judges ask *"what did you build and why is
 > it better?"* — a story you can speak naturally, mapped to each screen.
 >
 > **Keep `architecture.svg` beside you** (open it in a browser tab or insert it
@@ -35,15 +35,17 @@ Never skip it, never bury it.
 > field by field → measure the gap → attach uncertainty → classify the event →
 > assess impact → push a decision to the coast.
 
-> **Why we're different** — we don't just visualize. We **validate** (MODEL vs
-> REALITY side by side), we **measure** (skill scores, honest MAE/RMSE/bias),
-> we **explain** (why is confidence 92%? component-by-component), we **name
-> events** (marine heatwave, flood risk — not just red pixels), and we **end in
-> a decision** (SAFE/CAUTION/DANGER advisory, SMS + voice bulletin, risk report).
+> **Why we're different** — we don't just visualize. We put **MODEL vs
+> REALITY** side by side, we **measure** in-system skill metrics (MAE/RMSE/bias
+> — computed by the app, **not independently validated**), we **explain** the
+> confidence component-by-component, we **name** events (marine heatwave, flood
+> risk — not just red pixels), and we **end in a decision** (SAFE/CAUTION/DANGER
+> advisory, bulletin, risk report).
 
-> **Proof** — and it's live right now. The system caught a marine heatwave off
-> Goa, quantified it at +1.8°C above the model baseline, classified it, pushed
-> an advisory, and ranked it #1 on the national risk map.
+> **Demonstration** — the reference dataset contains a marine heatwave off Goa;
+> the system detects it, reports the model–observation deviation, classifies it,
+> and surfaces it on the risk view. These are the system's own outputs on real
+> inputs — **not independently validated findings**.
 
 ---
 
@@ -115,7 +117,7 @@ to ~15 seconds so the total stays under two minutes.
 > - **Event cards** → the anomaly is *named*: a **marine heatwave**, with start
 >   → peak → now evolution and an intensity rating.
 >
-> Then two tools no one else has:
+> Then two decision tools:
 > - **What-If Simulator**: *"what if wind increases 20%?"* — projected wave
 >   height, SST, hazard band, clearly labelled as a scenario.
 > - **Data Provenance**: click any coast — source, dataset, observation time,
@@ -147,14 +149,18 @@ to ~15 seconds so the total stays under two minutes.
 
 ---
 
-## 5. The Magic Numbers (drop these as proof)
+## 5. The Numbers (use as evidence, not proof)
 
-- 8 India regions validated **simultaneously** · 384+ live observations.
-- 12-hour forecasts verified vs reality (**MAE ~0.1–0.6°C**, stated honestly).
-- Detection → explanation → advisory for the Goa heatwave: **+1.8°C deviation,
-  91% event confidence, DANGER advisory, #1 on the national risk map**.
-- Observation confidence **92–100% live**, with full component breakdown.
-- Decisions pushed **every 12 seconds** over WebSockets, in 6 languages.
+- 8 India regions monitored **simultaneously** · 768 observations in the
+  reference dataset (760 real + 8 labelled simulated).
+- 12-hour forecasts with **in-system** verification metrics (computed by the
+  app; **not independently validated**).
+- Detection → explanation → prioritisation for the Goa marine heatwave on the
+  reference dataset: **deviation reported, 0.91 event confidence, ranked top of
+  the system's own risk view** — the system's own outputs, not ground truth.
+- Observation confidence is a **heuristic score with a full component
+  breakdown** (not a calibrated probability).
+- Live surfaces refresh on a fixed broadcast interval.
 
 ## 6. The Closing Ask (30 seconds)
 
@@ -171,7 +177,7 @@ to ~15 seconds so the total stays under two minutes.
 |---|---|---|
 | "How is this AI?" | Monitoring + Validation | "Isolation-Forest anomaly detection, a difference engine re-evaluated against live reality, an explainable confidence engine, and scenario projections — ML and statistics, not just colorbars." |
 | "Where did this number come from?" | Model Validation → Provenance | "Source, dataset, observation time, model-run ID, and the QC/processing trail — every value is traceable." |
-| "Is it accurate?" | Skill Score charts | "We measure it honestly — MAE, RMSE, bias, skill vs climatology. Where the model is weak, this screen says so." |
+| "Is it accurate?" | Skill Score charts | "We compute in-system skill metrics — MAE, RMSE, bias, skill vs climatology. We don't claim independent validation; where the model is weak, this screen says so." |
 | "How does this help people?" | Safety Center + Risk Map | "It ends in a decision: advisory band, safe sailing window, SMS/WhatsApp and six-language voice alert, ranked national risk — before the storm, not after." |
 | "What happens in calm weather?" | Dashboard | "The system is quiet on purpose — that's the model agreeing with reality. The value is catching the *disagreement* before it becomes damage." |
 | "Can it scale beyond India?" | Architecture image | "The pipeline is coastline-agnostic — data in, model vs reality, decision out. Point it at any coast and the same engines run." |

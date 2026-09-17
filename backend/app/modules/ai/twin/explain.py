@@ -1,5 +1,5 @@
 """
-OceanVerse AI - AI / Ocean Intelligence Explanation Engine
+TidalTwin - AI / Ocean Intelligence Explanation Engine
 ==========================================================
 Strictly evidence-driven explanation layer. It never hallucinates a
 cause. It uses the comparison output + nearby agreement to answer:

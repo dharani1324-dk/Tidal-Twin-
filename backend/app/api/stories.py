@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Story Mode & Comparison API
+TidalTwin - Story Mode & Comparison API
 ===========================================
 Endpoints for guided narratives and AI forecast-vs-reality comparison.
 """

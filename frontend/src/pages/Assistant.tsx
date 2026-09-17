@@ -59,17 +59,19 @@ interface Capability {
 let msgId = 0
 
 const DEFAULT_SUGGESTIONS = [
+  'Give me the ocean intelligence brief.',
   'Is it safe to fish near Goa today?',
   'How confident are we in the model at Goa?',
   'Any marine heatwaves right now?',
   'Rank all coasts by risk today.',
   'What if wind increases by 30%?',
   'Where is the cyclone heading?',
+  'Is TIDE scientifically validated?',
 ]
 
 export default function Assistant({ embedded }: { embedded?: boolean } = {}) {
   const [messages, setMessages] = useState<Message[]>([
-    { id: ++msgId, role: 'assistant', text: "Hi, I'm **OceanVerse Copilot**. 🌊 I read the live ocean data and our AI engines to answer like a senior ocean analyst — and I remember context, so you can chain questions." },
+    { id: ++msgId, role: 'assistant', text: "Hi, I'm **TidalTwin Copilot**. 🌊 I read the live ocean data and our AI engines to answer like a senior ocean analyst — and I remember context, so you can chain questions." },
   ])
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)

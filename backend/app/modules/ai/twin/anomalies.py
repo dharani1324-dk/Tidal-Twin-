@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Anomaly Intelligence / Ranking Engine
+TidalTwin - Anomaly Intelligence / Ranking Engine
 =====================================================
 Automatically identifies and ranks the most significant model-vs-observation
 anomalies across all monitored regions.

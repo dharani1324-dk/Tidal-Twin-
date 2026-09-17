@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Seed Script
+TidalTwin - Seed Script
 ===========================
 Adds starter data to the database so the app has something to show.
 

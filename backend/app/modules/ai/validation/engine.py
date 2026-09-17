@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Model Validation & Confidence Engine
+TidalTwin - Model Validation & Confidence Engine
 =======================================================
 The "model vs reality" intelligence layer. For every monitored coast it
 answers three questions judges and ocean scientists care about:

@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Phase-1 honest pipeline COMPLETION (eph1_finish.py)
+TidalTwin - Phase-1 honest pipeline COMPLETION (eph1_finish.py)
 ===================================================================
 Trust nothing but real model columns (verified verbatim this session):
   AisTrack      : id, vessel_hash, timestamp, geom, sog_mps, source,
@@ -63,7 +63,7 @@ der_batch = (
 )
 if der_batch is None:
     der_batch = ProvenanceRecord(
-        source_name="OceanVerse AI - Current Derivation Engine",
+        source_name="TidalTwin - Current Derivation Engine",
         source_url="internal://derived/algo-v1",
         batch_key=DER_KEY,
         method_tag="DERIVED",

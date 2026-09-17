@@ -1,4 +1,4 @@
-"""OceanVerse AI - Safety & Advisory API"""
+"""TidalTwin - Safety & Advisory API"""
 
 import asyncio
 

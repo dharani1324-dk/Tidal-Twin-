@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Model vs Observation Comparison Engine
+TidalTwin - Model vs Observation Comparison Engine
 ======================================================
 Reusable comparison engine: for a chosen location, variable and depth,
 computes the numerical-model estimate and the real observation value,

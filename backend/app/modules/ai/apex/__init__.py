@@ -1,4 +1,4 @@
-"""OceanVerse AI - Apex Intelligence package.
+"""TidalTwin - Apex Intelligence package.
 
 Advanced decision-support engines:
   • adaptive.py    — Adaptive Identification (self-calibrating thresholds)

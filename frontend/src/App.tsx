@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, BookOpen,
   LifeBuoy, Siren, Scale, Search, Brain, FlaskConical, Sparkles, Anchor,
   Bell, Menu, X, Radio, Satellite, Database, CircleUser, Command, ShieldAlert, Sparkle,
-  AlertTriangle,
+  AlertTriangle, Crosshair, History, ShieldCheck,
 } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import DigitalTwin from './pages/DigitalTwin'
@@ -22,12 +22,18 @@ import ScenarioLab from './pages/ScenarioLab'
 import OceanVision from './pages/OceanVision'
 import CoastalIntel from './pages/CoastalIntel'
 import AnomalyIntel from './pages/AnomalyIntel'
+import Tide from './pages/Tide'
+import DecisionReplay from './pages/DecisionReplay'
+import TideValidation from './pages/TideValidation'
 import AssistantFab from './components/assistant/AssistantFab'
+import ErrorBoundary from './components/ErrorBoundary'
+import SystemStatusPill from './components/system/SystemStatusPill'
+import DemoGuide from './components/system/DemoGuide'
 import { fetchLocations, fetchAlerts } from './api/client'
 import './App.css'
 
 /**
- * Oceaneerse AI — Application Shell
+ * TidalTwin — Application Shell
  * Command-platform layout: grouped navigation + live system status bar +
  * notification center + AI quick-access. Fully responsive (mobile drawer).
  */
@@ -56,6 +62,9 @@ const NAV_GROUPS: NavSpec[] = [
       { to: '/anomalies', label: 'Anomaly Intel', icon: AlertTriangle },
       { to: '/forensics', label: 'Ocean Forensics', icon: Search },
       { to: '/intelligence', label: 'Decision Intelligence', icon: Brain },
+      { to: '/tide', label: 'TIDE Command Center', icon: Crosshair },
+      { to: '/tide/replay', label: 'Decision Replay', icon: History },
+      { to: '/tide/validation', label: 'TIDE Validation', icon: ShieldCheck },
       { to: '/scenarios', label: 'Scenario Lab', icon: FlaskConical },
     ],
   },
@@ -78,6 +87,11 @@ const NAV_GROUPS: NavSpec[] = [
 ]
 
 const FLAT_NAV = NAV_GROUPS.flatMap((g) => g.items)
+
+/** Wrap a route surface so one failure can never blank the whole app. */
+const guard = (label: string, node: ReactNode) => (
+  <ErrorBoundary label={label}>{node}</ErrorBoundary>
+)
 
 interface AlertItem {
   id: number
@@ -154,10 +168,10 @@ export default function App() {
   const product = (
     <div className="sidebar-brand" onClick={() => navigate('/')}>
       <div className="logo-wrap">
-        <Waves size={22} className="logo-icon" />
+        <img src="/logo-light.png" alt="" className="logo-img" />
       </div>
       <div className="brand-text">
-        <span className="brand-name">OceanVerse</span>
+        <span className="brand-name">TidalTwin</span>
         <span className="brand-sub">Ocean Intelligence</span>
       </div>
     </div>
@@ -206,15 +220,13 @@ export default function App() {
               <Menu size={18} />
             </button>
             <div className="sb-title">
-              <span className="sb-crumb">OCEANVERSE /</span>
+              <span className="sb-crumb">TIDALTWIN /</span>
               <b>{active?.label ?? 'Mission Control'}</b>
             </div>
           </div>
 
           <div className="sb-status" role="status">
-            <span className={`status-tag ${connected === false ? 'crit' : connected === null ? 'off' : 'ok'}`}>
-              <b>SYSTEM</b> {connected === false ? 'NO LINK' : connected === null ? '…' : 'OPERATIONAL'}
-            </span>
+            <SystemStatusPill />
             <span className={`status-tag ${connected === false ? 'off' : 'ok'}`}>
               <Satellite size={11} /> <b>SAT</b> LINK
             </span>
@@ -239,6 +251,7 @@ export default function App() {
           </div>
 
           <div className="sb-actions">
+            <DemoGuide />
             <button className="ai-cta" onClick={() => navigate('/assistant')}>
               <Command size={13} />
               <span>Ask Ocean AI</span>
@@ -297,22 +310,25 @@ export default function App() {
 
         <main className="main-content">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/globe" element={<DigitalTwin />} />
-            <Route path="/monitoring" element={<Monitoring />} />
-            <Route path="/validate" element={<Validate />} />
-            <Route path="/anomalies" element={<AnomalyIntel />} />
-            <Route path="/forensics" element={<Forensics />} />
-            <Route path="/intelligence" element={<Intelligence />} />
-            <Route path="/oceanvision" element={<OceanVision />} />
-            <Route path="/coastal" element={<CoastalIntel />} />
-            <Route path="/scenarios" element={<ScenarioLab />} />
-            <Route path="/safety" element={<Safety />} />
-            <Route path="/risk" element={<RiskMap />} />
-            <Route path="/stories" element={<Stories />} />
-            <Route path="/assistant" element={<Assistant />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="*" element={<Dashboard />} />
+            <Route path="/" element={guard('Mission Control', <Dashboard />)} />
+            <Route path="/globe" element={guard('Digital Twin', <DigitalTwin />)} />
+            <Route path="/monitoring" element={guard('Monitoring & Alerts', <Monitoring />)} />
+            <Route path="/validate" element={guard('Model Validation', <Validate />)} />
+            <Route path="/anomalies" element={guard('Anomaly Intel', <AnomalyIntel />)} />
+            <Route path="/forensics" element={guard('Ocean Forensics', <Forensics />)} />
+            <Route path="/intelligence" element={guard('Decision Intelligence', <Intelligence />)} />
+            <Route path="/tide" element={guard('TIDE Command Center', <Tide />)} />
+            <Route path="/tide/replay" element={guard('Decision Replay', <DecisionReplay />)} />
+            <Route path="/tide/validation" element={guard('TIDE Validation', <TideValidation />)} />
+            <Route path="/oceanvision" element={guard('Ocean Vision', <OceanVision />)} />
+            <Route path="/coastal" element={guard('Coastal Intel', <CoastalIntel />)} />
+            <Route path="/scenarios" element={guard('Scenario Lab', <ScenarioLab />)} />
+            <Route path="/safety" element={guard('Safety Center', <Safety />)} />
+            <Route path="/risk" element={guard('Risk Map', <RiskMap />)} />
+            <Route path="/stories" element={guard('Story Mode', <Stories />)} />
+            <Route path="/assistant" element={guard('Ocean AI Copilot', <Assistant />)} />
+            <Route path="/reports" element={guard('Risk Report', <Reports />)} />
+            <Route path="*" element={guard('Mission Control', <Dashboard />)} />
           </Routes>
         </main>
       </section>
@@ -347,8 +363,11 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Floating "Ask Ocean AI" quick access (hidden on the assistant page) */}
-      <AssistantFab visible={location.pathname !== '/assistant'} />
+      {/* Floating "Ask Ocean AI" quick access (hidden on the assistant page).
+          Guarded so a Copilot failure can never take down the Digital Twin. */}
+      <ErrorBoundary label="Ocean AI Copilot">
+        <AssistantFab visible={location.pathname !== '/assistant'} />
+      </ErrorBoundary>
     </div>
   )
 }

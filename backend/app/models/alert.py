@@ -1,5 +1,5 @@
 """
-OceanVerse AI - Weather/Anomaly Alert Model
+TidalTwin - Weather/Anomaly Alert Model
 ===========================================
 Represents an AI-generated warning about an ocean condition.
 Examples: harmful algal bloom detected, unusual temperature spike,

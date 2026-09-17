@@ -1,11 +1,17 @@
 /**
- * OceanVerse AI - API Client
+ * TidalTwin - API Client
  * ==========================
  * This is how our frontend talks to the backend.
  * We use axios to make HTTP requests to the FastAPI server.
  */
 
 import axios from 'axios'
+import type {
+  DemoResetResponse,
+  DemoSeedResponse,
+  DemoStatusResponse,
+  SystemHealthResponse,
+} from '../types/system'
 
 // The backend runs here in development
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
@@ -42,7 +48,7 @@ export const triggerRefresh = async () => {
   return data
 }
 
-/** Ask the OceanVerse Copilot a natural-language question (multi-turn context) */
+/** Ask the TidalTwin Copilot a natural-language question (multi-turn context) */
 export const askAssistant = async (question: string, context: Record<string, unknown> = {}) => {
   const { data } = await api.post('/api/v1/assistant/ask', { question, context })
   return data
@@ -501,5 +507,184 @@ export const fetchTransect = async (params: {
       n_samples: params.n_samples ?? 48,
     },
   })
+  return data
+}
+
+// --- TIDE-Loop API (explainable, request-derived observation ranking) ---
+
+/** Ranked TIDE observation candidates (scored + decision attached). */
+export const fetchTideCandidates = async (params: {
+  location_id?: number; variable?: string; depth_m?: number;
+} = {}) => {
+  const { data } = await api.get('/api/v1/tide/candidates', {
+    params: {
+      location_id: params.location_id,
+      variable: params.variable ?? 'temperature',
+      depth_m: params.depth_m ?? 0,
+    },
+  })
+  return data
+}
+
+/** Transparent TIDE evidence chain + explanation for the top candidate. */
+export const fetchTideExplanation = async (params: {
+  location_id?: number; variable?: string; depth_m?: number;
+} = {}) => {
+  const { data } = await api.get('/api/v1/tide/explanation', {
+    params: {
+      location_id: params.location_id,
+      variable: params.variable ?? 'temperature',
+      depth_m: params.depth_m ?? 0,
+    },
+  })
+  return data
+}
+
+/** TIDE hypothesis verdict (sensor / model / missing phenomenon). */
+export const fetchTideVerdict = async (params: {
+  location_id: number; variable?: string; depth_m?: number;
+}) => {
+  const { data } = await api.get('/api/v1/tide/verdict', {
+    params: {
+      location_id: params.location_id,
+      variable: params.variable ?? 'temperature',
+      depth_m: params.depth_m ?? 0,
+    },
+  })
+  return data
+}
+
+/** Existing ocean event composed with its Event DNA + TIDE context. */
+export const fetchTideEventContext = async (eventId: string) => {
+  const { data } = await api.get(`/api/v1/tide/events/${eventId}`)
+  return data
+}
+
+/** Per-region TIDE data gaps (sparse / stale / depth gaps). */
+export const fetchTideDataGaps = async (params: {
+  location_id?: number; variable?: string; depth_m?: number;
+} = {}) => {
+  const { data } = await api.get('/api/v1/tide/data-gaps', { params })
+  return data
+}
+
+/** Per-region TIDE model-vs-observation disagreement. */
+export const fetchTideDisagreements = async (params: {
+  location_id?: number; variable?: string; depth_m?: number;
+} = {}) => {
+  const { data } = await api.get('/api/v1/tide/disagreements', { params })
+  return data
+}
+
+/** Deterministic what-if observation simulation (never persisted). */
+export const runVirtualObservation = async (payload: {
+  location_id: number
+  variable?: string
+  depth_m?: number
+  observation_type?: string
+  value?: number | null
+}) => {
+  const { data } = await api.post('/api/v1/tide/virtual-observation', payload)
+  return data
+}
+
+/** Phase 6 — index of playable TIDE events (same order event-N resolves). */
+export const fetchTideEventIndex = async () => {
+  const { data } = await api.get('/api/v1/tide/events')
+  return data
+}
+
+/** Phase 6 — read-only two-mode TIDE Decision Replay for an existing event. */
+export const fetchDecisionReplay = async (params: {
+  eventId: string
+  location_id?: number
+  variable?: string
+  depth_m?: number
+  observation_type?: string
+  value?: number | null
+}) => {
+  const { data } = await api.get(`/api/v1/tide/events/${params.eventId}/replay`, {
+    params: {
+      location_id: params.location_id,
+      variable: params.variable,
+      depth_m: params.depth_m ?? 0,
+      observation_type: params.observation_type ?? 'VIRTUAL_SENSOR',
+      value: params.value,
+    },
+  })
+  return data
+}
+
+/** Phase 8 — TIDE validation status (maturity, dataset, ground truth, boundary). */
+export const fetchTideValidationStatus = async () => {
+  const { data } = await api.get('/api/v1/tide/validation')
+  return data
+}
+
+/** Phase 8 — machine-readable TIDE benchmark report (fair, budget-configurable). */
+export const fetchTideBenchmarks = async (params: {
+  budget?: number
+  variables?: string
+  strategies?: string
+  depth_m?: number
+  seed?: number
+} = {}) => {
+  const { data } = await api.get('/api/v1/tide/benchmarks', {
+    params: {
+      budget: params.budget ?? 1,
+      variables: params.variables,
+      strategies: params.strategies,
+      depth_m: params.depth_m ?? 0,
+      seed: params.seed ?? 42,
+    },
+  })
+  return data
+}
+
+/** Phase 8 — case/event-level drill-down behind a benchmark number. */
+export const fetchTideBenchmarkCase = async (
+  caseId: string,
+  params: { variable?: string; depth_m?: number; budget?: number; seed?: number } = {},
+) => {
+  const { data } = await api.get(`/api/v1/tide/benchmarks/${encodeURIComponent(caseId)}`, {
+    params: {
+      variable: params.variable ?? 'temperature',
+      depth_m: params.depth_m ?? 0,
+      budget: params.budget ?? 1,
+      seed: params.seed ?? 42,
+    },
+  })
+  return data
+}
+
+/** Phase 9 — per-subsystem system health for the status indicator. */
+export const fetchSystemHealth = async (): Promise<SystemHealthResponse> => {
+  const { data } = await api.get('/api/v1/health')
+  return data
+}
+
+/** Phase 9 — honest demonstration-data status + demonstration event. */
+export const fetchDemoStatus = async (): Promise<DemoStatusResponse> => {
+  const { data } = await api.get('/api/v1/demo/status')
+  return data
+}
+
+/** Phase 9 — create the labelled SIMULATED demonstration dataset. */
+export const seedDemoData = async (
+  params: { location?: string; kind?: 'heatwave' | 'surge'; force?: boolean } = {},
+): Promise<DemoSeedResponse> => {
+  const { data } = await api.post('/api/v1/demo/seed', null, {
+    params: {
+      location: params.location ?? 'goa',
+      kind: params.kind ?? 'heatwave',
+      force: params.force ?? false,
+    },
+  })
+  return data
+}
+
+/** Phase 9 — delete only simulation-labelled rows; real observations untouched. */
+export const resetDemoData = async (): Promise<DemoResetResponse> => {
+  const { data } = await api.post('/api/v1/demo/reset')
   return data
 }
