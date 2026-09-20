@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -7,30 +7,31 @@ import {
   Bell, Menu, X, Radio, Satellite, Database, CircleUser, Command, ShieldAlert, Sparkle,
   AlertTriangle, Crosshair, History, ShieldCheck,
 } from 'lucide-react'
-import Dashboard from './pages/Dashboard'
-import DigitalTwin from './pages/DigitalTwin'
-import Assistant from './pages/Assistant'
-import Monitoring from './pages/Monitoring'
-import Stories from './pages/Stories'
-import Reports from './pages/Reports'
-import Safety from './pages/Safety'
-import RiskMap from './pages/RiskMap'
-import Validate from './pages/Validate'
-import Forensics from './pages/Forensics'
-import Intelligence from './pages/Intelligence'
-import ScenarioLab from './pages/ScenarioLab'
-import OceanVision from './pages/OceanVision'
-import CoastalIntel from './pages/CoastalIntel'
-import AnomalyIntel from './pages/AnomalyIntel'
-import Tide from './pages/Tide'
-import DecisionReplay from './pages/DecisionReplay'
-import TideValidation from './pages/TideValidation'
 import AssistantFab from './components/assistant/AssistantFab'
 import ErrorBoundary from './components/ErrorBoundary'
 import SystemStatusPill from './components/system/SystemStatusPill'
 import DemoGuide from './components/system/DemoGuide'
 import { fetchLocations, fetchAlerts } from './api/client'
 import './App.css'
+
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const DigitalTwin = lazy(() => import('./pages/DigitalTwin'))
+const Assistant = lazy(() => import('./pages/Assistant'))
+const Monitoring = lazy(() => import('./pages/Monitoring'))
+const Stories = lazy(() => import('./pages/Stories'))
+const Reports = lazy(() => import('./pages/Reports'))
+const Safety = lazy(() => import('./pages/Safety'))
+const RiskMap = lazy(() => import('./pages/RiskMap'))
+const Validate = lazy(() => import('./pages/Validate'))
+const Forensics = lazy(() => import('./pages/Forensics'))
+const Intelligence = lazy(() => import('./pages/Intelligence'))
+const ScenarioLab = lazy(() => import('./pages/ScenarioLab'))
+const OceanVision = lazy(() => import('./pages/OceanVision'))
+const CoastalIntel = lazy(() => import('./pages/CoastalIntel'))
+const AnomalyIntel = lazy(() => import('./pages/AnomalyIntel'))
+const Tide = lazy(() => import('./pages/Tide'))
+const DecisionReplay = lazy(() => import('./pages/DecisionReplay'))
+const TideValidation = lazy(() => import('./pages/TideValidation'))
 
 /**
  * TidalTwin — Application Shell
@@ -93,6 +94,15 @@ const guard = (label: string, node: ReactNode) => (
   <ErrorBoundary label={label}>{node}</ErrorBoundary>
 )
 
+function RouteLoading() {
+  return (
+    <div className="route-loading" role="status" aria-live="polite">
+      <span className="route-loading-spinner" aria-hidden="true" />
+      <span>Loading workspace</span>
+    </div>
+  )
+}
+
 interface AlertItem {
   id: number
   severity: string
@@ -109,8 +119,8 @@ export default function App() {
   const [regions, setRegions] = useState<number | null>(null)
   const [alerts, setAlerts] = useState<AlertItem[]>([])
   const [connected, setConnected] = useState<boolean | null>(null)
-  const [lastSync, setLastSync] = useState<number>(0)
-  const [now, setNow] = useState<number>(0)
+  const [lastSync, setLastSync] = useState<number>(() => Date.now())
+  const [now, setNow] = useState<number>(() => Date.now())
   const [drawer, setDrawer] = useState(false)
   const [bellOpen, setBellOpen] = useState(false)
   const bellRef = useRef<HTMLDivElement>(null)
@@ -118,8 +128,6 @@ export default function App() {
   const active = FLAT_NAV.find((n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)))
 
   useEffect(() => {
-    setLastSync(Date.now())
-    setNow(Date.now())
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [])
@@ -160,6 +168,26 @@ export default function App() {
   useEffect(() => {
     setDrawer(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        navigate('/assistant')
+      }
+      if (event.key === 'Escape') {
+        setBellOpen(false)
+        setDrawer(false)
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [navigate])
+
+  useEffect(() => {
+    document.body.classList.toggle('drawer-open', drawer)
+    return () => document.body.classList.remove('drawer-open')
+  }, [drawer])
 
   const secondsAgo = Math.max(0, Math.floor((now - lastSync) / 1000))
   const activeAlerts = alerts.filter((a) => a.status === 'active')
@@ -309,27 +337,29 @@ export default function App() {
         </header>
 
         <main className="main-content">
-          <Routes>
-            <Route path="/" element={guard('Mission Control', <Dashboard />)} />
-            <Route path="/globe" element={guard('Digital Twin', <DigitalTwin />)} />
-            <Route path="/monitoring" element={guard('Monitoring & Alerts', <Monitoring />)} />
-            <Route path="/validate" element={guard('Model Validation', <Validate />)} />
-            <Route path="/anomalies" element={guard('Anomaly Intel', <AnomalyIntel />)} />
-            <Route path="/forensics" element={guard('Ocean Forensics', <Forensics />)} />
-            <Route path="/intelligence" element={guard('Decision Intelligence', <Intelligence />)} />
-            <Route path="/tide" element={guard('TIDE Command Center', <Tide />)} />
-            <Route path="/tide/replay" element={guard('Decision Replay', <DecisionReplay />)} />
-            <Route path="/tide/validation" element={guard('TIDE Validation', <TideValidation />)} />
-            <Route path="/oceanvision" element={guard('Ocean Vision', <OceanVision />)} />
-            <Route path="/coastal" element={guard('Coastal Intel', <CoastalIntel />)} />
-            <Route path="/scenarios" element={guard('Scenario Lab', <ScenarioLab />)} />
-            <Route path="/safety" element={guard('Safety Center', <Safety />)} />
-            <Route path="/risk" element={guard('Risk Map', <RiskMap />)} />
-            <Route path="/stories" element={guard('Story Mode', <Stories />)} />
-            <Route path="/assistant" element={guard('Ocean AI Copilot', <Assistant />)} />
-            <Route path="/reports" element={guard('Risk Report', <Reports />)} />
-            <Route path="*" element={guard('Mission Control', <Dashboard />)} />
-          </Routes>
+          <Suspense fallback={<RouteLoading />}>
+            <Routes>
+              <Route path="/" element={guard('Mission Control', <Dashboard />)} />
+              <Route path="/globe" element={guard('Digital Twin', <DigitalTwin />)} />
+              <Route path="/monitoring" element={guard('Monitoring & Alerts', <Monitoring />)} />
+              <Route path="/validate" element={guard('Model Validation', <Validate />)} />
+              <Route path="/anomalies" element={guard('Anomaly Intel', <AnomalyIntel />)} />
+              <Route path="/forensics" element={guard('Ocean Forensics', <Forensics />)} />
+              <Route path="/intelligence" element={guard('Decision Intelligence', <Intelligence />)} />
+              <Route path="/tide" element={guard('TIDE Command Center', <Tide />)} />
+              <Route path="/tide/replay" element={guard('Decision Replay', <DecisionReplay />)} />
+              <Route path="/tide/validation" element={guard('TIDE Validation', <TideValidation />)} />
+              <Route path="/oceanvision" element={guard('Ocean Vision', <OceanVision />)} />
+              <Route path="/coastal" element={guard('Coastal Intel', <CoastalIntel />)} />
+              <Route path="/scenarios" element={guard('Scenario Lab', <ScenarioLab />)} />
+              <Route path="/safety" element={guard('Safety Center', <Safety />)} />
+              <Route path="/risk" element={guard('Risk Map', <RiskMap />)} />
+              <Route path="/stories" element={guard('Story Mode', <Stories />)} />
+              <Route path="/assistant" element={guard('Ocean AI Copilot', <Assistant />)} />
+              <Route path="/reports" element={guard('Risk Report', <Reports />)} />
+              <Route path="*" element={guard('Mission Control', <Dashboard />)} />
+            </Routes>
+          </Suspense>
         </main>
       </section>
 
@@ -346,6 +376,9 @@ export default function App() {
             />
             <motion.aside
               className="mobile-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigation menu"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}

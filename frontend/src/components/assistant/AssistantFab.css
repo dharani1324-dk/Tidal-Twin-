@@ -192,6 +192,14 @@
   overflow: hidden;
 }
 
+.fab-loading {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+}
+
 @media (max-width: 560px) {
   .fab-wrap { right: 14px; bottom: 14px; }
   .fab-btn { padding: 12px 15px; }

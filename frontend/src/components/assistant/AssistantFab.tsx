@@ -5,12 +5,12 @@
  * button opens a popup drawer that embeds the full Assistant without
  * leaving the current page. Rendered once in the App shell.
  */
-import { useEffect } from 'react'
-import { useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, X, ChevronDown } from 'lucide-react'
-import Assistant from '../../pages/Assistant'
 import './AssistantFab.css'
+
+const Assistant = lazy(() => import('../../pages/Assistant'))
 
 export default function AssistantFab({ visible }: { visible: boolean }) {
   const [open, setOpen] = useState(false)
@@ -75,6 +75,9 @@ export default function AssistantFab({ visible }: { visible: boolean }) {
             />
             <motion.div
               className="fab-popup"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Ocean AI Copilot quick access"
               initial={{ opacity: 0, y: 40, scale: 0.92 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 40, scale: 0.92 }}
@@ -88,7 +91,9 @@ export default function AssistantFab({ visible }: { visible: boolean }) {
                 </button>
               </div>
               <div className="fab-pop-body">
-                <Assistant embedded />
+                <Suspense fallback={<div className="fab-loading" role="status">Loading Copilot…</div>}>
+                  <Assistant embedded />
+                </Suspense>
               </div>
             </motion.div>
           </>
