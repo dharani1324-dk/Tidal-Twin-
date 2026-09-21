@@ -42,6 +42,27 @@ OXYGEN_SEV_MGL = 1.0       # mg/L oxygen swing = notable
 CHLORO_SEV_MGM3 = 1.5      # mg/m3 chlorophyll swing = notable
 
 
+def _real_grid_crosscheck(db: Session, loc: OceanLocation) -> str | None:
+    """Nearest real NOAA ERSST grid cell near this coast, as a citation, or
+    an honest 'nothing to cross-check' sentence. Never fabricates a value."""
+    from app.modules.ai.realdata import SOURCES, location_center, near
+
+    center = location_center(loc)
+    if center is None:
+        return None
+    lat, lon = center
+    hit = near(db, "sst", lat, lon)
+    if hit["found"]:
+        return (f"Cross-check vs real NOAA ERSST v5 grid ({hit['month']}): "
+                f"{hit['value']:.1f} °C at {hit['longitude']:.1f}°E, {hit['latitude']:.1f}°N "
+                f"(nearest cell).")
+    if hit["month"] is not None:
+        deg = SOURCES["sst"]["default_max_deg"]
+        return (f"No real ERSST cell within {deg:g}° to cross-check "
+                f"(grid month {hit['month']}); citing sensors only.")
+    return "No real ERSST data ingested to cross-check; citing sensors only."
+
+
 # ------------------------------------------------------------------
 # Statistical anomaly detection (z-score), per location & variable
 # ------------------------------------------------------------------
@@ -154,16 +175,20 @@ def analyze_location(db: Session, loc: OceanLocation,
                 sev = conf = None
             if sev is not None:
                 direction = "warming" if delta > 0 else "cooling"
+                crosscheck = _real_grid_crosscheck(db, loc)
+                desc = (
+                    f"Sea surface temperature at {loc.name} is {direction} strongly: "
+                    f"{latest_temp:.1f}°C vs recent normal {m:.1f}°C "
+                    f"(Δ {delta:+.1f}°C). Possible marine heat-wave or upwelling signal."
+                )
+                if crosscheck:
+                    desc = f"{desc} {crosscheck}"
                 alerts.append(
                     OceanAlert(
                         location_id=loc.id,
                         alert_type="temperature_anomaly",
                         severity=sev,
-                        description=(
-                            f"Sea surface temperature at {loc.name} is {direction} strongly: "
-                            f"{latest_temp:.1f}°C vs recent normal {m:.1f}°C "
-                            f"(Δ {delta:+.1f}°C). Possible marine heat-wave or upwelling signal."
-                        ),
+                        description=desc,
                         confidence=round(conf, 2),
                         latitude=loc.lat_center if hasattr(loc, "lat_center") else None,
                         longitude=loc.lon_center if hasattr(loc, "lon_center") else None,

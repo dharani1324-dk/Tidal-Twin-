@@ -300,6 +300,181 @@
   justify-content: center;
 }
 
+/* ── Visual Style card (opacity sliders + vertical exaggeration) ── */
+.style-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 0 4px;
+}
+
+.style-kicker {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin: 10px 0 2px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  padding-top: 10px;
+}
+
+.style-kicker:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.opacity-row {
+  display: grid;
+  grid-template-columns: 118px 1fr 38px;
+  align-items: center;
+  gap: 8px;
+}
+
+.opacity-label {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.opacity-value {
+  font-size: 11px;
+  color: var(--neon);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.opacity-row input[type='range'] {
+  width: 100%;
+  accent-color: var(--neon);
+  cursor: pointer;
+  height: 18px;
+}
+
+/* ── Model Depth Slices card (feature #7) ─────────────────────── */
+.slice-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 2px 0 10px;
+}
+
+.slice-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slice-kicker {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.slice-selects {
+  display: flex;
+  gap: 6px;
+}
+
+.slice-pill {
+  flex: 1;
+  padding: 7px 8px;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(30, 41, 59, 0.5);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.slice-pill.on {
+  background: rgba(34, 211, 238, 0.16);
+  border-color: var(--neon);
+  color: var(--neon);
+}
+
+.slice-select {
+  width: 100%;
+  padding: 8px 9px;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(30, 41, 59, 0.5);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ── Glider Fleet card (features #16/#17) ─────────────────────── */
+.glider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 2px 0 10px;
+}
+
+.glider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(30, 41, 59, 0.45);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.glider-row:hover {
+  border-color: var(--neon);
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.glider-id {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--neon);
+  letter-spacing: 0.4px;
+}
+
+.glider-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.glider-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 999px;
+  padding: 2px 8px;
+  letter-spacing: 0.4px;
+}
+
+.glider-chip i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--neon);
+}
+
+.glider-chip-bgc {
+  color: #34d399;
+}
+
+.glider-chip-bgc i {
+  background: #34d399;
+}
+
 /* ── Situation strip ─────────────────────────────────────────── */
 .twin-situation {
   margin-bottom: 18px;
@@ -741,3 +916,141 @@
   border-radius: 999px;
   margin-left: auto;
 }
+
+/* ── Real Argo floats — marker click → depth profile ───────────── */
+.argo-list { display: flex; flex-direction: column; gap: 7px; }
+
+.argo-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(120, 190, 255, 0.12);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+}
+.argo-row:hover { background: rgba(244, 114, 182, 0.08); border-color: rgba(244, 114, 182, 0.4); }
+.argo-row-on { background: rgba(244, 114, 182, 0.1); border-color: rgba(244, 114, 182, 0.5); }
+
+.argo-pin {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #f472b6;
+  box-shadow: 0 0 8px rgba(244, 114, 182, 0.8);
+  flex-shrink: 0;
+}
+
+.argo-txt { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.argo-txt b { font-size: 12px; color: #e6f1ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.argo-txt em { font-style: normal; font-size: 9.5px; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }
+
+.argo-go { font-size: 11px; color: var(--neon); }
+
+.argo-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(120, 190, 255, 0.1);
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.argo-offshore { color: #fde68a; }
+
+.argo-charts { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.argo-chart-label { font-size: 9px; letter-spacing: 1.2px; color: var(--text-muted); margin-bottom: 2px; }
+.argo-note { font-size: 9.5px; color: var(--text-muted); line-height: 1.45; }
+
+/* Real NOAA ERSST v5 SST readout */
+.ersst-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.07), rgba(255, 138, 40, 0.07));
+  border: 1px solid rgba(34, 211, 238, 0.18);
+}
+.ersst-kicker { font-size: 8.5px; letter-spacing: 1.4px; color: var(--text-muted); }
+.ersst-value { display: flex; flex-direction: column; gap: 3px; }
+.ersst-value b { font-size: 20px; color: #e6f1ff; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.ersst-value em { font-style: normal; font-size: 10px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.ersst-na b { font-size: 14px; color: #fca5a5; }
+
+/* Satellite Chl (VIIRS) variant */
+.chl-readout {
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.07), rgba(234, 179, 8, 0.07));
+  border-color: rgba(22, 163, 74, 0.2);
+}
+.chl-pending {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px dashed rgba(234, 179, 8, 0.35);
+  background: rgba(234, 179, 8, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.chl-pending b { font-size: 11px; color: #fde68a; }
+.chl-pending p { font-size: 9.5px; color: var(--text-muted); line-height: 1.45; margin: 0; }
+.chl-pending code {
+  font-size: 9.5px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  color: #a7f3d0;
+  background: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+  border-radius: 6px;
+  padding: 5px 8px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Surface temperature + mixed-layer depth summary chips */
+.argo-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+
+.argo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: #e6f1ff;
+  border: 1px solid rgba(120, 190, 255, 0.22);
+  background: rgba(120, 190, 255, 0.06);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.argo-chip i { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.argo-chip b { color: #fff; font-weight: 700; }
+.argo-chip em { font-style: normal; color: var(--text-muted); font-size: 9px; }
+.argo-chip-surface i { background: #22d3ee; box-shadow: 0 0 7px rgba(34, 211, 238, 0.8); }
+.argo-chip-mld i { background: #f472b6; box-shadow: 0 0 7px rgba(244, 114, 182, 0.8); }
+.argo-chip-na { color: #94a3b8; border-style: dashed; }
+
+/* ---- Dynamic continuous colour scale (SIH items 8/9/10) ---- */
+.colorbar { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(148, 163, 184, 0.14); }
+.colorbar-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.colorbar-label { font-size: 9.5px; letter-spacing: 1.2px; color: #a5f3fc; text-transform: uppercase; }
+.colorbar-unit { font-size: 9px; color: var(--text-muted); }
+.colorbar-track-wrap { position: relative; }
+.colorbar-track { position: relative; height: 10px; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25); }
+.colorbar-pin { position: absolute; top: -4px; width: 2px; height: 18px; background: #fff; border-radius: 2px; box-shadow: 0 0 6px rgba(255, 255, 255, 0.9); transform: translateX(-1px); }
+.colorbar-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
+.colorbar-min, .colorbar-max { font-size: 10px; color: #94a3b8; font-variant-numeric: tabular-nums; }
+.colorbar-scale { display: inline-flex; gap: 2px; }
+.colorbar-scale button { font-size: 8.5px; letter-spacing: 0.8px; padding: 2px 7px; border-radius: 999px; background: #0b1c38; color: #64748b; border: 1px solid rgba(148, 163, 184, 0.25); cursor: pointer; text-transform: uppercase; transition: all 0.15s ease; }
+.colorbar-scale button.on { background: rgba(34, 211, 238, 0.15); color: #22d3ee; border-color: rgba(34, 211, 238, 0.5); }

@@ -5,7 +5,7 @@ import {
   Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, BookOpen,
   LifeBuoy, Siren, Scale, Search, Brain, FlaskConical, Sparkles, Anchor,
   Bell, Menu, X, Radio, Satellite, Database, CircleUser, Command, ShieldAlert, Sparkle,
-  AlertTriangle, Crosshair, History, ShieldCheck,
+  AlertTriangle, Crosshair, History, ShieldCheck, LayoutDashboard, Palette,
 } from 'lucide-react'
 import AssistantFab from './components/assistant/AssistantFab'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -14,6 +14,7 @@ import DemoGuide from './components/system/DemoGuide'
 import { fetchLocations, fetchAlerts } from './api/client'
 import './App.css'
 
+const OceanHome = lazy(() => import('./pages/OceanHome'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const DigitalTwin = lazy(() => import('./pages/DigitalTwin'))
 const Assistant = lazy(() => import('./pages/Assistant'))
@@ -53,6 +54,7 @@ const NAV_GROUPS: NavSpec[] = [
       { to: '/', label: 'Mission Control', icon: Home, end: true },
       { to: '/globe', label: 'Digital Twin', icon: Globe2 },
       { to: '/monitoring', label: 'Monitoring & Alerts', icon: Radar },
+      { to: '/classic', label: 'Classic Console', icon: LayoutDashboard },
       { to: '/assistant', label: 'Ocean AI Copilot', icon: MessageSquare },
     ],
   },
@@ -124,6 +126,13 @@ export default function App() {
   const [drawer, setDrawer] = useState(false)
   const [bellOpen, setBellOpen] = useState(false)
   const bellRef = useRef<HTMLDivElement>(null)
+  const [theme, setTheme] = useState<'ocean' | 'classic'>(() => {
+    try {
+      return localStorage.getItem('tidaltwin-theme') === 'classic' ? 'classic' : 'ocean'
+    } catch {
+      return 'ocean'
+    }
+  })
 
   const active = FLAT_NAV.find((n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)))
 
@@ -179,6 +188,11 @@ export default function App() {
         setBellOpen(false)
         setDrawer(false)
       }
+      const el = event.target as HTMLElement | null
+      const typing = el?.matches?.('input, textarea, select')
+      if (event.key.toLowerCase() === 'l' && !event.metaKey && !event.ctrlKey && !event.altKey && !typing) {
+        setTheme((t) => (t === 'ocean' ? 'classic' : 'ocean'))
+      }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
@@ -189,9 +203,25 @@ export default function App() {
     return () => document.body.classList.remove('drawer-open')
   }, [drawer])
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('tidaltwin-theme', theme)
+    } catch {
+      /* storage unavailable — theme stays for this session only */
+    }
+  }, [theme])
+
   const secondsAgo = Math.max(0, Math.floor((now - lastSync) / 1000))
   const activeAlerts = alerts.filter((a) => a.status === 'active')
   const critical = activeAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high')
+
+  const timeString = new Date(now).toLocaleTimeString('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
 
   const product = (
     <div className="sidebar-brand" onClick={() => navigate('/')}>
@@ -199,7 +229,10 @@ export default function App() {
         <img src="/logo-light.png" alt="" className="logo-img" />
       </div>
       <div className="brand-text">
-        <span className="brand-name">TidalTwin</span>
+        <div className="brand-title-row">
+          <span className="brand-name">TidalTwin</span>
+          <span className="pulse-dot ok" title="System Operational" />
+        </div>
         <span className="brand-sub">Ocean Intelligence</span>
       </div>
     </div>
@@ -220,6 +253,15 @@ export default function App() {
               <Icon size={17} />
               <span>{label}</span>
               {to === '/assistant' && <Sparkle size={11} className="nav-ai-dot" />}
+              {to === '/monitoring' && critical.length > 0 && (
+                <span className="nav-badge-pill crit">{critical.length}</span>
+              )}
+              {to === '/validate' && (
+                <span className="nav-badge-pill warn" title="Active Model Disagreement">GOA</span>
+              )}
+              {to === '/tide' && (
+                <span className="nav-badge-pill live" title="TIDE-Loop Active">TIDE</span>
+              )}
             </NavLink>
           ))}
         </div>
@@ -228,12 +270,22 @@ export default function App() {
   )
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${theme === 'classic' ? ' theme-classic' : ''}`}>
       {/* ---- Sidebar (desktop) ---- */}
       <aside className="sidebar">
         {product}
         {nav}
         <div className="sidebar-footer">
+          <button
+            className={`design-switch${theme === 'classic' ? ' on' : ''}`}
+            onClick={() => setTheme((t) => (t === 'ocean' ? 'classic' : 'ocean'))}
+            title="Switch between the classic console and the new ocean design"
+            aria-pressed={theme === 'classic'}
+          >
+            <Palette size={13} />
+            <span>{theme === 'classic' ? 'CLASSIC' : 'OCEAN'}</span>
+            <kbd>L</kbd>
+          </button>
           <span className="status-tag ok"><b>SYS</b> OPERATIONAL</span>
           <span className="sf-ver">v2.0 · Indian Ocean</span>
         </div>
@@ -254,6 +306,11 @@ export default function App() {
           </div>
 
           <div className="sb-status" role="status">
+            <div className="live-clock-chip" title="Operational Telemetry Time (Indian Standard Time)">
+              <span className="pulse-dot accent" />
+              <span className="clock-time">{timeString}</span>
+              <span className="clock-zone">IST</span>
+            </div>
             <SystemStatusPill />
             <span className={`status-tag ${connected === false ? 'off' : 'ok'}`}>
               <Satellite size={11} /> <b>SAT</b> LINK
@@ -339,7 +396,8 @@ export default function App() {
         <main className="main-content">
           <Suspense fallback={<RouteLoading />}>
             <Routes>
-              <Route path="/" element={guard('Mission Control', <Dashboard />)} />
+              <Route path="/" element={guard('Mission Control', theme === 'classic' ? <Dashboard /> : <OceanHome />)} />
+              <Route path="/classic" element={guard('Classic Console', <Dashboard />)} />
               <Route path="/globe" element={guard('Digital Twin', <DigitalTwin />)} />
               <Route path="/monitoring" element={guard('Monitoring & Alerts', <Monitoring />)} />
               <Route path="/validate" element={guard('Model Validation', <Validate />)} />
@@ -357,7 +415,7 @@ export default function App() {
               <Route path="/stories" element={guard('Story Mode', <Stories />)} />
               <Route path="/assistant" element={guard('Ocean AI Copilot', <Assistant />)} />
               <Route path="/reports" element={guard('Risk Report', <Reports />)} />
-              <Route path="*" element={guard('Mission Control', <Dashboard />)} />
+              <Route path="*" element={guard('Mission Control', theme === 'classic' ? <Dashboard /> : <OceanHome />)} />
             </Routes>
           </Suspense>
         </main>

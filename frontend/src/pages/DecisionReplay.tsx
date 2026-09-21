@@ -59,9 +59,16 @@ const LAYER_DEFAULTS: LayersState = {
   uncertainty: false,
   priority: false,
   argo: false,
+  realArgo: false,
+  realSST: false,
+  realChl: false,
   disagreement: false,
   anomalies: false,
   tide: false,
+  isos: false,
+  vectors: false,
+  modelgrid: false,
+  glider: false,
 }
 
 const pct = (v: number | string | null | undefined): string => {

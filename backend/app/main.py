@@ -35,6 +35,14 @@ from app.api.currents import router as currents_router
 from app.api.edr import router as edr_router
 from app.api.lens import router as lens_router
 from app.api.tide import router as tide_router
+from app.api.argo import router as argo_router
+from app.api.ersst import router as ersst_router
+from app.api.chlor import router as chlor_router
+from app.api.modelgrid import router as modelgrid_router
+from app.api.glider import router as glider_router
+from app.api.ctd import router as ctd_router
+from app.api.ogc import router as ogc_router
+from app.api.cf import router as cf_router
 from app.modules.ai.safety.live import broadcast_loop
 
 
@@ -157,6 +165,14 @@ app.include_router(currents_router)
 app.include_router(edr_router)
 app.include_router(lens_router)
 app.include_router(tide_router)
+app.include_router(argo_router)
+app.include_router(ersst_router)
+app.include_router(chlor_router)
+app.include_router(modelgrid_router)
+app.include_router(glider_router)
+app.include_router(ctd_router)
+app.include_router(ogc_router)
+app.include_router(cf_router)
 
 
 # ---- Basic Routes (Doors) ----

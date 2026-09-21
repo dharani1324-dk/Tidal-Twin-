@@ -1,11 +1,17 @@
 """
-TidalTwin - Argo Float Trajectory Simulator
-===============================================
-Generates deterministic, reproducible simulated Argo float paths
-around each monitored location. Floats drift with regional currents,
-dive/surface in typical 10-day cycles, and carry T/S profiles.
+TidalTwin - Argo Float Trajectories
+=====================================
+Serves Argo float trajectories two ways - always honestly labelled:
 
-Each float:
+  REAL    - when real Argo GDAC profiles have been ingested into
+            `argo_profiles` (via scripts.fetch_argo + scripts.ingest_argo),
+            each float's path is built from its actual stored profile levels
+            (lat/lon/depth/time/temp/sal), explicitly marked "Real Argo GDAC".
+  SIM     - otherwise we fall back to a deterministic simulator so the
+            dashboards keep working, but every float is labelled "Simulated
+            Argo" and the source registry reports the source as 'simulated'.
+
+Each simulated float:
   - Has a unique WMO-style ID seeded from (location_id, float_index)
   - Follows a seeded random walk + sinusoidal depth cycle
   - Produces ~30 surface + subsurface points (6 hours apart)
@@ -18,13 +24,80 @@ import random
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.models.argo import ArgoProfile
 from app.models.location import OceanLocation
 from app.models.observation import OceanObservation
 from app.services.ocean_data import get_location_center
 
 _SEED_ROOT = 42_000          # base seed so every location gets a stable id range
+
+
+def _real_floats(db: Session, n_floats: int = 10) -> list[dict[str, Any]]:
+    """Build float trajectories from REAL ingested argo_profiles rows.
+
+    One float per float_id, ordered by most recent profile, capped at
+    `n_floats`. A float with only NULL temperature/salinity everywhere is
+    still shown - its values are 'Data unavailable' rather than invented.
+    """
+    latest_per_float = (
+        db.query(
+            ArgoProfile.float_id,
+            func.count(ArgoProfile.id).label("levels"),
+            func.max(ArgoProfile.depth_m).label("depth_max"),
+            func.max(ArgoProfile.time).label("latest_time"),
+        )
+        .group_by(ArgoProfile.float_id)
+        .order_by(func.max(ArgoProfile.time).desc())
+        .limit(n_floats)
+        .all()
+    )
+    floats: list[dict[str, Any]] = []
+    for float_id, levels, depth_max, latest_time in latest_per_float:
+        levels_rows = (
+            db.query(
+                ArgoProfile.latitude, ArgoProfile.longitude, ArgoProfile.time,
+                ArgoProfile.depth_m, ArgoProfile.temperature, ArgoProfile.salinity,
+            )
+            .filter(ArgoProfile.float_id == float_id)
+            .order_by(ArgoProfile.depth_m.asc())
+            .all()
+        )
+        source_file = (
+            db.query(ArgoProfile.source_file)
+            .filter(ArgoProfile.float_id == float_id)
+            .limit(1)
+            .scalar()
+        )
+        points: list[dict] = []
+        for la, lo, t, depth, temp, sal in levels_rows:
+            points.append({
+                "lat": round(la, 5),
+                "lon": round(lo, 5),
+                "depth_m": round(depth, 1) if depth is not None else None,
+                "timestamp": t.isoformat(),
+                "temperature": temp,
+                "salinity": sal,
+            })
+        floats.append({
+            "float_id": float_id,
+            "label": str(float_id),
+            # open-ocean float: no supervised coast owns it (transect uses 0)
+            "location_id": 0,
+            "location": "open ocean (Argo GDAC)",
+            "platform": "Real Argo GDAC profile",
+            "n_points": len(points),
+            "points": points,
+            "profile": {
+                "max_depth_m": depth_max,
+                "levels": levels,
+                "latest_time": latest_time.isoformat() if latest_time else None,
+            },
+            "provenance": source_file,
+        })
+    return floats
 
 
 def _seed_for(loc_id: int, idx: int) -> int:
@@ -120,9 +193,22 @@ def _generate_float(loc: OceanLocation, idx: int,
 def get_argo_trajectories(db: Session, location_id: int | None = None,
                           n_floats: int = 3) -> dict:
     """
-    Generate Argo float trajectories for one or all locations.
-    Returns a dict with `generated_at` and `floats` list.
+    Argo float trajectories for one or all locations.
+
+    If REAL profiles are ingested we serve them (objectively better and
+    honestly labelled); otherwise we fall back to the deterministic simulator
+    so the dashboards stay populated. `location_id` only applies to the
+    simulated fallback — real floats live in the open ocean, not per coast.
     """
+    if db.query(ArgoProfile).limit(1).first() is not None:
+        real = _real_floats(db, n_floats=10 if not location_id else 3)
+        return {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "count": len(real),
+            "floats": real,
+            "source": "argo_profiles (real Argo GDAC)",
+        }
+
     q = db.query(OceanLocation)
     if location_id:
         q = q.filter(OceanLocation.id == location_id)
@@ -139,4 +225,5 @@ def get_argo_trajectories(db: Session, location_id: int | None = None,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "count": len(floats),
         "floats": floats,
+        "source": "argo trajectory simulator",
     }

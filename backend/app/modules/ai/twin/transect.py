@@ -290,13 +290,14 @@ def _column_series(pseudo_loc, surface: dict, depths: list[int], variable: str) 
 def _probe_profile(points: list[dict], depths: list[int], key: str) -> list[float | None]:
     pairs = sorted({round(p["depth_m"], 1): p for p in points}.items())
     xs = [x for x, _ in pairs]
-    ys = [p[key] for _, p in pairs]
+    ys = [np.nan if p[key] is None else p[key] for _, p in pairs]
     out = []
     for z in depths:
         if not xs:
             out.append(None)
             continue
-        out.append(round(float(np.interp(z, xs, ys)), 2))
+        v = float(np.interp(z, xs, ys))
+        out.append(round(v, 2) if np.isfinite(v) else None)
     return out
 
 

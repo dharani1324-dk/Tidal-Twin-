@@ -43,6 +43,7 @@ from app.modules.ai.validation.engine import (
     situation_panel,
 )
 from app.modules.ai.forensics.intelligence import health_score as intelligence_health
+from app.modules.ai.realdata import location_center, near
 from app.modules.ai.apex.adaptive import adaptive_identification
 from app.modules.ai.apex.carbon import carbon_monitoring
 from app.modules.ai.apex.light import light_pollution
@@ -363,11 +364,44 @@ def ans_current(db, loc, variables) -> dict:
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=timezone.utc)
     answer_parts.append(f"_Observed {ts.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime('%H:%M IST')}._")
+
+    real_notes, real_sources = _real_grid_notes(db, loc)
+    if real_notes:
+        answer_parts.append("")
+        answer_parts.append("_Real ingested grid (not simulated):_")
+        answer_parts.extend(real_notes)
+
+    sources = [SOURCE_API, *real_sources]
     return {"answer": "\n".join(answer_parts), "intent": "current",
             "location": loc.name, "location_id": loc.id,
             "data": _metrics(rows), "suggestions": _suggest_for("current"),
-            "sources": [SOURCE_API],
-            "steps": ["Located coast", "Read latest observation"]}
+            "sources": sources,
+            "steps": ["Located coast", "Read latest observation",
+                      *(["Cross-checked real NOAA grid(s)"] if real_notes else [])]}
+
+
+def _real_grid_notes(db, loc):
+    """Cite the real NOAA grids (ERSST SST / VIIRS Chl) near this coast.
+
+    Honest: we only cite a value when a real cell exists within the product's
+    search range; otherwise we stay silent (or note absence) — never guess."""
+    center = location_center(loc)
+    if center is None:
+        return [], []
+    lat, lon = center
+    notes: list[str] = []
+    sources: list[str] = []
+    for variable, fmt in (("sst", "Real SST ({m}): {v:.1f} °C — cell {lg:.1f}°E,{lt:.1f}°N"),
+                          ("chlor_a", "Real Chl-a ({m}): {v:.2f} mg/m³ — cell {lg:.1f}°E,{lt:.1f}°N")):
+        hit = near(db, variable, lat, lon)
+        if hit["found"]:
+            notes.append(f"- **{fmt.format(m=hit['month'], v=hit['value'],
+                                           lg=hit['longitude'], lt=hit['latitude'])}** — "
+                         f"{hit['short']} grid ({hit['source']})")
+            sources.append(hit["source"])
+        elif hit["month"] is not None:
+            notes.append(f"- {hit['reason']} (grid month {hit['month']}).")
+    return notes, sources
 
 
 def ans_safety(db, loc) -> dict:

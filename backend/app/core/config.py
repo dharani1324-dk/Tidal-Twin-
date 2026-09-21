@@ -6,6 +6,8 @@ It's the central place where all configuration lives,
 so our code never has hard-coded passwords or addresses.
 """
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,6 +16,9 @@ class Settings(BaseSettings):
     App settings loaded from the .env file.
     Pydantic automatically reads DATABASE_URL and API_* from .env.
     """
+
+    # Backend root directory (used for server-local NetCDF validation paths).
+    BASE_DIR: Path = Path(__file__).resolve().parents[2]
 
     # Database connection string (required for all data-backed features)
     DATABASE_URL: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/tidaltwin"

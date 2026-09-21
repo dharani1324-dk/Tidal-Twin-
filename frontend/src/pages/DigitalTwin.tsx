@@ -5,13 +5,21 @@ import {
   Thermometer, Waves, Droplets, Tag, Globe2, Crosshair, Layers, Tornado, Clock,
   Play, Pause, Repeat, Target, Navigation, GitCompare, AlertTriangle, Activity,
   Database, ShieldCheck, Gauge, ChevronRight, Radar, Route, ScanLine, X, Loader2,
+  Satellite, Orbit,
 } from 'lucide-react'
 import CesiumGlobe from '../components/3d/globe/CesiumGlobe'
-import type { GlobeLocation, SeriesRegion, StormTrackData, ArgoFloat, DisagreementPoint, AnomalyPoint, TransectData, TideGlobeMarker } from '../components/3d/globe/CesiumGlobe'
+import ColorScaleBar from '../components/3d/globe/ColorScaleBar'
+import { inIndiaBox, nearestCell, domainFrom, isoLevelsFor, TEMP_DEFAULT_DOMAIN, SAL_DEFAULT_DOMAIN, CHL_LEGACY_DOMAIN } from '../components/3d/globe/layerMath'
+import type { ScaleDomain, ScaleMode } from '../components/3d/globe/layerMath'
+import type { GlobeLocation, SeriesRegion, StormTrackData, ArgoFloat, RealArgoFloat, ErsstLayer, ChlorLayer, DisagreementPoint, AnomalyPoint, TransectData, TideGlobeMarker, LayerKey, CurrentVector, ModelSlice, GliderDeployment, GliderSample, GliderTrack } from '../components/3d/globe/CesiumGlobe'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts'
 import TransectHUD from '../components/transect/TransectHUD'
 import {
   fetchLocations, fetchObservations, fetchStormTrack, fetchSafetyTimeseries, fetchUncertainty,
-  fetchRecommendations, fetchArgo, fetchTwinCompare, fetchTwinExplain, fetchTwinProfile,
+  fetchRecommendations, fetchArgo, fetchRealArgoFloats, fetchArgoFloatProfile, fetchErsstLatest,
+  fetchChlorLatest, fetchModelGridVectors, fetchModelGridSummary, fetchModelGridSlice,
+  fetchGliderDeployments, fetchGliderSamples, fetchGliderBgc,
+  fetchTwinCompare, fetchTwinExplain, fetchTwinProfile,
   fetchTwinDisagreement, fetchAnomalies, fetchSituation, fetchDataSources, fetchTransect,
   fetchTideCandidates,
 } from '../api/client'
@@ -111,18 +119,69 @@ export default function DigitalTwin() {
     uncertainty: false,
     priority: false,
     argo: false,
+    realArgo: true,
+    realSST: true,
+    realChl: true,
     disagreement: true,
     anomalies: true,
     tide: false,
+    isos: true,
+    vectors: true,
+    modelgrid: true,
+    glider: false,
   })
   const [storm, setStorm] = useState<StormTrackData | null>(null)
   const [series, setSeries] = useState<SeriesRegion[]>([])
   const [uncertainties, setUncertainties] = useState<Record<number, number>>({})
   const [priorities, setPriorities] = useState<Record<number, number>>({})
   const [argoFloats, setArgoFloats] = useState<ArgoFloat[]>([])
+  const [realArgoFloats, setRealArgoFloats] = useState<RealArgoFloat[]>([])
+  const [ersstData, setErsstData] = useState<ErsstLayer | null>(null)
+  const [chlorData, setChlorData] = useState<ChlorLayer | null>(null)
+  const [sstScale, setSstScale] = useState<ScaleMode>('linear')
+  const [chlScale, setChlScale] = useState<ScaleMode>('log')
+  const [activeArgo, setActiveArgo] = useState<RealArgoFloat | null>(null)
+  const [argoProfile, setArgoProfile] = useState<ArgoProfilePayload | null>(null)
+  const [argoProfileBusy, setArgoProfileBusy] = useState(false)
+  const [argoProfileError, setArgoProfileError] = useState<string | null>(null)
   const [cursor, setCursor] = useState<number>(0)
   const [playing, setPlaying] = useState(false)
   const [replayMode, setReplayMode] = useState<ReplayMode>('temp')
+
+  // --- Globe visual style (features #12 layer opacity + #13 exaggeration) ---
+  const [opacity, setOpacity] = useState<Partial<Record<LayerKey, number>>>({
+    realSST: 1,
+    realChl: 1,
+    temperature: 1,
+    waves: 1,
+    currents: 1,
+    realArgo: 1,
+    isos: 1,
+    vectors: 1,
+    modelgrid: 1,
+    glider: 1,
+  })
+  const [exaggeration, setExaggeration] = useState(1)
+
+  // --- True current-velocity vectors (feature #14, real model-grid u/v) ---
+  const [currentVectors, setCurrentVectors] = useState<CurrentVector[] | null>(null)
+  const [vectorStatus, setVectorStatus] = useState<'loading' | 'ready' | 'nodata'>('loading')
+
+  // --- Horizontal depth slices of the real model field (feature #7) ---
+  const [gridVar, setGridVar] = useState<'temperature' | 'salinity'>('temperature')
+  const [gridDepth, setGridDepth] = useState<number>(0)
+  const [gridDepths, setGridDepths] = useState<number[]>([])
+  const [gridSlice, setGridSlice] = useState<ModelSlice | null>(null)
+  const [gridStatus, setGridStatus] = useState<'loading' | 'ready' | 'nodata'>('loading')
+  const [gridScale, setGridScale] = useState<ScaleMode>('linear')
+
+  // --- Real glider fleet + tracks (feature #16) ---
+  const [gliderDeployments, setGliderDeployments] = useState<GliderDeployment[]>([])
+  const [gliderTracks, setGliderTracks] = useState<GliderTrack[]>([])
+  const [gliderStatus, setGliderStatus] = useState<'loading' | 'ready' | 'nodata'>('loading')
+  const [gliderProfile, setGliderProfile] = useState<GliderProfileData | null>(null)
+  const [gliderProfileBusy, setGliderProfileBusy] = useState(false)
+  const [gliderProfileError, setGliderProfileError] = useState<string | null>(null)
 
   // --- Ocean Digital Twin intelligence state ---
   const [disagreement, setDisagreement] = useState<DisagreementPoint[]>([])
@@ -242,6 +301,69 @@ export default function DigitalTwin() {
       .then((d) => setArgoFloats(d.floats ?? []))
       .catch(() => {})
 
+    fetchRealArgoFloats()
+      .then((d) => {
+        const list: RealArgoFloat[] = d.floats ?? []
+        setRealArgoFloats(list)
+        if (list.length > 0) setActiveArgo(list[0])
+      })
+      .catch(() => {})
+
+    fetchErsstLatest()
+      .then((d: ErsstLayer) => setErsstData(d))
+      .catch(() => {})
+
+    fetchChlorLatest()
+      .then((d: ChlorLayer) => setChlorData(d))
+      .catch(() => {})
+
+    // Feature #14: true u/v current vectors from the real ocean-model grid.
+    fetchModelGridVectors(0)
+      .then((d) => {
+        if (d && d.available) {
+          setCurrentVectors((d.cells ?? []).map((c: { latitude: number; longitude: number; u: number; v: number; speed?: number }) => (
+            { latitude: c.latitude, longitude: c.longitude, u: c.u, v: c.v, speed: c.speed }
+          )))
+          setVectorStatus('ready')
+        } else {
+          setCurrentVectors(null)
+          setVectorStatus('nodata')
+        }
+      })
+      .catch(() => {
+        setCurrentVectors(null)
+        setVectorStatus('nodata')
+      })
+
+    // Feature #7: real depth levels available per model variable. The slice
+    // itself is fetched by a dedicated effect whenever the selection changes.
+    fetchModelGridSummary()
+      .then((d) => {
+        const fields = d.available_fields ?? {}
+        const t = fields.temperature
+        const s = fields.salinity
+        const chosen: 'temperature' | 'salinity' | null = s?.available ? 'salinity' : t?.available ? 'temperature' : null
+        const src = s?.available ? s : t
+        const depths: number[] = (src?.levels ?? []).map((l: { depth_m: number }) => l.depth_m)
+        if (!chosen || depths.length === 0) {
+          setGridStatus('nodata')
+          return
+        }
+        setGridVar(chosen)
+        setGridDepths(depths)
+        setGridDepth(depths[0])
+      })
+      .catch(() => setGridStatus('nodata'))
+
+    // Feature #16: real glider deployments (tracks are fetched on layer open).
+    fetchGliderDeployments()
+      .then((d) => {
+        const list: GliderDeployment[] = d.deployments ?? []
+        setGliderDeployments(list)
+        setGliderStatus(list.length > 0 ? 'ready' : 'nodata')
+      })
+      .catch(() => setGliderStatus('nodata'))
+
     // Ocean Digital Twin intelligence payloads.
     fetchSituation().then((d) => setSituation(d as Situation)).catch(() => {})
     fetchDataSources()
@@ -258,6 +380,43 @@ export default function DigitalTwin() {
       .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Fetch the selected variable+depth slice whenever the choice changes (feature #7).
+  useEffect(() => {
+    if (gridDepths.length === 0) return
+    setGridStatus('loading')
+    fetchModelGridSlice(gridVar, gridDepth)
+      .then((sl: ModelSlice) => {
+        setGridSlice(sl)
+        setGridStatus(sl.available ? 'ready' : 'nodata')
+      })
+      .catch(() => {
+        setGridSlice(null)
+        setGridStatus('nodata')
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridVar, gridDepth, gridDepths])
+
+  // Fetch each deployment's real sample track when the glider layer turns on
+  // (and only then — the tracks are the heaviest payload on the page).
+  useEffect(() => {
+    if (!layers.glider || gliderDeployments.length === 0) return
+    const missing = gliderDeployments.filter(
+      (d) => !gliderTracks.some((t) => t.deploymentId === d.deployment_id),
+    )
+    if (missing.length === 0) return
+    for (const d of missing) {
+      fetchGliderSamples(d.deployment_id)
+        .then((resp) => {
+          setGliderTracks((prev) => {
+            if (prev.some((t) => t.deploymentId === d.deployment_id)) return prev
+            return [...prev, { deploymentId: d.deployment_id, instrument: resp.instrument ?? null, samples: resp.samples ?? [] }]
+          })
+        })
+        .catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layers.glider, gliderDeployments])
 
   // Deep-link from the Anomaly Intelligence page: ?focus=<id>&var=<variable>
   const focusId = Number(searchParams.get('focus') || 0)
@@ -326,7 +485,28 @@ export default function DigitalTwin() {
     { key: 'uncertainty' as const, icon: <Crosshair size={16} />, name: 'Data Uncertainty', desc: 'Confidence-gap rings per region' },
     { key: 'priority' as const, icon: <Target size={16} />, name: 'Sampling Priority', desc: 'Pulse where observation is needed' },
     { key: 'argo' as const, icon: <Navigation size={16} />, name: 'Argo Floats', desc: 'Simulated float trajectories + T/S profiles' },
+    { key: 'realArgo' as const, icon: <Navigation size={16} />, name: 'Real Argo Floats', desc: 'Indian-Ocean in-situ floats · click for depth profile' },
+    { key: 'realSST' as const, icon: <Satellite size={16} />, name: 'Real SST (ERSST)', desc: 'NOAA ERSST v5 · 2° grid · real measurements' },
+    { key: 'realChl' as const, icon: <Orbit size={16} />, name: 'Satellite Chl (VIIRS)', desc: 'NOAA CoastWatch VIIRS·Himawari · 5 km · ocean colour' },
+    { key: 'isos' as const, icon: <ScanLine size={16} />, name: 'SST Isolines', desc: 'Marching-squares isotherms of the real ERSST field' },
+    { key: 'vectors' as const, icon: <Navigation size={16} />, name: 'Current Vectors', desc: 'True u/v arrows of the real model current field' },
+    { key: 'modelgrid' as const, icon: <Layers size={16} />, name: 'Model Depth Slice', desc: 'One real model grid layer at the selected depth' },
+    { key: 'glider' as const, icon: <Route size={16} />, name: 'Real Gliders', desc: 'Underwater-glider transects · click for depth profile' },
     { key: 'tide' as const, icon: <Radar size={16} />, name: 'TIDE Decisions', desc: 'Ranked observation recommendation markers' },
+  ]
+
+  // Feature #12: per-layer sliders in the Visual Style card, in display order.
+  const OPACITY_ROWS: { key: LayerKey; label: string }[] = [
+    { key: 'realSST', label: 'Real SST (ERSST)' },
+    { key: 'realChl', label: 'Satellite Chl (VIIRS)' },
+    { key: 'temperature', label: 'Sea Temperature' },
+    { key: 'waves', label: 'Wave Height' },
+    { key: 'currents', label: 'Ocean Currents' },
+    { key: 'realArgo', label: 'Real Argo Floats' },
+    { key: 'isos', label: 'SST Isolines' },
+    { key: 'vectors', label: 'Current Vectors' },
+    { key: 'modelgrid', label: 'Model Depth Slice' },
+    { key: 'glider', label: 'Real Gliders' },
   ]
 
   const activeVar = VARIABLES.find((v) => v.key === variable) ?? VARIABLES[0]
@@ -371,6 +551,95 @@ export default function DigitalTwin() {
     setActiveLoc(loc)
     setFlyToTarget((p) => ({ locId, n: (p?.n ?? 0) + 1 }))
   }
+
+  const handleArgoFloatClick = (floatId: string) => {
+    const flt = realArgoFloats.find((f) => f.float_id === floatId)
+    if (flt) setActiveArgo(flt)
+    setArgoProfile(null)
+    setArgoProfileError(null)
+    setArgoProfileBusy(true)
+    fetchArgoFloatProfile(floatId)
+      .then((p) => setArgoProfile(p as ArgoProfilePayload))
+      .catch(() => setArgoProfileError('Argo profile request failed'))
+      .finally(() => setArgoProfileBusy(false))
+  }
+
+  // Feature #16/#18: clicking a glider track opens its real sample profile.
+  const handleGliderClick = (deploymentId: string) => {
+    setGliderProfile(null)
+    setGliderProfileError(null)
+    setGliderProfileBusy(true)
+    fetchGliderSamples(deploymentId)
+      .then((d) => {
+        // Also pull the real BGC traces (feature #17); merged in lockstep.
+        setGliderProfile({
+          deploymentId,
+          instrument: d.instrument ?? null,
+          samples: d.samples ?? [],
+        })
+        fetchGliderBgc(deploymentId)
+          .then((b) => {
+            setGliderProfile((prev) => (prev && prev.deploymentId === deploymentId
+              ? { ...prev, bgc: { fields: b.fields ?? {}, samples: b.samples ?? [] } }
+              : prev))
+          })
+          .catch(() => {})
+      })
+      .catch(() => setGliderProfileError('Glider sample request failed'))
+      .finally(() => setGliderProfileBusy(false))
+  }
+
+  // Nearest real NOAA ERSST cell to the active region (Δ ≤ 3.5°, else unavailable).
+  const realSstAtRegion = useMemo(() => {
+    const samples = ersstData?.samples ?? []
+    if (samples.length === 0 || !activeLoc?.latitude || !activeLoc.longitude) return null
+    const hit = nearestCell(activeLoc.latitude, activeLoc.longitude, samples, 3.5)
+    return hit ? { sst: hit.cell.sst, dist: hit.dist, lon: hit.cell.longitude, lat: hit.cell.latitude } : null
+  }, [ersstData, activeLoc])
+
+  // Nearest real satellite Chl-a cell to the active region (Δ ≤ 0.2°, else unavailable).
+  const realChlorAtRegion = useMemo(() => {
+    const samples = chlorData?.available ? (chlorData.samples ?? []) : []
+    if (samples.length === 0 || !activeLoc?.latitude || !activeLoc.longitude) return null
+    const hit = nearestCell(activeLoc.latitude, activeLoc.longitude, samples, 0.2)
+    return hit ? { chl: hit.cell.chlor_a, dist: hit.dist, lon: hit.cell.longitude, lat: hit.cell.latitude } : null
+  }, [chlorData, activeLoc])
+
+  // --- Dynamic colour scales: data-driven min/max over the real grid cells ---
+  const sstDomain: ScaleDomain = useMemo(() => {
+    const s = ersstData?.stats
+    const d = s && s.min !== null && s.max !== null ? domainFrom([s.min, s.max]) : null
+    return d ?? TEMP_DEFAULT_DOMAIN
+  }, [ersstData])
+
+  const chlDomain: ScaleDomain = useMemo(() => {
+    const s = chlorData?.stats
+    const d = s && s.min !== null && s.max !== null ? domainFrom([s.min, s.max]) : null
+    return d ?? CHL_LEGACY_DOMAIN
+  }, [chlorData])
+
+  // Feature #7: live domain over the selected depth-slice cells (+ fallback window).
+  const gridDomain: ScaleDomain = useMemo(() => {
+    const cells = gridSlice?.available ? (gridSlice.cells ?? []) : []
+    const d = domainFrom(cells.map((c) => c.value))
+    if (d) return d
+    return gridVar === 'salinity' ? SAL_DEFAULT_DOMAIN : TEMP_DEFAULT_DOMAIN
+  }, [gridSlice, gridVar])
+
+  // Nearest real model cell to the active region at the selected depth (Δ ≤ 0.5°).
+  const gridAtRegion = useMemo(() => {
+    const cells = gridSlice?.available ? (gridSlice.cells ?? []) : []
+    if (cells.length === 0 || !activeLoc?.latitude || !activeLoc.longitude) return null
+    const hit = nearestCell(activeLoc.latitude, activeLoc.longitude, cells, 0.5)
+    return hit ? { value: hit.cell.value, dist: hit.dist, lon: hit.cell.longitude, lat: hit.cell.latitude } : null
+  }, [gridSlice, activeLoc])
+
+  // Isosurface contour levels for the real ERSST field (feature #11).
+  const isoLevels = useMemo(() => {
+    const s = ersstData?.stats
+    if (!s || s.min == null || s.max == null) return null
+    return isoLevelsFor({ min: s.min, max: s.max }, 6)
+  }, [ersstData])
 
   const focusAnomaly = (a: AnomalyPoint) => {
     if (a.variable !== variable) setVariable(a.variable)
@@ -417,10 +686,22 @@ export default function DigitalTwin() {
             uncertainties={uncertainties}
             priorities={priorities}
             argoFloats={argoFloats}
+            realArgoFloats={realArgoFloats}
+            ersst={ersstData}
+            chlor={chlorData}
+            scaleModes={{ sst: sstScale, chl: chlScale, modelgrid: gridScale }}
             disagreement={disagreement}
             anomalies={anomalyRows.filter((a) => a.severity !== 'low').slice(0, 8)}
             tideCandidates={tideCandidates}
+            opacity={opacity}
+            exaggeration={exaggeration}
+            isolevels={layers.isos ? isoLevels : null}
+            currentVectors={layers.vectors ? currentVectors : null}
+            modelSlice={layers.modelgrid ? gridSlice : null}
+            gliderTracks={layers.glider ? gliderTracks : []}
+            onGliderClick={handleGliderClick}
             onRegionClick={handleRegionClick}
+            onArgoFloatClick={handleArgoFloatClick}
             flyToTarget={flyToTarget}
             transect={transectData}
             transectActive={transectActive}
@@ -474,6 +755,161 @@ export default function DigitalTwin() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Visual style — per-layer opacity (feature #12) + exaggeration (#13) */}
+          <div className="glass-card control-card">
+            <div className="control-title">
+              <Gauge size={16} />
+              <span>Visual Style</span>
+            </div>
+
+            <div className="style-block">
+              <div className="style-kicker">LAYER OPACITY</div>
+              {OPACITY_ROWS.map(({ key, label }) => (
+                <div key={key} className="opacity-row">
+                  <span className="opacity-label">{label}</span>
+                  <input
+                    type="range"
+                    min={0.1}
+                    max={1}
+                    step={0.05}
+                    value={opacity[key] ?? 1}
+                    onChange={(e) => setOpacity((p) => ({ ...p, [key]: Number(e.target.value) }))}
+                    className="scrubber"
+                    aria-label={`${label} opacity`}
+                  />
+                  <span className="opacity-value">{Math.round((opacity[key] ?? 1) * 100)}%</span>
+                </div>
+              ))}
+
+              <div className="style-kicker">VERTICAL EXAGGERATION</div>
+              <div className="opacity-row">
+                <span className="opacity-label">Terrain / ocean relief</span>
+                <input
+                  type="range"
+                  min={1}
+                  max={8}
+                  step={0.5}
+                  value={exaggeration}
+                  onChange={(e) => setExaggeration(Number(e.target.value))}
+                  className="scrubber"
+                  aria-label="Vertical exaggeration"
+                />
+                <span className="opacity-value">×{exaggeration.toFixed(1)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature #14 — True current velocity vectors (real model-grid u/v) */}
+          <div className="glass-card control-card">
+            <div className="control-title">
+              <Navigation size={16} />
+              <span>Current Velocity Vectors</span>
+              <span className="podium-count">
+                {vectorStatus === 'ready' ? `${currentVectors?.length ?? 0} CELLS` : 'REAL U/V'}
+              </span>
+            </div>
+
+            {vectorStatus === 'loading' ? (
+              <div className="hint">Loading the real model-grid vectors…</div>
+            ) : vectorStatus === 'ready' && currentVectors && currentVectors.length > 0 ? (
+              <>
+                <p className="argo-note">
+                  True eastward (u) and northward (v) components of the real ocean-model surface
+                  current — one arrow per grid cell of the latest model month. The globe draws the
+                  strongest 600 cells; the field is never interpolated or guessed.
+                </p>
+                <div className="argo-chips">
+                  <span className="argo-chip argo-chip-surface"><i /> VECTORS <b>{currentVectors.length}</b></span>
+                  <span className="argo-chip argo-chip-mld"><i /> SURFACE <b>0 m</b></span>
+                  <span className="argo-chip argo-chip-mld">
+                    <i /> MAX <b>{Math.max(...currentVectors.map((v) => v.speed ?? 0)).toFixed(2)} m/s</b>
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="chl-pending">
+                <b>No real u/v grid on this machine yet.</b>
+                <p>
+                  These arrows come from the true current field of the ocean-model 3D grid. Fetch and ingest
+                  it on a networked host:
+                </p>
+                <code>python -m scripts.fetch_model --month 2021-09</code>
+                <code>python -m scripts.ingest_netcdf backend/data/model/hycom_3d_2021-09.nc --reingest</code>
+                <p className="argo-note">
+                  Until then no arrows are drawn — the pipeline never fabricates current directions.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Feature #16/#17 — Real glider fleet (transects + BGC-capable payloads) */}
+          <div className="glass-card control-card">
+            <div className="control-title">
+              <Route size={16} />
+              <span>Glider Fleet</span>
+              <span className="podium-count">
+                {gliderStatus === 'ready' ? `${gliderDeployments.length} DEPLOYMENTS` : 'REAL IN-SITU'}
+              </span>
+            </div>
+
+            {gliderStatus === 'loading' ? (
+              <div className="hint">Loading the real glider fleet…</div>
+            ) : gliderStatus === 'nodata' || gliderDeployments.length === 0 ? (
+              <div className="chl-pending">
+                <b>No real glider deployments on this machine yet.</b>
+                <p>
+                  Glider transects come from real underwater-glider deployments (GliderDAC). Fetch and
+                  ingest them on a networked host:
+                </p>
+                <code>python -m scripts.fetch_glider --yesterday</code>
+                <code>python -m scripts.ingest_glider backend/data/glider/session/netCDF</code>
+                <p className="argo-note">
+                  Until then no transects are drawn — the twin never fabricates glider paths.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="glider-list">
+                  {gliderDeployments.map((d) => {
+                    const bgc = d.bgc_samples ?? {}
+                    const anyBgc = Object.values(bgc).some((n) => (n ?? 0) > 0)
+                    return (
+                      <button
+                        key={d.deployment_id}
+                        className="glider-row"
+                        onClick={() => handleGliderClick(d.deployment_id)}
+                        title={`Click to open ${d.deployment_id} sample profile`}
+                      >
+                        <span className="glider-id">{d.deployment_id}</span>
+                        <span className="glider-chips">
+                          <span className="glider-chip"><i /> {d.samples} samples</span>
+                          <span className="glider-chip"><i /> {d.depth_min_m ?? '?'}–{d.depth_max_m ?? '?'} m</span>
+                          <span className="glider-chip"><i /> {d.time_start?.slice(0, 10) ?? '—'} → {d.time_end?.slice(0, 10) ?? '—'}</span>
+                          {anyBgc && <span className="glider-chip glider-chip-bgc"><i /> BGC</span>}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <p className="argo-note">
+                  Real glider deployments (GliderDAC): each row is one instrument run with its true
+                  sample extent. Clicking a row (or its track on the globe) opens the measured
+                  temperature/salinity/depth profile. <b>BGC</b> marks deployments whose payload
+                  carried bio-optical sensors (oxygen / chlorophyll / nitrate).
+                </p>
+
+                {gliderProfileBusy ? (
+                  <div className="hint">Loading {gliderProfile?.deploymentId ?? 'glider'} samples…</div>
+                ) : gliderProfileError ? (
+                  <div className="redo-chip">{gliderProfileError}</div>
+                ) : gliderProfile ? (
+                  <GliderProfileChart profile={gliderProfile} />
+                ) : null}
+              </>
+            )}
           </div>
 
           {/* Event replay — 4D model-vs-reality scrubber */}
@@ -728,6 +1164,285 @@ export default function DigitalTwin() {
             </div>
           )}
 
+          {/* Real Argo floats — click a marker on the globe or a row below */}
+          <div className="glass-card control-card">
+            <div className="control-title">
+              <Activity size={16} />
+              <span>Argo Depth Profile</span>
+              <span className="podium-count">{realArgoFloats.length} FLOAT{realArgoFloats.length === 1 ? '' : 'S'}</span>
+            </div>
+
+            {realArgoFloats.length === 0 ? (
+              <div className="hint">Real Argo profiles are not loaded yet.</div>
+            ) : (
+              <>
+                <div className="argo-list">
+                  {realArgoFloats.map((f) => (
+                    <button
+                      key={f.float_id}
+                      className={`argo-row ${activeArgo?.float_id === f.float_id ? 'argo-row-on' : ''}`}
+                      onClick={() => handleArgoFloatClick(f.float_id)}
+                    >
+                      <span className="argo-pin" />
+                      <span className="argo-txt">
+                        <b>Float {f.float_id}</b>
+                        <em>{argoArea(f.longitude)} · {f.levels} levels · max {fmtDepth(f.depth_max_m)}</em>
+                      </span>
+                      <span className="argo-go">{activeArgo?.float_id === f.float_id ? 'OPEN' : '›'}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {activeArgo && (
+                  <div className="argo-meta">
+                    <span className="argo-meta-item">Lat {activeArgo.latitude?.toFixed(2)}°N · Lon {activeArgo.longitude?.toFixed(2)}°E</span>
+                    <span className="argo-meta-item">Profile {fmtDate(activeArgo.latest_time)} UTC</span>
+                    <span className="argo-meta-item argo-offshore">OFFSHORE · real in-situ data (data-argo.ifremer.fr)</span>
+                  </div>
+                )}
+
+                {argoProfileBusy && (
+                  <div className="transect-status">
+                    <Loader2 size={13} className="spin" />
+                    <span>Loading vertical profile…</span>
+                  </div>
+                )}
+
+                {argoProfileError && <p className="transect-error">{argoProfileError}</p>}
+
+                {!argoProfileBusy && argoProfile && <ArgoProfileChart data={argoProfile} />}
+              </>
+            )}
+          </div>
+
+          {/* Real NOAA ERSST v5 sea-surface-temperature grid */}
+          <div className="glass-card control-card">
+            <div className="control-title">
+              <Satellite size={16} />
+              <span>Real SST (NOAA ERSST v5)</span>
+              {ersstData && (
+                <span className="podium-count">{ersstData.time}</span>
+              )}
+            </div>
+
+            {!ersstData ? (
+              <div className="hint">Loading the real ERSST grid…</div>
+            ) : (
+              <>
+                <div className="argo-chips">
+                  <span className="argo-chip argo-chip-surface"><i /> GRID <b>{ersstData.resolution_deg}°</b></span>
+                  <span className="argo-chip argo-chip-mld"><i /> CELLS <b>{ersstData.rows}</b></span>
+                  <span className="argo-chip argo-chip-mld"><i /> INDIA-BOX <b>{ersstData.samples.filter((s) => inIndiaBox(s.latitude, s.longitude)).length}</b></span>
+                </div>
+
+                <div className="ersst-readout">
+                  <span className="ersst-kicker">REAL SST AT ACTIVE REGION</span>
+                  {realSstAtRegion ? (
+                    <span className="ersst-value">
+                      <b>{realSstAtRegion.sst.toFixed(1)} °C</b>
+                      <em>cell {realSstAtRegion.lat.toFixed(1)}°,{realSstAtRegion.lon.toFixed(1)}° · Δ {realSstAtRegion.dist.toFixed(1)}°</em>
+                    </span>
+                  ) : (
+                    <span className="ersst-value ersst-na">
+                      <b>Data unavailable</b>
+                      <em>no real ERSST cell within 3.5° of this location</em>
+                    </span>
+                  )}
+                </div>
+
+                <p className="argo-note">
+                  NOAA ERSST v5 is a 2° × 2° monthly gridded analysis built from in-situ ship and buoy
+                  observations (ICOADS). It is a historical archive — the newest month is{' '}
+                  <b>{ersstData.time}</b> — not a live feed and not a satellite product. Colored dots on the
+                  globe are the real cells, exactly as ingested (blank where the source had no cell).
+                </p>
+
+                <ColorScaleBar
+                  label="ERSST v5 SST"
+                  unit="°C"
+                  domain={sstDomain}
+                  mode={sstScale}
+                  onModeChange={setSstScale}
+                  value={realSstAtRegion?.sst ?? null}
+                />
+              </>
+            )}
+          </div>
+
+          {/* Real satellite ocean-colour (NOAA CoastWatch VIIRS-Himawari) */}
+          <div className="glass-card control-card">
+            <div className="control-title">
+              <Orbit size={16} />
+              <span>Satellite Chl (VIIRS)</span>
+              {chlorData?.available && (
+                <span className="podium-count">{chlorData.time}</span>
+              )}
+            </div>
+
+            {!chlorData ? (
+              <div className="hint">Loading the real satellite Chl grid…</div>
+            ) : !chlorData.available ? (
+              <div className="chl-pending">
+                <b>No satellite Chl data on this machine yet.</b>
+                <p>
+                  The real grid is NOAA CoastWatch Geo-Polar Blended VIIRS-Himawari ocean colour.
+                  Fetch and ingest it on a networked host:
+                </p>
+                <code>python -m scripts.fetch_chlor</code>
+                <code>python -m scripts.ingest_netcdf backend/data/chl_monthly_2021-09.nc --reingest</code>
+                <p className="argo-note">
+                  Until then no ocean colour is shown — the pipeline never fabricates satellite values.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="argo-chips">
+                  <span className="argo-chip argo-chip-mld"><i /> GRID <b>{chlorData.resolution_deg}°</b></span>
+                  <span className="argo-chip argo-chip-mld"><i /> CELLS <b>{chlorData.rows}</b></span>
+                  <span className="argo-chip argo-chip-surface"><i /> INDIA-BOX <b>{chlorData.samples.filter((s) => inIndiaBox(s.latitude, s.longitude)).length}</b></span>
+                </div>
+
+                <div className="ersst-readout chl-readout">
+                  <span className="ersst-kicker">REAL CHL-A AT ACTIVE REGION</span>
+                  {realChlorAtRegion ? (
+                    <span className="ersst-value">
+                      <b>{realChlorAtRegion.chl.toFixed(2)} mg/m³</b>
+                      <em>cell {realChlorAtRegion.lat.toFixed(2)}°,{realChlorAtRegion.lon.toFixed(2)}° · Δ {realChlorAtRegion.dist.toFixed(2)}°</em>
+                    </span>
+                  ) : (
+                    <span className="ersst-value ersst-na">
+                      <b>Data unavailable</b>
+                      <em>no satellite Chl cell within 0.2° of this location</em>
+                    </span>
+                  )}
+                </div>
+
+                <p className="argo-note">
+                  Real satellite ocean colour: NOAA CoastWatch Geo-Polar Blended VIIRS-Himawari-NPP
+                  Chlorophyll-a (5 km), composited to a monthly mean over the Indian region by{' '}
+                  <b>scripts.fetch_chlor</b>. The newest month is <b>{chlorData.time}</b> — an
+                  archive, not a live feed. Dots on the globe are the real cells, exactly as ingested
+                  (blank where the source had no retrieval).
+                </p>
+
+                <ColorScaleBar
+                  label="Satellite Chl-a"
+                  unit="mg/m³"
+                  domain={chlDomain}
+                  mode={chlScale}
+                  onModeChange={setChlScale}
+                  value={realChlorAtRegion?.chl ?? null}
+                  stops={['#1d4ed8', '#16a34a', '#eab308']}
+                />
+              </>
+            )}
+          </div>
+
+          {/* Feature #7 — Ocean-Model horizontal depth slices (real 3D grid) */}
+          <div className="glass-card control-card">
+            <div className="control-title">
+              <Layers size={16} />
+              <span>Model Depth Slices</span>
+              <span className="podium-count">
+                {gridStatus === 'ready' && gridSlice?.available ? gridSlice.month : '3D GRID'}
+              </span>
+            </div>
+
+            {gridStatus === 'loading' ? (
+              <div className="hint">Loading the real model slice…</div>
+            ) : gridStatus === 'nodata' || !gridSlice?.available ? (
+              <div className="chl-pending">
+                <b>No real ocean-model grid on this machine yet.</b>
+                <p>
+                  Depth slices come from the true 3D fields of the ocean model (temperature /
+                  salinity / current speed by depth level). Fetch and ingest them on a networked host:
+                </p>
+                <code>python -m scripts.fetch_model --month 2021-09</code>
+                <code>python -m scripts.ingest_netcdf backend/data/model/hycom_3d_2021-09.nc --reingest</code>
+                <p className="argo-note">
+                  Until then no slice is drawn — the twin never fabricates a sub-surface field.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="slice-controls">
+                  <div className="slice-field">
+                    <span className="slice-kicker">VARIABLE</span>
+                    <div className="slice-selects">
+                      <button
+                        className={`slice-pill ${gridVar === 'temperature' ? 'on' : ''}`}
+                        onClick={() => setGridVar('temperature')}
+                      >
+                        Temperature
+                      </button>
+                      <button
+                        className={`slice-pill ${gridVar === 'salinity' ? 'on' : ''}`}
+                        onClick={() => setGridVar('salinity')}
+                      >
+                        Salinity
+                      </button>
+                    </div>
+                  </div>
+                  <div className="slice-field">
+                    <span className="slice-kicker">DEPTH LEVEL</span>
+                    <select
+                      className="slice-select"
+                      value={gridDepth}
+                      onChange={(e) => setGridDepth(Number(e.target.value))}
+                      aria-label="Model depth level"
+                    >
+                      {gridDepths.map((d) => (
+                        <option key={d} value={d}>
+                          {d === 0 ? 'Surface (0 m)' : `${d} m`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="argo-chips">
+                  <span className="argo-chip argo-chip-mld"><i /> MONTH <b>{gridSlice.month}</b></span>
+                  <span className="argo-chip argo-chip-mld"><i /> DEPTH <b>{gridSlice.depth_m === 0 ? '0 m' : `${gridSlice.depth_m} m`}</b></span>
+                  <span className="argo-chip argo-chip-surface"><i /> CELLS <b>{gridSlice.rows}</b></span>
+                </div>
+
+                <div className="ersst-readout chl-readout">
+                  <span className="ersst-kicker">
+                    MODEL {gridVar === 'salinity' ? 'SALINITY' : 'TEMP'} AT ACTIVE REGION
+                  </span>
+                  {gridAtRegion ? (
+                    <span className="ersst-value">
+                      <b>{gridAtRegion.value.toFixed(gridVar === 'salinity' ? 2 : 1)} {gridSlice.unit}</b>
+                      <em>cell {gridAtRegion.lat.toFixed(2)}°,{gridAtRegion.lon.toFixed(2)}° · Δ {gridAtRegion.dist.toFixed(2)}°</em>
+                    </span>
+                  ) : (
+                    <span className="ersst-value ersst-na">
+                      <b>Data unavailable</b>
+                      <em>no real model cell within 0.5° of this location at {gridSlice.depth_m === 0 ? 'the surface' : `${gridSlice.depth_m} m`}</em>
+                    </span>
+                  )}
+                </div>
+
+                <p className="argo-note">
+                  One true horizontal slice of the real ocean-model 3D grid — {gridSlice.source}. The
+                  latest month is <b>{gridSlice.month}</b>. Dots on the globe are the real cells at{' '}
+                  {gridSlice.depth_m === 0 ? 'the surface' : `${gridSlice.depth_m} m`}, exactly as
+                  ingested (blank where the source had no cell at that depth level).
+                </p>
+
+                <ColorScaleBar
+                  label={gridVar === 'salinity' ? 'Model Salinity' : 'Model Temperature'}
+                  unit={gridVar === 'salinity' ? 'PSU' : '°C'}
+                  domain={gridDomain}
+                  mode={gridScale}
+                  onModeChange={setGridScale}
+                  value={gridAtRegion?.value ?? null}
+                  stops={gridVar === 'salinity' ? ['#1e40af', '#22d3ee'] : undefined}
+                />
+              </>
+            )}
+          </div>
+
           {/* Region focus */}
           {activeLoc && (
             <div className="glass-card control-card">
@@ -911,6 +1626,262 @@ function DepthProfileChart({ data }: { data: ProfilePayload }) {
         <span><i className="leg-model" /> Model</span>
       </div>
       <div className="profile-hint">{data.observation_note}</div>
+    </div>
+  )
+}
+
+/* ---------- Real glider deployment profile (feature #16/#18) ---------- */
+
+interface GliderBgcSample {
+  time: string
+  depth_m: number
+  dissolved_oxygen: number | null
+  chlorophyll: number | null
+  nitrate: number | null
+}
+
+interface GliderProfileData {
+  deploymentId: string
+  instrument?: string | null
+  samples: GliderSample[]
+  bgc?: { fields: Record<string, boolean>; samples: GliderBgcSample[] } | null
+}
+
+function GliderProfileChart({ profile }: { profile: GliderProfileData }) {
+  const rows = (profile.samples ?? []).slice().sort((a, b) => a.depth_m - b.depth_m)
+  if (rows.length === 0) {
+    return <div className="hint">{profile.deploymentId} has no samples.</div>
+  }
+  const tempRows = rows.filter((r) => r.temperature != null)
+  const saltRows = rows.filter((r) => r.salinity != null)
+  const tipStyle = { background: '#0a1526', border: '1px solid rgba(34,211,238,0.35)', borderRadius: 8, fontSize: 11 }
+  const axis = (tick: { value: number }) => `${tick.value} m`
+
+  return (
+    <div className="argo-charts">
+      {profile.instrument && (
+        <div className="argo-chips">
+          <span className="argo-chip argo-chip-mld"><i /> INSTRUMENT <b>{profile.instrument}</b></span>
+          <span className="argo-chip argo-chip-mld"><i /> SAMPLES <b>{rows.length}</b></span>
+          <span className="argo-chip argo-chip-surface"><i /> DEPTH <b>{rows[0].depth_m.toFixed(0)}–{rows[rows.length - 1].depth_m.toFixed(0)} m</b></span>
+        </div>
+      )}
+      <div className="argo-chart-block">
+        <div className="argo-chart-label">TEMPERATURE (°C) · REAL GLIDER</div>
+        <ResponsiveContainer width="100%" height={130}>
+          <LineChart data={tempRows} margin={{ top: 4, right: 24, left: -10, bottom: 0 }}>
+            <CartesianGrid stroke="rgba(120,190,255,0.12)" />
+            <XAxis dataKey="temperature" type="number" domain={['auto', 'auto']} stroke="rgba(148,163,184,0.5)" tick={{ fill: '#94a3b8', fontSize: 9 }} tickFormatter={(v: number) => `${v}°`} />
+            <YAxis dataKey="depth_m" type="number" reversed domain={[0, 'dataMax']} tickFormatter={axis} width={44} stroke="rgba(148,163,184,0.5)" tick={{ fill: '#94a3b8', fontSize: 9 }} />
+            <Tooltip contentStyle={tipStyle} labelFormatter={(v) => `Temperature ${String(v)} °C`} formatter={(value) => [`${String(value)} m`, 'Depth']} />
+            <Line dataKey="depth_m" name="Depth" stroke="#22d3ee" strokeWidth={2} dot={{ r: 1.4, fill: '#22d3ee' }} connectNulls={false} isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+        {tempRows.length === 0 && <div className="hint">Temperature unavailable for this deployment.</div>}
+      </div>
+      <div className="argo-chart-block">
+        <div className="argo-chart-label">SALINITY (PSU) · REAL GLIDER</div>
+        <ResponsiveContainer width="100%" height={130}>
+          <LineChart data={saltRows} margin={{ top: 4, right: 24, left: -10, bottom: 0 }}>
+            <CartesianGrid stroke="rgba(120,190,255,0.12)" />
+            <XAxis dataKey="salinity" type="number" domain={['auto', 'auto']} stroke="rgba(148,163,184,0.5)" tick={{ fill: '#94a3b8', fontSize: 9 }} tickFormatter={(v: number) => `${v}`} />
+            <YAxis dataKey="depth_m" type="number" reversed domain={[0, 'dataMax']} tickFormatter={axis} width={44} stroke="rgba(148,163,184,0.5)" tick={{ fill: '#94a3b8', fontSize: 9 }} />
+            <Tooltip contentStyle={tipStyle} labelFormatter={(v) => `Salinity ${String(v)} PSU`} formatter={(value) => [`${String(value)} m`, 'Depth']} />
+            <Line dataKey="depth_m" name="Depth" stroke="#a78bfa" strokeWidth={2} dot={{ r: 1.4, fill: '#a78bfa' }} connectNulls={false} isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+        {saltRows.length === 0 && <div className="hint">Salinity unavailable for this deployment.</div>}
+      </div>
+
+      {/* Feature #17 — real BGC traces (oxygen / chlorophyll / nitrate) */}
+      {profile.bgc &&
+        (() => {
+          const b = profile.bgc
+          const bgcCharts: (
+            | { key: 'dissolved_oxygen'; label: string; color: string }
+            | { key: 'chlorophyll'; label: string; color: string }
+            | { key: 'nitrate'; label: string; color: string }
+          )[] = [
+            { key: 'dissolved_oxygen', label: 'DISSOLVED OXYGEN (mol m⁻³) · REAL', color: '#34d399' },
+            { key: 'chlorophyll', label: 'CHLOROPHYLL (mg m⁻³) · REAL', color: '#eab308' },
+            { key: 'nitrate', label: 'NITRATE (mmol m⁻³) · REAL', color: '#a78bfa' },
+          ]
+          const present = bgcCharts.filter((c) => b.fields[c.key] && b.samples.some((s) => s[c.key] != null))
+
+          if (present.length === 0) {
+            return <div className="hint">This deployment carried no BGC sensors (oxygen / chlorophyll / nitrate).</div>
+          }
+          return (
+            <>
+              {present.map((c) => {
+                const rows = b.samples
+                  .filter((s) => s[c.key] != null)
+                  .map((s) => ({ depth_m: s.depth_m, value: s[c.key] as number }))
+                return (
+                  <div key={c.key} className="argo-chart-block">
+                    <div className="argo-chart-label">{c.label}</div>
+                    <ResponsiveContainer width="100%" height={110}>
+                      <LineChart data={rows} margin={{ top: 4, right: 24, left: -10, bottom: 0 }}>
+                        <CartesianGrid stroke="rgba(120,190,255,0.12)" />
+                        <XAxis dataKey="value" type="number" domain={['auto', 'auto']} stroke="rgba(148,163,184,0.5)" tick={{ fill: '#94a3b8', fontSize: 9 }} />
+                        <YAxis dataKey="depth_m" type="number" reversed domain={[0, 'dataMax']} tickFormatter={axis} width={44} stroke="rgba(148,163,184,0.5)" tick={{ fill: '#94a3b8', fontSize: 9 }} />
+                        <Tooltip contentStyle={tipStyle} labelFormatter={(v) => `${c.key.replace('_', ' ').toUpperCase()} ${String(v)}`} formatter={(value) => [`${String(value)} m`, 'Depth']} />
+                        <Line dataKey="depth_m" name="Depth" stroke={c.color} strokeWidth={2} dot={{ r: 1.4, fill: c.color }} connectNulls={false} isAnimationActive={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )
+              })}
+            </>
+          )
+        })()}
+
+      <p className="argo-note">
+        Real measurements from deployment <b>{profile.deploymentId}</b>, ordered by depth. Values are
+        exactly as ingested — gaps mean the sensor or sample was absent in the source file.
+      </p>
+    </div>
+  )
+}
+
+/* ---------- Real Argo float depth profile (feature: click marker → chart) ---------- */
+
+interface ArgoProfileLevel {
+  depth_m: number
+  temperature: number | null
+  salinity: number | null
+  pressure: number | null
+}
+
+interface ArgoProfilePayload {
+  float_id: string
+  time: string
+  latitude: number | null
+  longitude: number | null
+  levels: ArgoProfileLevel[]
+}
+
+const argoArea = (lon: number | null): string =>
+  lon == null ? 'Indian Ocean (offshore)' : lon < 80 ? 'Arabian Sea (offshore)' : 'Bay of Bengal (offshore)'
+
+const fmtDepth = (d: number | null): string => (d == null ? '—' : `${Math.round(d)} m`)
+const fmtDate = (t: string): string => {
+  const d = new Date(t)
+  if (Number.isNaN(d.getTime())) return t
+  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+interface MldSummary {
+  surfaceTemp: number | null
+  surfaceDepthM: number | null
+  mldM: number | null
+  maxDepthM: number
+}
+
+/** Mixed-layer depth: first depth where temperature is ≥ 0.2 °C cooler than
+ *  the shallowest sampled level (standard ΔT = 0.2 °C criterion). */
+function computeMld(levels: ArgoProfileLevel[]): MldSummary {
+  const withTemp = levels
+    .filter((l) => l.temperature != null)
+    .sort((a, b) => a.depth_m - b.depth_m)
+  const maxDepthM = withTemp.length > 0 ? withTemp[withTemp.length - 1].depth_m : 0
+  if (withTemp.length === 0) return { surfaceTemp: null, surfaceDepthM: null, mldM: null, maxDepthM }
+  const ref = withTemp[0]
+  const threshold = ref.temperature! - 0.2
+  const hit = withTemp.find((l) => l.temperature! <= threshold)
+  return { surfaceTemp: ref.temperature!, surfaceDepthM: ref.depth_m, mldM: hit ? hit.depth_m : null, maxDepthM }
+}
+
+/** Real Argo temperature + salinity vs depth, drawn with recharts.
+ *  Depth runs up the (inverted) vertical axis so the surface is on top. */
+function ArgoProfileChart({ data }: { data: ArgoProfilePayload }) {
+  const levels = data.levels ?? []
+  if (levels.length === 0) return <div className="hint">This float has no profile levels.</div>
+  const tempRows = levels.filter((l) => l.temperature != null)
+  const saltRows = levels.filter((l) => l.salinity != null)
+  const hasTemp = tempRows.length > 0
+  const hasSalt = saltRows.length > 0
+  const s = computeMld(levels)
+  const surfaceUnsampled = s.surfaceDepthM != null && s.surfaceDepthM > 2
+
+  const axis = (tick: { value: number }) => `${tick.value} m`
+  const tipStyle = { background: '#0a1526', border: '1px solid rgba(34,211,238,0.35)', borderRadius: 8, fontSize: 11 }
+
+  return (
+    <div className="argo-charts">
+      {s.surfaceTemp != null && (
+        <div className="argo-chips">
+          <span
+            className="argo-chip argo-chip-surface"
+            title={
+              surfaceUnsampled
+                ? `Shallowest sample at ${s.surfaceDepthM!.toFixed(0)} m — the surface above it was not sampled by this float`
+                : 'Temperature at the surface (shallowest sampled level)'
+            }
+          >
+            <i /> SURFACE <b>{s.surfaceTemp.toFixed(1)} °C</b>
+            {surfaceUnsampled && <em>ref @ {s.surfaceDepthM!.toFixed(0)} m</em>}
+          </span>
+          <span
+            className={`argo-chip argo-chip-mld ${s.mldM == null ? 'argo-chip-na' : ''}`}
+            title="Mixed-layer depth: first depth where temperature is ≥ 0.2 °C cooler than the shallowest sample"
+          >
+            <i /> MLD {s.mldM != null ? <b>{Math.round(s.mldM)} m</b> : <b>below {Math.round(s.maxDepthM)} m</b>}
+            <em>ΔT 0.2 °C</em>
+          </span>
+        </div>
+      )}
+
+      <div className="argo-chart-block">
+        <div className="argo-chart-label">TEMPERATURE (°C) · REAL</div>
+        <ResponsiveContainer width="100%" height={130}>
+          <LineChart data={tempRows} margin={{ top: 4, right: 24, left: -10, bottom: 0 }}>
+            <CartesianGrid stroke="rgba(120,190,255,0.12)" />
+            <XAxis dataKey="temperature" type="number" domain={['auto', 'auto']} stroke="rgba(148,163,184,0.5)" tick={{ fill: '#94a3b8', fontSize: 9 }} tickFormatter={(v: number) => `${v}°`} />
+            <YAxis dataKey="depth_m" type="number" reversed domain={[0, 'dataMax']} tickFormatter={axis} width={44} stroke="rgba(148,163,184,0.5)" tick={{ fill: '#94a3b8', fontSize: 9 }} />
+            <Tooltip
+              contentStyle={tipStyle}
+              labelFormatter={(v) => `Temperature ${String(v)} °C`}
+              formatter={(value) => [`${String(value)} m`, 'Depth']}
+            />
+            <Line dataKey="depth_m" name="Depth" stroke="#22d3ee" strokeWidth={2} dot={{ r: 1.6, fill: '#22d3ee' }} connectNulls={false} isAnimationActive={false} />
+            {s.mldM != null && (
+              <ReferenceLine
+                y={s.mldM}
+                stroke="#f472b6"
+                strokeDasharray="4 3"
+                strokeWidth={1.5}
+                label={{ value: 'MLD', fill: '#f472b6', fontSize: 9, position: 'insideRight' }}
+              />
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+        {!hasTemp && <div className="hint">Temperature unavailable for this float.</div>}
+      </div>
+
+      <div className="argo-chart-block">
+        <div className="argo-chart-label">SALINITY (PSU) · REAL</div>
+        <ResponsiveContainer width="100%" height={130}>
+          <LineChart data={saltRows} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+            <CartesianGrid stroke="rgba(120,190,255,0.12)" />
+            <XAxis dataKey="salinity" type="number" domain={['auto', 'auto']} stroke="rgba(148,163,184,0.5)" tick={{ fill: '#94a3b8', fontSize: 9 }} tickFormatter={(v: number) => `${v}`} />
+            <YAxis dataKey="depth_m" type="number" reversed domain={[0, 'dataMax']} tickFormatter={axis} width={44} stroke="rgba(148,163,184,0.5)" tick={{ fill: '#94a3b8', fontSize: 9 }} />
+            <Tooltip
+              contentStyle={tipStyle}
+              labelFormatter={(v) => `Salinity ${String(v)} PSU`}
+              formatter={(value) => [`${String(value)} m`, 'Depth']}
+            />
+            <Line dataKey="depth_m" name="Depth" stroke="#f59e0b" strokeWidth={2} dot={{ r: 1.6, fill: '#f59e0b' }} connectNulls={false} isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+        {!hasSalt && <div className="hint">Salinity unavailable for this float.</div>}
+      </div>
+
+      <div className="argo-note">
+        Depth axis is inverted — the surface (0 m) is at the top. The pink MLD line marks the first level at least
+        0.2 °C cooler than the shallowest sample (if that float did not sample to 0 m, the note is shown on the chip).
+        Where the source file had no value, the curve is blank (data unavailable) rather than guessed.
+      </div>
     </div>
   )
 }

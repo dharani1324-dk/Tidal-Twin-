@@ -142,20 +142,29 @@
 .trust-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
+  gap: 6px;
+  padding: 3px 9px;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-size: 9.5px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
   white-space: nowrap;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 0 10px -3px currentColor;
+  transition: all 0.2s ease;
+}
+.trust-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 14px -2px currentColor;
 }
 
 .trust-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
 }
 
 .trust-legend {
@@ -229,7 +238,8 @@
 .unc-bar {
   height: 6px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.16);
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.08);
   overflow: hidden;
 }
 
@@ -237,7 +247,8 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  transition: width 0.6s ease;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 0 8px currentColor;
 }
 
 .unc-value {

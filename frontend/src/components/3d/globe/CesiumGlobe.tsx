@@ -2,6 +2,19 @@ import { useEffect, useRef } from 'react'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 import './CesiumGlobe.css'
 import type { TideCandidate } from '../../../types/tide'
+import {
+  arrowFor,
+  buildLatLonField,
+  chlorColorCssFrom,
+  depthColorCss,
+  domainFrom,
+  isoLines,
+  salColorCssFrom,
+  tempColorCssFrom,
+  tempColorCss,
+  type ScaleMode,
+  type CurrentVectorCell,
+} from './layerMath'
 
 /**
  * CesiumGlobe
@@ -41,9 +54,16 @@ export type LayerKey =
   | 'uncertainty'
   | 'priority'
   | 'argo'
+  | 'realArgo'
+  | 'realSST'
+  | 'realChl'
   | 'disagreement'
   | 'anomalies'
   | 'tide'
+  | 'isos'
+  | 'vectors'
+  | 'modelgrid'
+  | 'glider'
 export type LayersState = Record<LayerKey, boolean>
 
 /** One merged observation/forecast point used by the time scrubber. */
@@ -85,6 +105,125 @@ export interface ArgoFloat {
   location_id: number
   location: string
   points: ArgoPoint[]
+}
+
+/** Real Argo float, latest known position (from /api/v1/argo/floats). */
+export interface RealArgoFloat {
+  float_id: string
+  latest_time: string
+  latitude: number | null
+  longitude: number | null
+  depth_min_m: number | null
+  depth_max_m: number | null
+  levels: number
+}
+
+/** One real NOAA ERSST v5 grid cell (from /api/v1/ersst/latest). */
+export interface ErsstSample {
+  latitude: number
+  longitude: number
+  sst: number
+}
+
+/** Real-grid value summary (min/max range drives a dynamic colour scale). */
+export interface GridStats {
+  min: number | null
+  max: number | null
+  count: number
+}
+
+/** The latest real ERSST month grid + coverage summary. */
+export interface ErsstLayer {
+  time: string
+  months: string[]
+  resolution_deg: number
+  source: string
+  rows: number
+  stats?: GridStats | null
+  samples: ErsstSample[]
+}
+
+/** One true current velocity vector (from /api/v1/modelgrid/vectors). */
+export interface CurrentVector extends CurrentVectorCell {
+  speed?: number
+}
+
+/** One cell of a horizontal model-grid depth slice. */
+export interface ModelSliceCell {
+  latitude: number
+  longitude: number
+  value: number
+}
+
+/**
+ * One horizontal depth slice of the latest real ocean-model month (feature #7).
+ * Honest: `available:false` (with `reason`) until the real grid / that depth
+ * level exists; the globe paints nothing in that case.
+ */
+export interface ModelSlice {
+  available: boolean
+  variable: string
+  month: string
+  unit: string
+  source: string
+  depth_m: number
+  depths: number[]
+  rows: number
+  reason?: string | null
+  cells: ModelSliceCell[]
+}
+
+/** One real glider deployment (headline extent + BGC sensor presence). */
+export interface GliderDeployment {
+  deployment_id: string
+  samples: number
+  time_start?: string | null
+  time_end?: string | null
+  depth_min_m?: number | null
+  depth_max_m?: number | null
+  lat_min?: number | null
+  lat_max?: number | null
+  lon_min?: number | null
+  lon_max?: number | null
+  bgc_samples?: { dissolved_oxygen?: number; chlorophyll?: number; nitrate?: number }
+}
+
+/** One real glider measurement along the deployment trajectory. */
+export interface GliderSample {
+  time: string
+  latitude: number
+  longitude: number
+  depth_m: number
+  temperature: number | null
+  salinity: number | null
+  pressure: number | null
+}
+
+/** A tracked deployment: its real sample positions, in time order. */
+export interface GliderTrack {
+  deploymentId: string
+  instrument?: string | null
+  samples: GliderSample[]
+}
+
+/** One real satellite Chlorophyll-a grid cell (from /api/v1/chlor/latest). */
+export interface ChlorSample {
+  latitude: number
+  longitude: number
+  chlor_a: number
+}
+
+/** The latest real satellite Chl month grid + coverage summary. */
+export interface ChlorLayer {
+  time: string
+  months: string[]
+  resolution_deg: number
+  source: string
+  rows: number
+  stats?: GridStats | null
+  available?: boolean
+  error?: string
+  samples: ChlorSample[]
 }
 
 /** Per-region model-vs-observation disagreement (from /api/v1/twin/disagreement). */
@@ -307,13 +446,6 @@ function getStormEyeUrl() {
   return stormEyeUrl
 }
 
-function tempColor(Cesium: CesiumModule, temp: number) {
-  const cold = Cesium.Color.fromCssColorString('#22d3ee')
-  const hot = Cesium.Color.fromCssColorString('#ff8a28')
-  const k = Cesium.Math.clamp((temp - 20) / 11, 0, 1)
-  return Cesium.Color.lerp(cold, hot, k, new Cesium.Color())
-}
-
 /** Deviation palette: cool (reality below model) -> neutral -> warm (above). */
 function deviationColor(Cesium: CesiumModule, dev: number) {
   const cool = Cesium.Color.fromCssColorString('#22d3ee')
@@ -493,6 +625,16 @@ interface CesiumGlobeProps {
   priorities?: Record<number, number>
   /** Argo float trajectories to draw as paths + current-position markers. */
   argoFloats?: ArgoFloat[]
+  /** Real Argo floats to draw as clickable positions (from /api/v1/argo/floats). */
+  realArgoFloats?: RealArgoFloat[]
+  /** Fired when the user clicks a real Argo float marker. */
+  onArgoFloatClick?: (floatId: string) => void
+  /** Real NOAA ERSST v5 SST month grid, drawn as a temperature-colored field. */
+  ersst?: ErsstLayer | null
+  /** Real NOAA CoastWatch satellite Chl-a month grid, drawn as an ocean-colour field. */
+  chlor?: ChlorLayer | null
+  /** Colouring mode for each real grid layer (Linear/Log) on the dynamic scale. */
+  scaleModes?: { sst?: ScaleMode; chl?: ScaleMode; modelgrid?: ScaleMode }
   /** Per-region model-vs-observation disagreement (colors the patches). */
   disagreement?: DisagreementPoint[]
   /** Ranked anomalies to draw as focus beacons. */
@@ -505,6 +647,20 @@ interface CesiumGlobeProps {
   transect?: TransectData | null
   /** When true, left-clicking the ocean picks transect endpoints (A then B). */
   transectActive?: boolean
+  /** Per-layer opacity 0..1 applied to the dense data layers (default 1). */
+  opacity?: Partial<Record<LayerKey, number>>
+  /** Vertical terrain exaggeration factor for the scene (default 1). */
+  exaggeration?: number
+  /** Isosurface contour levels (°C) to draw over the real ERSST field (feature #11). */
+  isolevels?: number[] | null
+  /** True current velocity vectors from the real model grid (feature #14). */
+  currentVectors?: CurrentVector[] | null
+  /** One horizontal depth slice of the real model field (feature #7). */
+  modelSlice?: ModelSlice | null
+  /** Real glider deployment tracks (position + depth, feature #16). */
+  gliderTracks?: GliderTrack[]
+  /** Fired when the user left-clicks a real glider deployment track. */
+  onGliderClick?: (deploymentId: string) => void
   /** Fired when the user left-clicks a region beacon/label on the globe. */
   onRegionClick?: (locId: number) => void
   /** Fired when the user picks a transect endpoint on the ocean surface. */
@@ -523,16 +679,33 @@ interface Scene {
   rings: VizEntity[]
   focus: VizEntity[]
   argo: VizEntity[]
+  realArgo: VizEntity[]
+  /** Real Argo float markers → float id (click target). */
+  argoMap: { entity: VizEntity; floatId: string }[]
+  /** Real ERSST SST grid cells (temperature-colored dots). */
+  sst: VizEntity[]
+  /** Real satellite Chl-a grid cells (ocean-colour dots). */
+  chl: VizEntity[]
   anomalies: VizEntity[]
   tide: VizEntity[]
   replay: VizEntity[]
+  /** Marching-squares isosurface contour polylines (real SST field). */
+  iso: VizEntity[]
+  /** True current-velocity arrows (real model-grid u/v). */
+  curVec: VizEntity[]
+  /** One horizontal model-grid depth slice (feature #7). */
+  slice: VizEntity[]
+  /** Real glider deployment tracks + their clickable sample dots (#16). */
+  glider: VizEntity[]
+  /** Real glider entities → deployment id (click target). */
+  glidersMap: { entity: VizEntity; deploymentId: string; baseColor: string }[]
   transect: (InstanceType<CesiumModule['Primitive']> | VizEntity)[]
 }
 
-export default function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor = 'temp', uncertainties, priorities, argoFloats, disagreement, anomalies, tideCandidates, replayMarkers, transect, transectActive, onRegionClick, onTransectPick, flyToTarget }: CesiumGlobeProps) {
+export default function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor = 'temp', uncertainties, priorities, argoFloats, realArgoFloats, ersst, chlor, scaleModes, disagreement, anomalies, tideCandidates, replayMarkers, transect, transectActive, opacity, exaggeration = 1, isolevels, currentVectors, modelSlice, gliderTracks, onGliderClick, onRegionClick, onArgoFloatClick, onTransectPick, flyToTarget }: CesiumGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<Viz | null>(null)
-  const sceneRef = useRef<Scene>({ markers: [], markerMap: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [], argo: [], anomalies: [], tide: [], replay: [], transect: [] })
+  const sceneRef = useRef<Scene>({ markers: [], markerMap: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [], argo: [], realArgo: [], argoMap: [], sst: [], chl: [], anomalies: [], tide: [], replay: [], iso: [], curVec: [], slice: [], glider: [], glidersMap: [], transect: [] })
   const layersRef = useRef(layers)
   layersRef.current = layers
   const locatedRef = useRef(locations)
@@ -543,6 +716,33 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
   prioritiesRef.current = priorities
   const argoRef = useRef<ArgoFloat[]>([])
   argoRef.current = argoFloats ?? []
+  const realArgoRef = useRef<RealArgoFloat[]>([])
+  realArgoRef.current = realArgoFloats ?? []
+  const onArgoFloatClickRef = useRef(onArgoFloatClick)
+  onArgoFloatClickRef.current = onArgoFloatClick
+  const ersstRef = useRef<ErsstLayer | null>(ersst ?? null)
+  ersstRef.current = ersst ?? null
+  const chlorRef = useRef<ChlorLayer | null>(chlor ?? null)
+  chlorRef.current = chlor ?? null
+  const scaleModesRef = useRef(scaleModes)
+  scaleModesRef.current = scaleModes
+  const opacityRef = useRef<Partial<Record<LayerKey, number>>>(opacity ?? {})
+  opacityRef.current = opacity ?? {}
+  const exaggerationRef = useRef(exaggeration)
+  exaggerationRef.current = exaggeration
+  const isolevelsRef = useRef<number[] | null>(isolevels ?? null)
+  isolevelsRef.current = isolevels ?? null
+  const currentVectorsRef = useRef<CurrentVector[]>(currentVectors ?? [])
+  currentVectorsRef.current = currentVectors ?? []
+  const modelSliceRef = useRef<ModelSlice | null>(modelSlice ?? null)
+  modelSliceRef.current = modelSlice ?? null
+  const gliderTracksRef = useRef<GliderTrack[]>(gliderTracks ?? [])
+  gliderTracksRef.current = gliderTracks ?? []
+  const onGliderClickRef = useRef(onGliderClick)
+  onGliderClickRef.current = onGliderClick
+  /** Cell values aligned with scene.sst / scene.chl, so opacity recolours map 1:1. */
+  const sstSamplesRef = useRef<ErsstSample[]>([])
+  const chlSamplesRef = useRef<ChlorSample[]>([])
   const seriesRef = useRef<SeriesRegion[]>([])
   seriesRef.current = series ?? []
   const cursorRef = useRef<number | null>(timeCursor ?? null)
@@ -613,6 +813,7 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
 
       buildScene(Cesium, viewer)
       applyLayers(Cesium, viewer, layersRef.current)
+      applyExaggeration(Cesium, viewer)
       const curs = cursorRef.current
       if (curs != null) applyCursor(Cesium, viewer, curs)
     })
@@ -667,6 +868,175 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
     loadCesium().then((Cesium) => buildReplayLayer(Cesium, viewer))
   }, [replayMarkers, locations])
 
+  // Real Argo float markers. Drawn separately so they can arrive after the
+  // base scene builds; also re-drawn after any full scene rebuild (locations).
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    let cancelled = false
+    loadCesium().then((Cesium) => {
+      if (cancelled) return
+      const scene = sceneRef.current
+      for (const e of scene.realArgo) viewer.entities.remove(e)
+      scene.realArgo = []
+      scene.argoMap = []
+      for (const flt of realArgoRef.current) {
+        if (flt.latitude == null || flt.longitude == null) continue
+        const marker = viewer.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(flt.longitude, flt.latitude, 600),
+          point: {
+            pixelSize: 13,
+            color: Cesium.Color.fromCssColorString('#f472b6'),
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2,
+          },
+          label: {
+            text: `Real Argo ${flt.float_id}`,
+            font: '11px monospace',
+            fillColor: Cesium.Color.WHITE,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 2,
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            pixelOffset: new Cesium.Cartesian2(0, -14),
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 6.5e6),
+          },
+          show: layersRef.current.realArgo,
+        })
+        scene.realArgo.push(marker)
+        scene.argoMap.push({ entity: marker, floatId: flt.float_id })
+      }
+      applyOpacity(Cesium, viewer, opacityRef.current)
+      viewer.scene.requestRender()
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [realArgoFloats, locations])
+
+  // Real NOAA ERSST v5 SST grid: one temperature-colored dot per real cell.
+  // Drawn separately so it can arrive after the base scene builds.
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    let cancelled = false
+    loadCesium().then((Cesium) => {
+      if (cancelled) return
+      const scene = sceneRef.current
+      for (const e of scene.sst) viewer.entities.remove(e)
+      scene.sst = []
+      const grid = ersstRef.current
+      if (grid && grid.samples) {
+        const stats = grid.stats
+        const domain = stats && stats.min !== null && stats.max !== null
+          ? { min: stats.min, max: stats.max }
+          : null
+        const mode = scaleModes?.sst ?? 'linear'
+        sstSamplesRef.current = grid.samples
+        for (const s of grid.samples) {
+          const marker = viewer.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(s.longitude, s.latitude, 120),
+            point: {
+              pixelSize: 4,
+              color: Cesium.Color.fromCssColorString(tempColorCssFrom(s.sst, domain, mode)).withAlpha(0.8),
+            },
+            show: layersRef.current.realSST,
+          })
+          scene.sst.push(marker)
+        }
+        applyOpacity(Cesium, viewer, opacityRef.current)
+      }
+      viewer.scene.requestRender()
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [ersst, locations, scaleModes])
+
+  // Real satellite Chl-a grid (NOAA CoastWatch VIIRS-Himawari): one
+  // ocean-colour dot per real cell. Drawn separately like the real SST layer.
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    let cancelled = false
+    loadCesium().then((Cesium) => {
+      if (cancelled) return
+      const scene = sceneRef.current
+      for (const e of scene.chl) viewer.entities.remove(e)
+      scene.chl = []
+      const grid = chlorRef.current
+      if (grid && grid.samples) {
+        const stats = grid.stats
+        const domain = stats && stats.min !== null && stats.max !== null
+          ? { min: stats.min, max: stats.max }
+          : null
+        const mode = scaleModes?.chl ?? 'log'
+        chlSamplesRef.current = grid.samples
+        for (const s of grid.samples) {
+          const marker = viewer.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(s.longitude, s.latitude, 120),
+            point: {
+              pixelSize: 4,
+              color: Cesium.Color.fromCssColorString(chlorColorCssFrom(s.chlor_a, domain, mode)).withAlpha(0.8),
+            },
+            show: layersRef.current.realChl,
+          })
+          scene.chl.push(marker)
+        }
+        applyOpacity(Cesium, viewer, opacityRef.current)
+      }
+      viewer.scene.requestRender()
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [chlor, locations, scaleModes])
+
+  // Per-layer opacity: recolour existing entities without rebuilding them.
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    loadCesium().then((Cesium) => applyOpacity(Cesium, viewer, opacityRef.current))
+  }, [opacity])
+
+  // Vertical terrain/ocean exaggeration (feature #13).
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    loadCesium().then((Cesium) => applyExaggeration(Cesium, viewer))
+  }, [exaggeration])
+
+  // Isosurface contour lines over the real ERSST SST field (feature #11).
+  // Rebuilt whenever the contour levels or base scene change (a scene rebuild
+  // wipes all entities, so the layer must be repainted after `locations`).
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    loadCesium().then((Cesium) => buildIsoLayer(Cesium, viewer))
+  }, [isolevels, locations])
+
+  // True current-velocity arrows from the real model grid (feature #14).
+  // Rebuilt whenever the vector cells or base scene change, like the TIDE layer.
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    loadCesium().then((Cesium) => buildVectorsLayer(Cesium, viewer))
+  }, [currentVectors, locations])
+
+  // One horizontal depth slice of the real model field (feature #7).
+  // Repainted after any scene rebuild, so it is keyed on `locations` too.
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    loadCesium().then((Cesium) => buildSliceLayer(Cesium, viewer))
+  }, [modelSlice, locations])
+
+  // Real glider deployment tracks (feature #16). Repainted on scene rebuilds.
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    loadCesium().then((Cesium) => buildGliderLayer(Cesium, viewer))
+  }, [gliderTracks, locations])
+
   // Dispose the viewer on unmount.
   useEffect(() => {
     const container = containerRef.current
@@ -677,7 +1047,7 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
       container?.removeEventListener('contextmenu', onContextMenu)
       viewerRef.current?.destroy()
       viewerRef.current = null
-      sceneRef.current = { markers: [], markerMap: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [], argo: [], anomalies: [], tide: [], replay: [], transect: [] }
+      sceneRef.current = { markers: [], markerMap: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [], argo: [], realArgo: [], argoMap: [], sst: [], chl: [], anomalies: [], tide: [], replay: [], iso: [], curVec: [], slice: [], glider: [], glidersMap: [], transect: [] }
     }
   }, [])
 
@@ -712,6 +1082,18 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
           if (hit) {
             onRegionClickRef.current?.(hit.locId)
             ;(viewer.container as HTMLElement).style.cursor = 'default'
+            return
+          }
+          const argoHit = sceneRef.current.argoMap.find((m) => m.entity === entity)
+          if (argoHit) {
+            onArgoFloatClickRef.current?.(argoHit.floatId)
+            ;(viewer.container as HTMLElement).style.cursor = 'default'
+            return
+          }
+          const gliderHit = sceneRef.current.glidersMap.find((m) => m.entity === entity)
+          if (gliderHit) {
+            onGliderClickRef.current?.(gliderHit.deploymentId)
+            ;(viewer.container as HTMLElement).style.cursor = 'default'
           }
         },
         Cesium.ScreenSpaceEventType.LEFT_CLICK,
@@ -728,7 +1110,8 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
           }
           const picked = viewer.scene.pick(pos)
           const hit = picked?.id && sceneRef.current.markerMap.find((m) => m.entity === picked.id)
-          ;(viewer.container as HTMLElement).style.cursor = hit ? 'pointer' : 'default'
+          const argoHit = picked?.id && sceneRef.current.argoMap.find((m) => m.entity === picked.id)
+          ;(viewer.container as HTMLElement).style.cursor = hit || argoHit ? 'pointer' : 'default'
         },
         Cesium.ScreenSpaceEventType.MOUSE_MOVE,
       )
@@ -790,7 +1173,7 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
   function buildScene(Cesium: CesiumModule, viewer: Viz) {
     viewer.entities.removeAll()
     clearStormEntities(viewer)
-    const scene: Scene = { markers: [], markerMap: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [], argo: [], anomalies: [], tide: [], replay: [], transect: [] }
+    const scene: Scene = { markers: [], markerMap: [], temps: [], waves: [], currents: [], storm: [], rings: [], focus: [], argo: [], realArgo: [], argoMap: [], sst: [], chl: [], anomalies: [], tide: [], replay: [], iso: [], curVec: [], slice: [], glider: [], glidersMap: [], transect: [] }
 
     const valid = (locations.length > 0 ? locations : FALLBACK_LOCATIONS).filter(
       (l) => l.latitude != null && l.longitude != null,
@@ -836,7 +1219,7 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
 
       // ---- Temperature heat patches (recolored by model-vs-obs disagreement
       // when the disagreement layer is on) ----
-      const tempC = tempColor(Cesium, loc.temperature ?? 28)
+      const tempC = Cesium.Color.fromCssColorString(tempColorCss(loc.temperature ?? 28))
       const disagree = disagreementRef.current.find((d) => d.location_id === loc.id)
       const disagreeOn = layersRef.current.disagreement
       const baseShow = layersRef.current.temperature
@@ -1607,12 +1990,12 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
       if (!entity.ellipse || !p) continue
 
       let value = p.temperature
-      let color = value != null ? tempColor(Cesium, value) : null
+      let color = value != null ? Cesium.Color.fromCssColorString(tempColorCss(value)) : null
       if (mode !== 'temp' && p.temperature != null) {
         const base = rollingBaseline(reg, idx)
         if (mode === 'model') {
           value = base
-          color = value != null ? tempColor(Cesium, value) : null
+          color = value != null ? Cesium.Color.fromCssColorString(tempColorCss(value)) : null
         } else if (mode === 'difference') {
           value = base != null ? p.temperature - base : null
           color = value != null ? deviationColor(Cesium, value) : null
@@ -1622,6 +2005,336 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
         (color ?? Cesium.Color.fromCssColorString('#2a4a6a')).withAlpha(0.38),
       )
     }
+    viewer.scene.requestRender()
+  }
+
+  function applyExaggeration(_Cesium: CesiumModule, viewer: Viz) {
+    const v = exaggerationRef.current
+    if (v && Math.abs(v - 1) > 1e-6) {
+      viewer.scene.verticalExaggeration = v
+      viewer.scene.verticalExaggerationRelativeHeight = 0
+    }
+    viewer.scene.requestRender()
+  }
+
+  /** Marching-squares isotherm contours of the real ERSST SST field (#11). */
+  function buildIsoLayer(Cesium: CesiumModule, viewer: Viz) {
+    const scene = sceneRef.current
+    for (const e of scene.iso) {
+      try {
+        viewer.entities.remove(e)
+      } catch {
+        /* already disposed */
+      }
+    }
+    scene.iso = []
+    const levels = isolevelsRef.current
+    if (!levels || levels.length === 0) return
+    const grid = ersstRef.current
+    if (!grid || !grid.samples) return
+    const field = buildLatLonField(grid.samples.map((s) => ({ latitude: s.latitude, longitude: s.longitude, value: s.sst })))
+    if (!field) return
+    const alpha = opacityRef.current.isos ?? 1
+    for (const level of levels) {
+      for (const seg of isoLines(field, level)) {
+        scene.iso.push(
+          viewer.entities.add({
+            polyline: {
+              positions: [
+                Cesium.Cartesian3.fromDegrees(seg.lon0, seg.lat0, 220),
+                Cesium.Cartesian3.fromDegrees(seg.lon1, seg.lat1, 220),
+              ],
+              width: 2.5,
+              arcType: Cesium.ArcType.GEODESIC,
+              material: new Cesium.PolylineGlowMaterialProperty({
+                color: Cesium.Color.fromCssColorString('#0ea5e9').withAlpha(0.95 * alpha),
+                glowPower: 0.12,
+              }),
+            },
+            show: layersRef.current.isos,
+          }),
+        )
+      }
+    }
+    viewer.scene.requestRender()
+  }
+
+  /** True current-velocity arrows for the real model-grid u/v cells (#14). */
+  function buildVectorsLayer(Cesium: CesiumModule, viewer: Viz) {
+    const scene = sceneRef.current
+    for (const e of scene.curVec) {
+      try {
+        viewer.entities.remove(e)
+      } catch {
+        /* already disposed */
+      }
+    }
+    scene.curVec = []
+    const vecs = currentVectorsRef.current
+    if (!vecs || vecs.length === 0) return
+    // Cap the drawn set so a dense 1/12° grid stays responsive — always the
+    // strongest cells, honestly labelled "strongest first" in the UI.
+    const shown = vecs
+      .slice()
+      .sort((a, b) => Math.hypot((b.u || 0), (b.v || 0)) - Math.hypot((a.u || 0), (a.v || 0)))
+      .slice(0, 600)
+    const alpha = opacityRef.current.vectors ?? 1
+    for (const cell of shown) {
+      const arrow = arrowFor(cell)
+      if (!arrow) continue
+      const pos = (p: { latitude: number; longitude: number }) => Cesium.Cartesian3.fromDegrees(p.longitude, p.latitude, 210)
+      scene.curVec.push(
+        viewer.entities.add({
+          polyline: {
+            positions: [pos(arrow.tail), pos(arrow.head)],
+            width: 2.2,
+            arcType: Cesium.ArcType.GEODESIC,
+            material: new Cesium.PolylineGlowMaterialProperty({
+              color: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.9 * alpha),
+              glowPower: 0.2,
+            }),
+          },
+          show: layersRef.current.vectors,
+        }),
+      )
+      for (const fin of arrow.fins) {
+        scene.curVec.push(
+          viewer.entities.add({
+            polyline: {
+              positions: [pos(arrow.head), pos(fin)],
+              width: 1.6,
+              arcType: Cesium.ArcType.GEODESIC,
+              material: new Cesium.PolylineGlowMaterialProperty({
+                color: Cesium.Color.fromCssColorString('#a5f3fc').withAlpha(0.8 * alpha),
+                glowPower: 0.15,
+              }),
+            },
+            show: layersRef.current.vectors,
+          }),
+        )
+      }
+    }
+    viewer.scene.requestRender()
+  }
+
+  /** One horizontal depth slice of the real model field (feature #7): dots
+   * colored on the live cell domain (temp → heat, salinity → haline). Honest:
+   * no layer is drawn while `available:false` (no real grid / depth level). */
+  function buildSliceLayer(Cesium: CesiumModule, viewer: Viz) {
+    const scene = sceneRef.current
+    for (const e of scene.slice) {
+      try {
+        viewer.entities.remove(e)
+      } catch {
+        /* already disposed */
+      }
+    }
+    scene.slice = []
+    const slice = modelSliceRef.current
+    if (!slice || !slice.available || !slice.cells || slice.cells.length === 0) return
+    const domain = domainFrom(slice.cells.map((c) => c.value))
+    if (!domain) return
+    const mode = scaleModesRef.current?.modelgrid ?? 'linear'
+    const sal = slice.variable === 'salinity'
+    const alpha = opacityRef.current.modelgrid ?? 1
+    const colorFor = (v: number) =>
+      sal ? salColorCssFrom(v, domain, mode) : tempColorCssFrom(v, domain, mode)
+    for (const c of slice.cells) {
+      scene.slice.push(
+        viewer.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(c.longitude, c.latitude, 120),
+          point: {
+            pixelSize: 4,
+            color: Cesium.Color.fromCssColorString(colorFor(c.value)).withAlpha(0.8 * alpha),
+          },
+          show: layersRef.current.modelgrid,
+        }),
+      )
+    }
+    viewer.scene.requestRender()
+  }
+
+  /** Real glider deployment tracks (feature #16): one glow polyline per
+   * deployment through its true sample positions + depth-colored dots.
+   * Clicking a dot opens the deployment profile (feature #18). */
+  const GLIDER_PALETTE = ['#f59e0b', '#22d3ee', '#a78bfa', '#34d399', '#fb7185', '#e879f9']
+
+  function buildGliderLayer(Cesium: CesiumModule, viewer: Viz) {
+    const scene = sceneRef.current
+    for (const e of scene.glider) {
+      try {
+        viewer.entities.remove(e)
+      } catch {
+        /* already disposed */
+      }
+    }
+    scene.glider = []
+    scene.glidersMap = []
+    const tracks = gliderTracksRef.current
+    if (!tracks || tracks.length === 0) return
+    let depthLo = Infinity
+    let depthHi = -Infinity
+    for (const t of tracks) {
+      for (const s of t.samples) {
+        if (Number.isFinite(s.depth_m)) {
+          if (s.depth_m < depthLo) depthLo = s.depth_m
+          if (s.depth_m > depthHi) depthHi = s.depth_m
+        }
+      }
+    }
+    if (!Number.isFinite(depthLo)) return
+    const alpha = opacityRef.current.glider ?? 1
+    tracks.forEach((t, i) => {
+      const color = GLIDER_PALETTE[i % GLIDER_PALETTE.length]
+      const pts = t.samples
+        .filter((s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude))
+        .map((s) => Cesium.Cartesian3.fromDegrees(s.longitude, s.latitude, 200))
+      if (pts.length >= 2) {
+        const line = viewer.entities.add({
+          polyline: {
+            positions: pts,
+            width: 3,
+            arcType: Cesium.ArcType.GEODESIC,
+            material: new Cesium.PolylineGlowMaterialProperty({
+              color: Cesium.Color.fromCssColorString(color).withAlpha(0.85 * alpha),
+              glowPower: 0.18,
+            }),
+          },
+          show: layersRef.current.glider,
+        })
+        scene.glider.push(line)
+        scene.glidersMap.push({ entity: line, deploymentId: t.deploymentId, baseColor: color })
+      }
+      for (const s of t.samples) {
+        if (!Number.isFinite(s.latitude) || !Number.isFinite(s.longitude)) continue
+        const dot = viewer.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(s.longitude, s.latitude, 200),
+          point: {
+            pixelSize: 5,
+            color: Cesium.Color.fromCssColorString(depthColorCss(s.depth_m, depthLo, depthHi)).withAlpha(0.95 * alpha),
+          },
+          show: layersRef.current.glider,
+        })
+        scene.glider.push(dot)
+        scene.glidersMap.push({ entity: dot, deploymentId: t.deploymentId, baseColor: depthColorCss(s.depth_m, depthLo, depthHi) })
+      }
+    })
+    viewer.scene.requestRender()
+  }
+
+  /** Recolour existing dense layers with their per-layer opacity (#12). */
+  function applyOpacity(Cesium: CesiumModule, viewer: Viz, state: Partial<Record<LayerKey, number>>) {
+    const scene = sceneRef.current
+    const a = (key: LayerKey) => state[key] ?? 1
+
+    // Real ERSST SST dots — base colours recomputed on the live data domain.
+    const sstGrid = ersstRef.current
+    const sstStats = sstGrid?.stats
+    const sstDomain = sstStats && sstStats.min !== null && sstStats.max !== null ? { min: sstStats.min, max: sstStats.max } : null
+    const sstMode = scaleModesRef.current?.sst ?? 'linear'
+    const sstAlpha = a('realSST')
+    for (let i = 0; i < scene.sst.length; i++) {
+      const s = sstSamplesRef.current[i]
+      const e = scene.sst[i]
+      if (!s || !e.point) continue
+      e.point.color = new Cesium.ConstantProperty(
+        Cesium.Color.fromCssColorString(tempColorCssFrom(s.sst, sstDomain, sstMode)).withAlpha(0.8 * sstAlpha),
+      )
+    }
+
+    // Real satellite Chl-a dots — base colours recomputed on the CHL domain.
+    const chlGrid = chlorRef.current
+    const chlStats = chlGrid?.stats
+    const chlDomain = chlStats && chlStats.min !== null && chlStats.max !== null ? { min: chlStats.min, max: chlStats.max } : null
+    const chlMode = scaleModesRef.current?.chl ?? 'log'
+    const chlAlpha = a('realChl')
+    for (let i = 0; i < scene.chl.length; i++) {
+      const s = chlSamplesRef.current[i]
+      const e = scene.chl[i]
+      if (!s || !e.point) continue
+      e.point.color = new Cesium.ConstantProperty(
+        Cesium.Color.fromCssColorString(chlorColorCssFrom(s.chlor_a, chlDomain, chlMode)).withAlpha(0.8 * chlAlpha),
+      )
+    }
+
+    // Temperature heat patches (the disagreement layer keeps its status colours).
+    const tempAlpha = a('temperature')
+    for (const t of scene.temps) {
+      if (!t.entity.ellipse) continue
+      const disagree = disagreementRef.current.find((d) => d.location_id === t.locId)
+      if (layersRef.current.disagreement && disagree) continue
+      const def = Cesium.Color.fromCssColorString(tempColorCss(t.temp ?? 28))
+      t.entity.ellipse.material = new Cesium.ColorMaterialProperty(def.withAlpha(0.38 * tempAlpha))
+    }
+
+    // Wave ripples.
+    const waveAlpha = a('waves')
+    for (const e of scene.waves) {
+      if (!e.ellipse) continue
+      e.ellipse.material = new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#a5f3fc').withAlpha(0.16 * waveAlpha))
+    }
+
+    // Currents: glowing arcs + streaming dots.
+    const currentAlpha = a('currents')
+    for (const e of scene.currents) {
+      if (e.billboard) {
+        e.billboard.color = new Cesium.ConstantProperty(Cesium.Color.WHITE.withAlpha(currentAlpha))
+      } else if (e.polyline && e.polyline.material && 'color' in e.polyline.material) {
+        const glow = e.polyline.material as { color: InstanceType<CesiumModule['Property']> }
+        glow.color = new Cesium.ConstantProperty(Cesium.Color.fromCssColorString('#22d3ee').withAlpha(0.75 * currentAlpha))
+      }
+    }
+
+    // Real Argo float markers.
+    const argoAlpha = a('realArgo')
+    for (const e of scene.realArgo) {
+      if (!e.point) continue
+      e.point.color = new Cesium.ConstantProperty(Cesium.Color.fromCssColorString('#f472b6').withAlpha(argoAlpha))
+    }
+
+    // Isosurface contours.
+    const isoAlpha = a('isos')
+    for (const e of scene.iso) {
+      if (!e.polyline || !e.polyline.material || !('color' in e.polyline.material)) continue
+      const glow = e.polyline.material as { color: InstanceType<CesiumModule['Property']> }
+      glow.color = new Cesium.ConstantProperty(Cesium.Color.fromCssColorString('#0ea5e9').withAlpha(0.95 * isoAlpha))
+    }
+
+    // Current-velocity arrows (shaft + fins share one cyan ramp).
+    const vecAlpha = a('vectors')
+    for (const e of scene.curVec) {
+      if (!e.polyline || !e.polyline.material || !('color' in e.polyline.material)) continue
+      const glow = e.polyline.material as { color: InstanceType<CesiumModule['Property']> }
+      glow.color = new Cesium.ConstantProperty(Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.9 * vecAlpha))
+    }
+
+    // Horizontal model-grid depth slice (feature #7): live-domain reelors.
+    const slice = modelSliceRef.current
+    const sliceDomain = slice && slice.available ? domainFrom(slice.cells.map((c) => c.value)) : null
+    const sliceMode = scaleModesRef.current?.modelgrid ?? 'linear'
+    const sliceSal = slice?.variable === 'salinity'
+    const sliceAlpha = a('modelgrid')
+    for (let i = 0; i < scene.slice.length; i++) {
+      const cell = slice?.cells[i]
+      const e = scene.slice[i]
+      if (!cell || !sliceDomain || !e.point) continue
+      e.point.color = new Cesium.ConstantProperty(
+        Cesium.Color.fromCssColorString(sliceSal ? salColorCssFrom(cell.value, sliceDomain, sliceMode) : tempColorCssFrom(cell.value, sliceDomain, sliceMode)).withAlpha(0.8 * sliceAlpha),
+      )
+    }
+
+    // Real glider tracks + dots (feature #16): restore base colors × alpha.
+    const gliderAlpha = a('glider')
+    for (const g of scene.glidersMap) {
+      const e = g.entity
+      if (e.point) {
+        e.point.color = new Cesium.ConstantProperty(Cesium.Color.fromCssColorString(g.baseColor).withAlpha(0.95 * gliderAlpha))
+      } else if (e.polyline && e.polyline.material && 'color' in e.polyline.material) {
+        const glow = e.polyline.material as { color: InstanceType<CesiumModule['Property']> }
+        glow.color = new Cesium.ConstantProperty(Cesium.Color.fromCssColorString(g.baseColor).withAlpha(0.85 * gliderAlpha))
+      }
+    }
+
     viewer.scene.requestRender()
   }
 
@@ -1640,7 +2353,7 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
         t.entity.ellipse.outlineColor = new Cesium.ConstantProperty(col.withAlpha(0.95))
         t.entity.ellipse.outlineWidth = new Cesium.ConstantProperty(3)
       } else if (state.temperature && t.entity.ellipse && !disagreeOn) {
-        const def = tempColor(Cesium, t.temp ?? 28)
+        const def = Cesium.Color.fromCssColorString(tempColorCss(t.temp ?? 28))
         t.entity.ellipse.material = new Cesium.ColorMaterialProperty(def.withAlpha(0.38))
         t.entity.ellipse.outlineColor = new Cesium.ConstantProperty(def.withAlpha(0.9))
         t.entity.ellipse.outlineWidth = new Cesium.ConstantProperty(2)
@@ -1652,8 +2365,17 @@ export default function CesiumGlobe({ locations, layers, storm, series, timeCurs
     scene.rings.forEach((e) => (e.show = state.uncertainty))
     scene.focus.forEach((e) => (e.show = state.priority))
     scene.argo.forEach((e) => (e.show = state.argo))
+    scene.realArgo.forEach((e) => (e.show = state.realArgo))
+    scene.sst.forEach((e) => (e.show = state.realSST))
+    scene.chl.forEach((e) => (e.show = state.realChl))
     scene.anomalies.forEach((e) => (e.show = state.anomalies))
     scene.tide.forEach((e) => (e.show = state.tide))
+    scene.iso.forEach((e) => (e.show = state.isos))
+    scene.curVec.forEach((e) => (e.show = state.vectors))
+    scene.slice.forEach((e) => (e.show = state.modelgrid))
+    scene.glider.forEach((e) => (e.show = state.glider))
+    // Keep every per-layer opacity applied after any layer toggle re-colours it.
+    applyOpacity(Cesium, viewer, opacityRef.current)
     viewer.scene.requestRender()
   }
 

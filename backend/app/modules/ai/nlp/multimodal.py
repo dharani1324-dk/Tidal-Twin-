@@ -49,6 +49,9 @@ _LOCATION_ALIASES: dict[str, list[str]] = {
 _TOLERANCE = {"temperature": 1.5, "waves": 0.4, "salinity": 0.5, "oxygen": 1.0, "chlorophyll": 1.0}
 _NUM = re.compile(r"(\d+(?:\.\d+)?)")
 
+# claim variable → real ingested grid variable (app.modules.ai.realdata)
+_REAL_CROSSWALK = {"temperature": "sst", "chlorophyll": "chlor_a"}
+
 
 def _resolve_locations(db: Session, text: str) -> list[OceanLocation]:
     """Return every location whose name / alias appears in the text."""
@@ -141,8 +144,10 @@ def _live_events(db: Session, loc_id: int) -> list[dict]:
     ]
 
 
-def _compare_claim(db: Session, claim: dict, live: dict) -> dict:
-    """Grade one claim against a live observation."""
+def _compare_claim(db: Session, claim: dict, live: dict, loc: OceanLocation | None = None) -> dict:
+    """Grade one claim against a live observation, and — where the variable
+    has a real ingested grid — cite the nearest real cell too (honestly:
+    absence of a cell is reported, never fabricated)."""
     col = CLAIM_VARIABLES[claim["variable"]]["col"]
     live_val = live.get(col)
     if live_val is None:
@@ -158,6 +163,10 @@ def _compare_claim(db: Session, claim: dict, live: dict) -> dict:
             verdict, note = "disagrees", (
                 f"document differs from live sensor ({live_val:.1f} {claim['unit']}, Δ {diff:+.1f})"
             )
+
+    real_note = _real_grid_corroboration(db, claim, loc)
+    if real_note:
+        note = f"{note}. Real grid: {real_note}"
     return {
         "variable": claim["variable"],
         "sentence": claim["sentence"],
@@ -166,7 +175,30 @@ def _compare_claim(db: Session, claim: dict, live: dict) -> dict:
         "live": round(live_val, 2) if live_val is not None else None,
         "verdict": verdict,
         "note": note,
+        "real": real_note,
     }
+
+
+def _real_grid_corroboration(db: Session, claim: dict, loc: OceanLocation | None) -> str | None:
+    """Nearest real NOAA grid cell for this variable & coast, as a citation
+    string (or an honest 'no cell within range' note). None when the variable
+    has no grid or the location has no centroid."""
+    real_var = _REAL_CROSSWALK.get(claim["variable"])
+    if real_var is None or loc is None:
+        return None
+    from app.modules.ai.realdata import location_center, near
+
+    center = location_center(loc)
+    if center is None:
+        return None
+    lat, lon = center
+    hit = near(db, real_var, lat, lon)
+    if hit["found"]:
+        return (f"{hit['short']}, month {hit['month']}: {hit['value']:.2f} {hit['units']} "
+                f"at {hit['longitude']:.1f}°E, {hit['latitude']:.1f}°N (nearest cell)")
+    if hit["month"] is not None:
+        return f"{hit['reason']} (grid month {hit['month']})"
+    return hit["reason"]
 
 
 def multimodal_fuse(db: Session, text: str, media: dict | None = None) -> dict:
@@ -215,7 +247,7 @@ def multimodal_fuse(db: Session, text: str, media: dict | None = None) -> dict:
 
         loc_claims = [c for c in claims]  # claims are coast-agnostic — attach to each
         for c in loc_claims:
-            rows.append({**_compare_claim(db, c, live), "location": loc.name})
+            rows.append({**_compare_claim(db, c, live, loc), "location": loc.name})
 
     # De-duplicate rows where the same (variable,claimed) appears for the same coast.
     seen_rows: set[tuple[str, str, float]] = set()
@@ -290,6 +322,8 @@ def multimodal_fuse(db: Session, text: str, media: dict | None = None) -> dict:
         "events": evs,
     }
 
+    real_cited = any(r.get("real") for r in rows)
+
     return {
         "answer": answer,
         "intent": "multimodal",
@@ -298,6 +332,7 @@ def multimodal_fuse(db: Session, text: str, media: dict | None = None) -> dict:
         "data": data,
         "sources": [
             "live observation history (sea_surface_temperature, wave_height, salinity, dissolved_oxygen, chlorophyll)",
+            *(["real NOAA grids (ERSST v5 SST, VIIRS·Himawari Chl) ingested netcdf_readings"] if real_cited else []),
             "anomaly detector active alerts" if alerts else "anomaly detector (no active alerts)",
             "REST /validation/events classification",
             f"attached {doc_type} input (metadata only, not stored)",
@@ -305,6 +340,7 @@ def multimodal_fuse(db: Session, text: str, media: dict | None = None) -> dict:
         "steps": [
             "parse document for named coasts & numeric claims",
             "grade each claim against the latest live sensor reading",
+            "cite nearest real NOAA grid cell where the variable has one",
             "attach alarms (anomaly detector) + classified events for those coasts",
             "fuse into a single evidence-chain answer",
         ],

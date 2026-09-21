@@ -387,6 +387,100 @@ export const fetchArgo = async (locationId?: number, nFloats = 3) => {
   return data
 }
 
+/** Get real Argo floats in the database (latest position per float). */
+export const fetchRealArgoFloats = async () => {
+  const { data } = await api.get('/api/v1/argo/floats')
+  return data
+}
+
+/** Get the real vertical profile (temperature & salinity vs depth) of one float. */
+export const fetchArgoFloatProfile = async (floatId: string) => {
+  const { data } = await api.get(`/api/v1/argo/floats/${floatId}/profile`)
+  return data
+}
+
+/** Get the latest real NOAA ERSST v5 SST month grid (from /api/v1/ersst/latest). */
+export const fetchErsstLatest = async () => {
+  const { data } = await api.get('/api/v1/ersst/latest')
+  return data
+}
+
+/** Get the nearest real ERSST grid cell to a point (from /api/v1/ersst/near). */
+export const fetchErsstNear = async (latitude: number, longitude: number, maxDistDeg = 3.5) => {
+  const { data } = await api.get('/api/v1/ersst/near', {
+    params: { latitude, longitude, max_dist_deg: maxDistDeg },
+  })
+  return data
+}
+
+/** Real NOAA CoastWatch satellite Chl-a month grid (from /api/v1/chlor/latest). */
+export const fetchChlorLatest = async () => {
+  const { data } = await api.get('/api/v1/chlor/latest')
+  return data
+}
+
+/** Nearest real satellite Chl-a cell to a point (from /api/v1/chlor/near). */
+export const fetchChlorNear = async (latitude: number, longitude: number, maxDistDeg = 0.2) => {
+  const { data } = await api.get('/api/v1/chlor/near', {
+    params: { latitude, longitude, max_dist_deg: maxDistDeg },
+  })
+  return data
+}
+
+/**
+ * True u/v current-velocity vectors of the real ocean-model 3D grid.
+ * Honest availability: when the grid was never ingested, the payload carries
+ * `available:false` with the exact reason, and no vectors are returned.
+ */
+export const fetchModelGridVectors = async (depthM = 0) => {
+  const { data } = await api.get('/api/v1/modelgrid/vectors', {
+    params: { depth_m: depthM },
+  })
+  return data
+}
+
+/** 3D-field overview: which model variables exist + their real depth levels (feature #7). */
+export const fetchModelGridSummary = async () => {
+  const { data } = await api.get('/api/v1/modelgrid/summary')
+  return data
+}
+
+/**
+ * One horizontal depth slice of the latest real model month (feature #7):
+ * every real cell at that depth, optionally evaluated for salinity.
+ */
+export const fetchModelGridSlice = async (
+  variable: 'temperature' | 'salinity' | 'current_speed',
+  depthM: number,
+) => {
+  const { data } = await api.get('/api/v1/modelgrid/latest', {
+    params: { variable, depth_m: depthM },
+  })
+  return data
+}
+
+/** Real glider deployments with their extents + which BGC sensors were carried (feature #16/#17). */
+export const fetchGliderDeployments = async () => {
+  const { data } = await api.get('/api/v1/glider/deployments')
+  return data
+}
+
+/** Real sample transect (position/depth/time + measured fields) of one deployment. */
+export const fetchGliderSamples = async (deploymentId: string, limit = 2000) => {
+  const { data } = await api.get(`/api/v1/glider/${encodeURIComponent(deploymentId)}/samples`, {
+    params: { limit },
+  })
+  return data
+}
+
+/** Real biogeochemical traces of a glider deployment (feature #17): dissolved
+ * oxygen / chlorophyll / nitrate vs depth — fields the payload didn't carry are
+ * honestly reported as absent. */
+export const fetchGliderBgc = async (deploymentId: string) => {
+  const { data } = await api.get(`/api/v1/glider/${encodeURIComponent(deploymentId)}/bgc`)
+  return data
+}
+
 /** Get fish-aggregation zones + seasonal fishing calendar */
 export const fetchFisheries = async () => {
   const { data } = await api.get('/api/v1/coastal/fisheries')
