@@ -1,0 +1,68 @@
+.err-boundary {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin: 24px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  border: 1px solid rgba(251, 107, 132, 0.35);
+  background: rgba(251, 107, 132, 0.08);
+  color: var(--text, #e6edf6);
+}
+
+.err-boundary-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 10px;
+  color: #fb6b84;
+  background: rgba(251, 107, 132, 0.14);
+}
+
+.err-boundary-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.err-boundary-body b {
+  font-size: 14px;
+}
+
+.err-boundary-body p {
+  margin: 4px 0 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  opacity: 0.78;
+}
+
+.err-boundary-msg {
+  display: block;
+  font-size: 11.5px;
+  opacity: 0.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.err-boundary-retry {
+  align-self: center;
+  padding: 8px 14px;
+  border-radius: 9px;
+  border: 1px solid rgba(251, 107, 132, 0.4);
+  background: transparent;
+  color: #fb6b84;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.err-boundary-retry:hover {
+  background: rgba(251, 107, 132, 0.14);
+}
+
+.err-boundary-retry:focus-visible {
+  outline: 2px solid #fb6b84;
+  outline-offset: 2px;
+}

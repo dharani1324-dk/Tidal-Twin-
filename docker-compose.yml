@@ -1,0 +1,93 @@
+# TidalTwin - Full deployment stack
+# ======================================
+# ONE command brings up the entire platform:
+#     docker compose up --build
+#
+# Services:
+#   db        - PostgreSQL 16 + PostGIS (spatial data store)
+#   backend   - FastAPI AI engine (REST API + anomaly detection + reports)
+#   frontend  - nginx serving the React app (http://localhost:8080)
+#
+# After startup, open http://localhost:8080 in your browser.
+#
+# Every value below can be overridden without editing this file, e.g.
+#     POSTGRES_PASSWORD=... docker compose up --build
+# Defaults are safe, non-secret placeholders for local demonstration only.
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: tidaltwin-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tidaltwin}
+      POSTGRES_DB: ${POSTGRES_DB:-tidaltwin}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"   # host 5433 to avoid clashing with local PostgreSQL on 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tidaltwin}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build: ./backend
+    container_name: tidaltwin-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-tidaltwin}@db:5432/${POSTGRES_DB:-tidaltwin}
+      DB_HOST: db
+      DB_PORT: "5432"
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      CESIUM_ION_TOKEN: ${CESIUM_ION_TOKEN:-}
+      # TIDE Voice Agent (provider is "auto" -> Gemini when a key is set).
+      VOICE_PROVIDER: ${VOICE_PROVIDER:-auto}
+      # Gemini Live (primary realtime provider).
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_LIVE_BASE_URL: ${GEMINI_LIVE_BASE_URL:-https://generativelanguage.googleapis.com}
+      GEMINI_LIVE_MODEL: ${GEMINI_LIVE_MODEL:-gemini-3.1-flash-live-preview}
+      GEMINI_LIVE_VOICE: ${GEMINI_LIVE_VOICE:-Kore}
+      # OpenAI Realtime (legacy WebRTC provider). Leave keys empty to disable.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_REALTIME_BASE_URL: ${OPENAI_REALTIME_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_REALTIME_MODEL: ${OPENAI_REALTIME_MODEL:-gpt-realtime}
+      OPENAI_REALTIME_VOICE: ${OPENAI_REALTIME_VOICE:-cedar}
+      VOICE_AGENT_ENABLED: ${VOICE_AGENT_ENABLED:-auto}
+      PORT: "8000"
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s   # allows for DB wait + seed + live data refresh
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ""
+    container_name: tidaltwin-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  db-data:

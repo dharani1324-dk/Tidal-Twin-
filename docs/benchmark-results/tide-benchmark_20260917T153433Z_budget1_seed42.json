@@ -1,0 +1,1597 @@
+{
+  "algorithm_version": "1.0",
+  "generated_at": "2026-09-17T15:34:33.483658+00:00",
+  "dataset": {
+    "id": "tidaltwin-live-store",
+    "version": "live",
+    "status": "REAL observation stream (Open-Meteo Marine) with system-derived events",
+    "locations": 8,
+    "observations": 768,
+    "events": 3,
+    "source": "app.modules.ai.tide.adapters (existing TIDE inputs)"
+  },
+  "configuration": {
+    "budget": 1,
+    "strategies": [
+      "RANDOM",
+      "UNIFORM",
+      "UNCERTAINTY_ONLY",
+      "ANOMALY_ONLY",
+      "DATA_GAP_ONLY",
+      "TIDE"
+    ],
+    "cases": [
+      "temperature@0",
+      "wave_height@0",
+      "salinity@0",
+      "current_speed@0"
+    ],
+    "seed": 42,
+    "cost_assumption": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+    "ground_truth_available": false
+  },
+  "fairness": {
+    "same_pool_per_strategy": true,
+    "budget_uniform": 1,
+    "pool_size_by_case": {
+      "temperature@0": 8,
+      "wave_height@0": 8,
+      "salinity@0": 8,
+      "current_speed@0": 8
+    },
+    "note": "All strategies receive the identical candidate pool, observation budget and factor fields. TIDE is not given any information unavailable to the baselines."
+  },
+  "selection": {
+    "pool_size_by_case": {
+      "temperature@0": 8,
+      "wave_height@0": 8,
+      "salinity@0": 8,
+      "current_speed@0": 8
+    },
+    "nonzero_observation_value_by_case": {
+      "temperature@0": 1,
+      "wave_height@0": 1,
+      "salinity@0": 1,
+      "current_speed@0": 1
+    },
+    "pool_is_degenerate": false,
+    "note": "At least one case has non-zero observation_value."
+  },
+  "rows": [
+    {
+      "case_id": "temperature@0",
+      "case_label": "temperature @ 0 m",
+      "event_id": null,
+      "strategy": "RANDOM",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-4-temperature-0-buoy",
+        "location_id": 4,
+        "location": "Kerala Coast (Kochi)",
+        "variable": "temperature",
+        "depth_m": 0.0,
+        "observation_type": "BUOY",
+        "observation_cost": 0.35,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1058,
+      "uncertainty_reduction": 0.1942,
+      "relative_uncertainty_reduction": 0.6473,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": true,
+        "reason": "Model-vs-observed difference from the existing Twin comparison (trend baseline, not a forecast).",
+        "model_value": 28.726,
+        "observed_value": 28.7,
+        "difference": -0.026,
+        "absolute_error": 0.026
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 4,
+      "observation_cost": 0.35,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": true,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "temperature@0",
+      "case_label": "temperature @ 0 m",
+      "event_id": null,
+      "strategy": "UNIFORM",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-3-temperature-0-buoy",
+        "location_id": 3,
+        "location": "Gulf of Mannar",
+        "variable": "temperature",
+        "depth_m": 0.0,
+        "observation_type": "BUOY",
+        "observation_cost": 0.35,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1058,
+      "uncertainty_reduction": 0.1942,
+      "relative_uncertainty_reduction": 0.6473,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": true,
+        "reason": "Model-vs-observed difference from the existing Twin comparison (trend baseline, not a forecast).",
+        "model_value": 30.063,
+        "observed_value": 30.0,
+        "difference": -0.063,
+        "absolute_error": 0.063
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 4,
+      "observation_cost": 0.35,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": true,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "temperature@0",
+      "case_label": "temperature @ 0 m",
+      "event_id": null,
+      "strategy": "UNCERTAINTY_ONLY",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-1-temperature-0-argo_float",
+        "location_id": 1,
+        "location": "Arabian Sea (Mumbai Coast)",
+        "variable": "temperature",
+        "depth_m": 0.0,
+        "observation_type": "ARGO_FLOAT",
+        "observation_cost": 0.42,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1089,
+      "uncertainty_reduction": 0.1911,
+      "relative_uncertainty_reduction": 0.637,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": true,
+        "reason": "Model-vs-observed difference from the existing Twin comparison (trend baseline, not a forecast).",
+        "model_value": 28.678,
+        "observed_value": 28.6,
+        "difference": -0.078,
+        "absolute_error": 0.078
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 4,
+      "observation_cost": 0.42,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": true,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "temperature@0",
+      "case_label": "temperature @ 0 m",
+      "event_id": null,
+      "strategy": "ANOMALY_ONLY",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-5-temperature-0-buoy",
+        "location_id": 5,
+        "location": "Goa Coast (Panaji)",
+        "variable": "temperature",
+        "depth_m": 0.0,
+        "observation_type": "BUOY",
+        "observation_cost": 0.35,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.0458,
+      "uncertainty_reduction": 0.2542,
+      "relative_uncertainty_reduction": 0.8473,
+      "decision_before": "INVESTIGATE_ANOMALY",
+      "decision_after": "INVESTIGATE_ANOMALY",
+      "decision_changed": false,
+      "validation_error": {
+        "available": true,
+        "reason": "Model-vs-observed difference from the existing Twin comparison (trend baseline, not a forecast).",
+        "model_value": 28.535,
+        "observed_value": 30.3,
+        "difference": 1.765,
+        "absolute_error": 1.765
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 5,
+      "observation_cost": 0.35,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "temperature@0",
+      "case_label": "temperature @ 0 m",
+      "event_id": null,
+      "strategy": "DATA_GAP_ONLY",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-1-temperature-0-argo_float",
+        "location_id": 1,
+        "location": "Arabian Sea (Mumbai Coast)",
+        "variable": "temperature",
+        "depth_m": 0.0,
+        "observation_type": "ARGO_FLOAT",
+        "observation_cost": 0.42,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1089,
+      "uncertainty_reduction": 0.1911,
+      "relative_uncertainty_reduction": 0.637,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": true,
+        "reason": "Model-vs-observed difference from the existing Twin comparison (trend baseline, not a forecast).",
+        "model_value": 28.678,
+        "observed_value": 28.6,
+        "difference": -0.078,
+        "absolute_error": 0.078
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 4,
+      "observation_cost": 0.42,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": true,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "temperature@0",
+      "case_label": "temperature @ 0 m",
+      "event_id": null,
+      "strategy": "TIDE",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-5-temperature-0-buoy",
+        "location_id": 5,
+        "location": "Goa Coast (Panaji)",
+        "variable": "temperature",
+        "depth_m": 0.0,
+        "observation_type": "BUOY",
+        "observation_cost": 0.35,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.0458,
+      "uncertainty_reduction": 0.2542,
+      "relative_uncertainty_reduction": 0.8473,
+      "decision_before": "INVESTIGATE_ANOMALY",
+      "decision_after": "INVESTIGATE_ANOMALY",
+      "decision_changed": false,
+      "validation_error": {
+        "available": true,
+        "reason": "Model-vs-observed difference from the existing Twin comparison (trend baseline, not a forecast).",
+        "model_value": 28.535,
+        "observed_value": 30.3,
+        "difference": 1.765,
+        "absolute_error": 1.765
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 5,
+      "observation_cost": 0.35,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "wave_height@0",
+      "case_label": "wave_height @ 0 m",
+      "event_id": null,
+      "strategy": "RANDOM",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-8-wave_height-0-manual_sample",
+        "location_id": 8,
+        "location": "Odisha Coast (Puri)",
+        "variable": "wave_height",
+        "depth_m": 0.0,
+        "observation_type": "MANUAL_SAMPLE",
+        "observation_cost": 0.48,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1116,
+      "uncertainty_reduction": 0.1884,
+      "relative_uncertainty_reduction": 0.628,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": true,
+        "reason": "Model-vs-observed difference from the existing Twin comparison (trend baseline, not a forecast).",
+        "model_value": 1.19,
+        "observed_value": 1.16,
+        "difference": -0.03,
+        "absolute_error": 0.03
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 4,
+      "observation_cost": 0.48,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": true,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "wave_height@0",
+      "case_label": "wave_height @ 0 m",
+      "event_id": null,
+      "strategy": "UNIFORM",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-3-wave_height-0-manual_sample",
+        "location_id": 3,
+        "location": "Gulf of Mannar",
+        "variable": "wave_height",
+        "depth_m": 0.0,
+        "observation_type": "MANUAL_SAMPLE",
+        "observation_cost": 0.48,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1116,
+      "uncertainty_reduction": 0.1884,
+      "relative_uncertainty_reduction": 0.628,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": true,
+        "reason": "Model-vs-observed difference from the existing Twin comparison (trend baseline, not a forecast).",
+        "model_value": 1.174,
+        "observed_value": 1.28,
+        "difference": 0.106,
+        "absolute_error": 0.106
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 4,
+      "observation_cost": 0.48,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "wave_height@0",
+      "case_label": "wave_height @ 0 m",
+      "event_id": null,
+      "strategy": "UNCERTAINTY_ONLY",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-1-wave_height-0-manual_sample",
+        "location_id": 1,
+        "location": "Arabian Sea (Mumbai Coast)",
+        "variable": "wave_height",
+        "depth_m": 0.0,
+        "observation_type": "MANUAL_SAMPLE",
+        "observation_cost": 0.48,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1116,
+      "uncertainty_reduction": 0.1884,
+      "relative_uncertainty_reduction": 0.628,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": true,
+        "reason": "Model-vs-observed difference from the existing Twin comparison (trend baseline, not a forecast).",
+        "model_value": 1.263,
+        "observed_value": 1.42,
+        "difference": 0.157,
+        "absolute_error": 0.157
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 4,
+      "observation_cost": 0.48,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "wave_height@0",
+      "case_label": "wave_height @ 0 m",
+      "event_id": null,
+      "strategy": "ANOMALY_ONLY",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-5-wave_height-0-buoy",
+        "location_id": 5,
+        "location": "Goa Coast (Panaji)",
+        "variable": "wave_height",
+        "depth_m": 0.0,
+        "observation_type": "BUOY",
+        "observation_cost": 0.35,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.0458,
+      "uncertainty_reduction": 0.2542,
+      "relative_uncertainty_reduction": 0.8473,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": true,
+        "reason": "Model-vs-observed difference from the existing Twin comparison (trend baseline, not a forecast).",
+        "model_value": 0.989,
+        "observed_value": 1.02,
+        "difference": 0.031,
+        "absolute_error": 0.031
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 5,
+      "observation_cost": 0.35,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": true,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "wave_height@0",
+      "case_label": "wave_height @ 0 m",
+      "event_id": null,
+      "strategy": "DATA_GAP_ONLY",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-1-wave_height-0-manual_sample",
+        "location_id": 1,
+        "location": "Arabian Sea (Mumbai Coast)",
+        "variable": "wave_height",
+        "depth_m": 0.0,
+        "observation_type": "MANUAL_SAMPLE",
+        "observation_cost": 0.48,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1116,
+      "uncertainty_reduction": 0.1884,
+      "relative_uncertainty_reduction": 0.628,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": true,
+        "reason": "Model-vs-observed difference from the existing Twin comparison (trend baseline, not a forecast).",
+        "model_value": 1.263,
+        "observed_value": 1.42,
+        "difference": 0.157,
+        "absolute_error": 0.157
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 4,
+      "observation_cost": 0.48,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "wave_height@0",
+      "case_label": "wave_height @ 0 m",
+      "event_id": null,
+      "strategy": "TIDE",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-5-wave_height-0-buoy",
+        "location_id": 5,
+        "location": "Goa Coast (Panaji)",
+        "variable": "wave_height",
+        "depth_m": 0.0,
+        "observation_type": "BUOY",
+        "observation_cost": 0.35,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.0458,
+      "uncertainty_reduction": 0.2542,
+      "relative_uncertainty_reduction": 0.8473,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": true,
+        "reason": "Model-vs-observed difference from the existing Twin comparison (trend baseline, not a forecast).",
+        "model_value": 0.989,
+        "observed_value": 1.02,
+        "difference": 0.031,
+        "absolute_error": 0.031
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 5,
+      "observation_cost": 0.35,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": true,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "salinity@0",
+      "case_label": "salinity @ 0 m",
+      "event_id": null,
+      "strategy": "RANDOM",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-6-salinity-0-argo_float",
+        "location_id": 6,
+        "location": "Andaman Sea",
+        "variable": "salinity",
+        "depth_m": 0.0,
+        "observation_type": "ARGO_FLOAT",
+        "observation_cost": 0.42,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1089,
+      "uncertainty_reduction": 0.1911,
+      "relative_uncertainty_reduction": 0.637,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": false,
+        "reason": "NOT AVAILABLE - no model/observed pair exists for this variable/depth.",
+        "model_value": null,
+        "observed_value": null,
+        "difference": null,
+        "absolute_error": null
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 3,
+      "observation_cost": 0.42,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "salinity@0",
+      "case_label": "salinity @ 0 m",
+      "event_id": null,
+      "strategy": "UNIFORM",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-3-salinity-0-autonomous_vehicle",
+        "location_id": 3,
+        "location": "Gulf of Mannar",
+        "variable": "salinity",
+        "depth_m": 0.0,
+        "observation_type": "AUTONOMOUS_VEHICLE",
+        "observation_cost": 0.62,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1179,
+      "uncertainty_reduction": 0.1821,
+      "relative_uncertainty_reduction": 0.607,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": false,
+        "reason": "NOT AVAILABLE - no model/observed pair exists for this variable/depth.",
+        "model_value": null,
+        "observed_value": null,
+        "difference": null,
+        "absolute_error": null
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 3,
+      "observation_cost": 0.62,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "salinity@0",
+      "case_label": "salinity @ 0 m",
+      "event_id": null,
+      "strategy": "UNCERTAINTY_ONLY",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-1-salinity-0-argo_float",
+        "location_id": 1,
+        "location": "Arabian Sea (Mumbai Coast)",
+        "variable": "salinity",
+        "depth_m": 0.0,
+        "observation_type": "ARGO_FLOAT",
+        "observation_cost": 0.42,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1089,
+      "uncertainty_reduction": 0.1911,
+      "relative_uncertainty_reduction": 0.637,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": false,
+        "reason": "NOT AVAILABLE - no model/observed pair exists for this variable/depth.",
+        "model_value": null,
+        "observed_value": null,
+        "difference": null,
+        "absolute_error": null
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 3,
+      "observation_cost": 0.42,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "salinity@0",
+      "case_label": "salinity @ 0 m",
+      "event_id": null,
+      "strategy": "ANOMALY_ONLY",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-5-salinity-0-manual_sample",
+        "location_id": 5,
+        "location": "Goa Coast (Panaji)",
+        "variable": "salinity",
+        "depth_m": 0.0,
+        "observation_type": "MANUAL_SAMPLE",
+        "observation_cost": 0.48,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.0516,
+      "uncertainty_reduction": 0.2484,
+      "relative_uncertainty_reduction": 0.828,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": false,
+        "reason": "NOT AVAILABLE - no model/observed pair exists for this variable/depth.",
+        "model_value": null,
+        "observed_value": null,
+        "difference": null,
+        "absolute_error": null
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 4,
+      "observation_cost": 0.48,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "salinity@0",
+      "case_label": "salinity @ 0 m",
+      "event_id": null,
+      "strategy": "DATA_GAP_ONLY",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-1-salinity-0-argo_float",
+        "location_id": 1,
+        "location": "Arabian Sea (Mumbai Coast)",
+        "variable": "salinity",
+        "depth_m": 0.0,
+        "observation_type": "ARGO_FLOAT",
+        "observation_cost": 0.42,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1089,
+      "uncertainty_reduction": 0.1911,
+      "relative_uncertainty_reduction": 0.637,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": false,
+        "reason": "NOT AVAILABLE - no model/observed pair exists for this variable/depth.",
+        "model_value": null,
+        "observed_value": null,
+        "difference": null,
+        "absolute_error": null
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 3,
+      "observation_cost": 0.42,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "salinity@0",
+      "case_label": "salinity @ 0 m",
+      "event_id": null,
+      "strategy": "TIDE",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-5-salinity-0-manual_sample",
+        "location_id": 5,
+        "location": "Goa Coast (Panaji)",
+        "variable": "salinity",
+        "depth_m": 0.0,
+        "observation_type": "MANUAL_SAMPLE",
+        "observation_cost": 0.48,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.0516,
+      "uncertainty_reduction": 0.2484,
+      "relative_uncertainty_reduction": 0.828,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": false,
+        "reason": "NOT AVAILABLE - no model/observed pair exists for this variable/depth.",
+        "model_value": null,
+        "observed_value": null,
+        "difference": null,
+        "absolute_error": null
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 4,
+      "observation_cost": 0.48,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "current_speed@0",
+      "case_label": "current_speed @ 0 m",
+      "event_id": null,
+      "strategy": "RANDOM",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-2-current_speed-0-manual_sample",
+        "location_id": 2,
+        "location": "Bay of Bengal (Chennai Coast)",
+        "variable": "current_speed",
+        "depth_m": 0.0,
+        "observation_type": "MANUAL_SAMPLE",
+        "observation_cost": 0.48,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1116,
+      "uncertainty_reduction": 0.1884,
+      "relative_uncertainty_reduction": 0.628,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": false,
+        "reason": "NOT AVAILABLE - no model/observed pair exists for this variable/depth.",
+        "model_value": null,
+        "observed_value": null,
+        "difference": null,
+        "absolute_error": null
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 3,
+      "observation_cost": 0.48,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "current_speed@0",
+      "case_label": "current_speed @ 0 m",
+      "event_id": null,
+      "strategy": "UNIFORM",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-3-current_speed-0-manual_sample",
+        "location_id": 3,
+        "location": "Gulf of Mannar",
+        "variable": "current_speed",
+        "depth_m": 0.0,
+        "observation_type": "MANUAL_SAMPLE",
+        "observation_cost": 0.48,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1116,
+      "uncertainty_reduction": 0.1884,
+      "relative_uncertainty_reduction": 0.628,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": false,
+        "reason": "NOT AVAILABLE - no model/observed pair exists for this variable/depth.",
+        "model_value": null,
+        "observed_value": null,
+        "difference": null,
+        "absolute_error": null
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 3,
+      "observation_cost": 0.48,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "current_speed@0",
+      "case_label": "current_speed @ 0 m",
+      "event_id": null,
+      "strategy": "UNCERTAINTY_ONLY",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-1-current_speed-0-manual_sample",
+        "location_id": 1,
+        "location": "Arabian Sea (Mumbai Coast)",
+        "variable": "current_speed",
+        "depth_m": 0.0,
+        "observation_type": "MANUAL_SAMPLE",
+        "observation_cost": 0.48,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1116,
+      "uncertainty_reduction": 0.1884,
+      "relative_uncertainty_reduction": 0.628,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": false,
+        "reason": "NOT AVAILABLE - no model/observed pair exists for this variable/depth.",
+        "model_value": null,
+        "observed_value": null,
+        "difference": null,
+        "absolute_error": null
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 3,
+      "observation_cost": 0.48,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "current_speed@0",
+      "case_label": "current_speed @ 0 m",
+      "event_id": null,
+      "strategy": "ANOMALY_ONLY",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-5-current_speed-0-buoy",
+        "location_id": 5,
+        "location": "Goa Coast (Panaji)",
+        "variable": "current_speed",
+        "depth_m": 0.0,
+        "observation_type": "BUOY",
+        "observation_cost": 0.35,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.0458,
+      "uncertainty_reduction": 0.2542,
+      "relative_uncertainty_reduction": 0.8473,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": false,
+        "reason": "NOT AVAILABLE - no model/observed pair exists for this variable/depth.",
+        "model_value": null,
+        "observed_value": null,
+        "difference": null,
+        "absolute_error": null
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 4,
+      "observation_cost": 0.35,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "current_speed@0",
+      "case_label": "current_speed @ 0 m",
+      "event_id": null,
+      "strategy": "DATA_GAP_ONLY",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-1-current_speed-0-manual_sample",
+        "location_id": 1,
+        "location": "Arabian Sea (Mumbai Coast)",
+        "variable": "current_speed",
+        "depth_m": 0.0,
+        "observation_type": "MANUAL_SAMPLE",
+        "observation_cost": 0.48,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.1116,
+      "uncertainty_reduction": 0.1884,
+      "relative_uncertainty_reduction": 0.628,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": false,
+        "reason": "NOT AVAILABLE - no model/observed pair exists for this variable/depth.",
+        "model_value": null,
+        "observed_value": null,
+        "difference": null,
+        "absolute_error": null
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 3,
+      "observation_cost": 0.48,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    },
+    {
+      "case_id": "current_speed@0",
+      "case_label": "current_speed @ 0 m",
+      "event_id": null,
+      "strategy": "TIDE",
+      "budget": 1,
+      "selected": {
+        "candidate_id": "tide-5-current_speed-0-buoy",
+        "location_id": 5,
+        "location": "Goa Coast (Panaji)",
+        "variable": "current_speed",
+        "depth_m": 0.0,
+        "observation_type": "BUOY",
+        "observation_cost": 0.35,
+        "status": "MODEL_DERIVED"
+      },
+      "initial_uncertainty": 0.3,
+      "final_uncertainty": 0.0458,
+      "uncertainty_reduction": 0.2542,
+      "relative_uncertainty_reduction": 0.8473,
+      "decision_before": "INCREASE_MONITORING",
+      "decision_after": "CONTINUE_MONITORING",
+      "decision_changed": true,
+      "validation_error": {
+        "available": false,
+        "reason": "NOT AVAILABLE - no model/observed pair exists for this variable/depth.",
+        "model_value": null,
+        "observed_value": null,
+        "difference": null,
+        "absolute_error": null
+      },
+      "detection_time": {
+        "available": false,
+        "value_h": null,
+        "reason": "NOT AVAILABLE - no detected event provides a detection time."
+      },
+      "evidence_count": 4,
+      "observation_cost": 0.35,
+      "cost_label": "NORMALIZED OBSERVATION COST - DEMONSTRATION ASSUMPTION",
+      "data_status": {
+        "candidate": "MODEL_DERIVED",
+        "observation": "SIMULATED"
+      },
+      "supports_model_hypothesis": false,
+      "simulated": true,
+      "notes": [
+        "SIMULATED OBSERVATION - DEMONSTRATION ONLY: this reading was not collected by a real sensor and was not written to the observation store."
+      ]
+    }
+  ],
+  "aggregates": [
+    {
+      "strategy": "RANDOM",
+      "strategy_label": "Random valid observation location",
+      "N": 4,
+      "cases_with_selection": 4,
+      "decision_changes": 4,
+      "decision_change_rate": 1.0,
+      "uncertainty_reduction": {
+        "N": 4,
+        "mean": 0.1905,
+        "median": 0.1898,
+        "min": 0.1884,
+        "max": 0.1942
+      },
+      "validation_error": {
+        "N": 2,
+        "status": "INSUFFICIENT DATA (N=2)",
+        "values": [
+          0.026,
+          0.03
+        ]
+      },
+      "detection_time": {
+        "N": 0,
+        "status": "NOT AVAILABLE"
+      },
+      "observation_cost": {
+        "N": 4,
+        "mean": 0.4325,
+        "median": 0.45,
+        "min": 0.35,
+        "max": 0.48
+      }
+    },
+    {
+      "strategy": "UNIFORM",
+      "strategy_label": "Uniform spatial selection",
+      "N": 4,
+      "cases_with_selection": 4,
+      "decision_changes": 4,
+      "decision_change_rate": 1.0,
+      "uncertainty_reduction": {
+        "N": 4,
+        "mean": 0.1883,
+        "median": 0.1884,
+        "min": 0.1821,
+        "max": 0.1942
+      },
+      "validation_error": {
+        "N": 2,
+        "status": "INSUFFICIENT DATA (N=2)",
+        "values": [
+          0.063,
+          0.106
+        ]
+      },
+      "detection_time": {
+        "N": 0,
+        "status": "NOT AVAILABLE"
+      },
+      "observation_cost": {
+        "N": 4,
+        "mean": 0.4825,
+        "median": 0.48,
+        "min": 0.35,
+        "max": 0.62
+      }
+    },
+    {
+      "strategy": "UNCERTAINTY_ONLY",
+      "strategy_label": "Highest uncertainty",
+      "N": 4,
+      "cases_with_selection": 4,
+      "decision_changes": 4,
+      "decision_change_rate": 1.0,
+      "uncertainty_reduction": {
+        "N": 4,
+        "mean": 0.1898,
+        "median": 0.1898,
+        "min": 0.1884,
+        "max": 0.1911
+      },
+      "validation_error": {
+        "N": 2,
+        "status": "INSUFFICIENT DATA (N=2)",
+        "values": [
+          0.078,
+          0.157
+        ]
+      },
+      "detection_time": {
+        "N": 0,
+        "status": "NOT AVAILABLE"
+      },
+      "observation_cost": {
+        "N": 4,
+        "mean": 0.45,
+        "median": 0.45,
+        "min": 0.42,
+        "max": 0.48
+      }
+    },
+    {
+      "strategy": "ANOMALY_ONLY",
+      "strategy_label": "Strongest anomaly persistence",
+      "N": 4,
+      "cases_with_selection": 4,
+      "decision_changes": 3,
+      "decision_change_rate": 0.75,
+      "uncertainty_reduction": {
+        "N": 4,
+        "mean": 0.2527,
+        "median": 0.2542,
+        "min": 0.2484,
+        "max": 0.2542
+      },
+      "validation_error": {
+        "N": 2,
+        "status": "INSUFFICIENT DATA (N=2)",
+        "values": [
+          1.765,
+          0.031
+        ]
+      },
+      "detection_time": {
+        "N": 0,
+        "status": "NOT AVAILABLE"
+      },
+      "observation_cost": {
+        "N": 4,
+        "mean": 0.3825,
+        "median": 0.35,
+        "min": 0.35,
+        "max": 0.48
+      }
+    },
+    {
+      "strategy": "DATA_GAP_ONLY",
+      "strategy_label": "Largest data gap",
+      "N": 4,
+      "cases_with_selection": 4,
+      "decision_changes": 4,
+      "decision_change_rate": 1.0,
+      "uncertainty_reduction": {
+        "N": 4,
+        "mean": 0.1898,
+        "median": 0.1898,
+        "min": 0.1884,
+        "max": 0.1911
+      },
+      "validation_error": {
+        "N": 2,
+        "status": "INSUFFICIENT DATA (N=2)",
+        "values": [
+          0.078,
+          0.157
+        ]
+      },
+      "detection_time": {
+        "N": 0,
+        "status": "NOT AVAILABLE"
+      },
+      "observation_cost": {
+        "N": 4,
+        "mean": 0.45,
+        "median": 0.45,
+        "min": 0.42,
+        "max": 0.48
+      }
+    },
+    {
+      "strategy": "TIDE",
+      "strategy_label": "TIDE observation value",
+      "N": 4,
+      "cases_with_selection": 4,
+      "decision_changes": 3,
+      "decision_change_rate": 0.75,
+      "uncertainty_reduction": {
+        "N": 4,
+        "mean": 0.2527,
+        "median": 0.2542,
+        "min": 0.2484,
+        "max": 0.2542
+      },
+      "validation_error": {
+        "N": 2,
+        "status": "INSUFFICIENT DATA (N=2)",
+        "values": [
+          1.765,
+          0.031
+        ]
+      },
+      "detection_time": {
+        "N": 0,
+        "status": "NOT AVAILABLE"
+      },
+      "observation_cost": {
+        "N": 4,
+        "mean": 0.3825,
+        "median": 0.35,
+        "min": 0.35,
+        "max": 0.48
+      }
+    }
+  ],
+  "ground_truth": {
+    "available": false,
+    "reason": "The project has no independent, externally labelled event ground truth. Events are classified by the system's own thresholds and model baselines, so they cannot be used as independent labels.",
+    "false_alarm": "GROUND TRUTH UNAVAILABLE",
+    "missed_event": "GROUND TRUTH UNAVAILABLE"
+  },
+  "timing_ms": {
+    "candidate_generation": 8211.4,
+    "evaluation": 3.6,
+    "total": 8216.0
+  },
+  "scientific_boundary": {
+    "can_show": [
+      "implementation consistency with the documented scoring formula",
+      "reproducibility of rankings, simulations and benchmarks for fixed inputs",
+      "ranking behaviour and sensitivity to each factor",
+      "deterministic behaviour (seeded random strategy)",
+      "observed benchmark outcomes on the current dataset, with sample size",
+      "simulation isolation (no writes to the observation store)"
+    ],
+    "cannot_show": [
+      "universal superiority of TIDE over any baseline",
+      "operational ocean-forecasting performance",
+      "causal truth about sensor / model / phenomenon attribution",
+      "real-world deployment success",
+      "universal decision improvement",
+      "scientifically calibrated uncertainty",
+      "guaranteed observation value"
+    ],
+    "statement": "TIDE is implemented, demonstrated and computationally tested. It is NOT scientifically or empirically validated: no independent ground-truth dataset, field campaign or expert review supports its scores."
+  },
+  "limitations": [
+    "Outcome values are DEMONSTRATION heuristics derived from existing inputs, not field measurements.",
+    "No independent ground truth exists, so false-alarm and missed-event rates are unavailable.",
+    "Observation cost is a normalised demonstration assumption, not a monetary figure.",
+    "A non-zero decision_change_rate reflects a threshold crossing of the documented heuristic, not a measured operational improvement."
+  ],
+  "consistency": {
+    "sensitivity": {
+      "label": "ALGORITHM CONSISTENCY TESTING",
+      "caveat": "This checks that the implementation matches its documented formula. It is not scientific validation.",
+      "base_vector": {
+        "decision_impact": 0.6,
+        "uncertainty": 0.6,
+        "data_gap": 0.6,
+        "anomaly_persistence": 0.6,
+        "observation_cost": 0.5
+      },
+      "factors": [
+        {
+          "factor": "decision_impact",
+          "low_score": 0.0432,
+          "high_score": 0.3888,
+          "delta": 0.3456,
+          "expected_direction": "increase",
+          "consistent": true
+        },
+        {
+          "factor": "uncertainty",
+          "low_score": 0.0432,
+          "high_score": 0.3888,
+          "delta": 0.3456,
+          "expected_direction": "increase",
+          "consistent": true
+        },
+        {
+          "factor": "data_gap",
+          "low_score": 0.0432,
+          "high_score": 0.3888,
+          "delta": 0.3456,
+          "expected_direction": "increase",
+          "consistent": true
+        },
+        {
+          "factor": "anomaly_persistence",
+          "low_score": 0.0432,
+          "high_score": 0.3888,
+          "delta": 0.3456,
+          "expected_direction": "increase",
+          "consistent": true
+        },
+        {
+          "factor": "observation_cost",
+          "low_score": 1.296,
+          "high_score": 0.144,
+          "delta": -1.152,
+          "expected_direction": "decrease",
+          "consistent": true
+        }
+      ],
+      "all_consistent": true
+    },
+    "edge_cases": {
+      "label": "EDGE CASE TESTING",
+      "results": [
+        {
+          "case": "all_zero",
+          "observation_value": 0.0,
+          "finite_nonnegative": true,
+          "expected_uncertainty_reduction": 0.0
+        },
+        {
+          "case": "all_one",
+          "observation_value": 1.0,
+          "finite_nonnegative": true,
+          "expected_uncertainty_reduction": 0.75
+        },
+        {
+          "case": "zero_cost",
+          "observation_value": 2.592,
+          "finite_nonnegative": true,
+          "expected_uncertainty_reduction": 0.396
+        },
+        {
+          "case": "tiny_cost",
+          "observation_value": 2.592,
+          "finite_nonnegative": true,
+          "expected_uncertainty_reduction": 0.396
+        },
+        {
+          "case": "huge_cost",
+          "observation_value": 0.1296,
+          "finite_nonnegative": true,
+          "expected_uncertainty_reduction": 0.306
+        },
+        {
+          "case": "nulls",
+          "observation_value": 0.0,
+          "finite_nonnegative": true,
+          "expected_uncertainty_reduction": 0.0
+        },
+        {
+          "case": "nan",
+          "observation_value": 0.0,
+          "finite_nonnegative": true,
+          "expected_uncertainty_reduction": 0.0
+        },
+        {
+          "case": "infinity",
+          "observation_value": 0.1296,
+          "finite_nonnegative": true,
+          "expected_uncertainty_reduction": 0.306
+        },
+        {
+          "case": "out_of_range",
+          "observation_value": 0.0,
+          "finite_nonnegative": true,
+          "expected_uncertainty_reduction": 0.345
+        }
+      ],
+      "all_finite": true
+    }
+  }
+}

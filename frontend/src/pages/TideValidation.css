@@ -1,0 +1,390 @@
+/* Phase 8 — TIDE Validation Center */
+
+.tidev-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tidev-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tidev-callout {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  border-left: 3px solid #f59e0b;
+}
+
+.tidev-callout svg {
+  color: #f59e0b;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.tidev-callout b {
+  color: #f8fafc;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.tidev-callout p {
+  margin: 6px 0 0;
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.tidev-callout code {
+  color: #67e8f9;
+  background: rgba(34, 211, 238, 0.1);
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.tidev-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+}
+
+.tidev-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tidev-page .glass-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.tidev-maturity-block {
+  margin-bottom: 14px;
+}
+
+.tidev-maturity-block:last-child {
+  margin-bottom: 0;
+}
+
+.tidev-maturity-tag {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  margin-bottom: 6px;
+}
+
+.tidev-implemented { color: #22d3ee; background: rgba(34, 211, 238, 0.12); border-color: rgba(34, 211, 238, 0.28); }
+.tidev-demonstrated { color: #38bdf8; background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.28); }
+.tidev-tested { color: #10b981; background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.28); }
+.tidev-notvalidated { color: #f43f5e; background: rgba(244, 63, 94, 0.12); border-color: rgba(244, 63, 94, 0.28); }
+
+.tidev-maturity-block ul,
+.tidev-boundary ul,
+.tidev-limits {
+  margin: 0;
+  padding-left: 18px;
+  color: #cbd5e1;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.tidev-empty {
+  color: #fda4af;
+  font-size: 0.8rem;
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+.tidev-kv,
+.tidev-kv-grid {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.tidev-kv li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.tidev-kv li b {
+  color: #e2e8f0;
+}
+
+.tidev-na {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #fda4af;
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.28);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.tidev-note {
+  color: #7c8aa0;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  margin: 8px 0 0;
+}
+
+.tidev-boundary-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.tidev-can,
+.tidev-cannot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.tidev-can { color: #34d399; }
+.tidev-cannot { color: #fb7185; }
+
+.tidev-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.tidev-table th {
+  text-align: left;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 8px 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  white-space: nowrap;
+}
+
+.tidev-table td {
+  padding: 8px 8px;
+  color: #cbd5e1;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  vertical-align: middle;
+}
+
+.tidev-table em {
+  color: #fbbf24;
+  font-style: normal;
+  font-size: 0.72rem;
+}
+
+.tidev-strategy-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 7px;
+}
+
+.tidev-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.tidev-chip {
+  font-size: 0.72rem;
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  padding: 4px 11px;
+}
+
+.tidev-chip b {
+  color: #f8fafc;
+}
+
+.tidev-limits li {
+  margin-bottom: 4px;
+}
+
+.tidev-bench-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.tidev-bench-head h3 {
+  margin: 0;
+}
+
+.tidev-budget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.74rem;
+  color: #94a3b8;
+}
+
+.tidev-budget-pill {
+  min-width: 30px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tidev-budget-pill:hover {
+  border-color: #22d3ee;
+  color: #67e8f9;
+}
+
+.tidev-budget-on {
+  border-color: #22d3ee;
+  background: rgba(34, 211, 238, 0.16);
+  color: #67e8f9;
+  font-weight: 700;
+}
+
+.tidev-bench-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.tidev-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.tidev-banner-warn {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.tidev-chart {
+  margin: 8px 0 16px;
+}
+
+.tidev-agg-table {
+  margin-bottom: 6px;
+}
+
+.tidev-subhead {
+  margin: 20px 0 10px;
+  font-size: 0.86rem;
+  color: #e2e8f0;
+}
+
+.tidev-rows {
+  max-height: 340px;
+  overflow-y: auto;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 12px;
+}
+
+.tidev-row {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.tidev-row:hover {
+  background: rgba(34, 211, 238, 0.06);
+}
+
+.tidev-drill {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(34, 211, 238, 0.22);
+}
+
+.tidev-drill-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tidev-drill-head b {
+  color: #f8fafc;
+  font-size: 0.88rem;
+}
+
+.tidev-kv-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 18px;
+}
+
+.tidev-kv-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.76rem;
+  color: #94a3b8;
+}
+
+.tidev-kv-grid b {
+  color: #e2e8f0;
+  font-size: 0.82rem;
+}
+
+.tidev-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  padding: 16px 0;
+}
+
+@media (max-width: 960px) {
+  .tidev-grid,
+  .tidev-boundary-cols {
+    grid-template-columns: 1fr;
+  }
+
+  .tidev-kv-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
