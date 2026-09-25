@@ -30,20 +30,22 @@ from app.modules.physics.ocean_profiles import derive_surface, thermocline, dept
 
 def _obs_stats(db, loc_id, window_hours=72):
     from datetime import datetime, timedelta, timezone
+    from app.modules.ai.provenance_quality import origin_status
     now = datetime.now(timezone.utc)
     rows = (
-        db.query(OceanObservation.timestamp, OceanObservation.sea_surface_temperature,
-                 OceanObservation.wave_height, OceanObservation.salinity)
+        db.query(OceanObservation)
         .filter(OceanObservation.location_id == loc_id,
                 OceanObservation.timestamp >= now - timedelta(hours=window_hours))
         .order_by(OceanObservation.timestamp.asc()).all()
     )
+    rows = [row for row in rows
+            if origin_status(row.source, row.data_type) in ("REAL", "HISTORICAL", "SATELLITE_DERIVED")]
     n = len(rows)
     if n == 0:
         return {"count": 0, "density": 0, "recency_h": window_hours, "span_h": 0, "std_t": 0, "coverage_pct": 0}
 
-    times = [r[0] for r in rows]
-    temps = [r[1] for r in rows if r[1] is not None]
+    times = [r.timestamp for r in rows]
+    temps = [r.sea_surface_temperature for r in rows if r.sea_surface_temperature is not None]
     span = (times[-1] - times[0]).total_seconds() / 3600 if n > 1 else 0
     recency = (now - times[-1]).total_seconds() / 3600 if times[-1] else window_hours
     density = n / max(1, span or 1)
@@ -155,7 +157,7 @@ def health_score(db, loc_id=None):
         o = (db.query(OceanObservation)
              .filter(OceanObservation.location_id == loc_id)
              .order_by(OceanObservation.timestamp.desc()).first())
-        temp = o.sea_surface_temperature if o else 28.0
+        temp = o.sea_surface_temperature if o and o.sea_surface_temperature is not None else 28.0
         anom = abs(temp - 28.0)
 
         temperature_score = max(0, 100 - anom * 40)
@@ -163,9 +165,9 @@ def health_score(db, loc_id=None):
         oxygen_score = min(100, max(0, oxygen * 10))
         sal = o.salinity if o and o.salinity is not None else 35.0
         sal_score = max(0, 100 - abs(sal - 35.0) * 50)
-        chl = o.chlorophyll if o else 1.0
+        chl = o.chlorophyll if o and o.chlorophyll is not None else 1.0
         chl_score = min(100, chl * 25 + 20)
-        wave = o.wave_height if o else 1.0
+        wave = o.wave_height if o and o.wave_height is not None else 1.0
         wave_score = max(0, 100 - max(0, wave - 1.2) * 30)
 
         raw = (0.25 * temperature_score + 0.10 * oxygen_score + 0.10 * sal_score

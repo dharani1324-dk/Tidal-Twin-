@@ -395,7 +395,7 @@ def database_dataset_meta(db: Session) -> dict:
     return {
         "id": "tidaltwin-live-store",
         "version": "live",
-        "status": "REAL observation stream (Open-Meteo Marine) with system-derived events",
+        "status": "Mixed-origin time-series store; source-specific provenance is counted separately",
         "locations": db.query(OceanLocation).count(),
         "observations": db.query(OceanObservation).count(),
         "events": len(events),

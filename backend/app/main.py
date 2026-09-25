@@ -43,12 +43,32 @@ from app.api.glider import router as glider_router
 from app.api.ctd import router as ctd_router
 from app.api.ogc import router as ogc_router
 from app.api.cf import router as cf_router
-from app.api.voice import router as voice_router
 from app.modules.ai.safety.live import broadcast_loop
 
 
 configure_logging()
 logger = logging.getLogger("tidaltwin.startup")
+
+
+def _hydrate_real_observations() -> None:
+    """Best-effort feed of the REAL in-situ observation stream before boot.
+
+    Bridges the real Argo surface cycles into the shared observation store so
+    TIDE/Twin/validation score REAL measured evidence rather than an empty or
+    forecast-only stream. Never blocks or crashes startup.
+    """
+    from app.core.database import SessionLocal
+    from app.services.hydrate_real_observations import hydrate_real_observations
+
+    db = SessionLocal()
+    try:
+        summary = hydrate_real_observations(db)
+        logger.info("Real in-situ observation hydration: %s (%s rows).",
+                    summary.get("status"), summary.get("hydrated", 0))
+    except Exception:  # pragma: no cover - startup resilience
+        logger.warning("Real in-situ observation hydration skipped.", exc_info=True)
+    finally:
+        db.close()
 
 
 def _warm_tide_cache() -> None:
@@ -78,6 +98,14 @@ async def lifespan(_: FastAPI):
     for issue in settings.validate_environment():
         logger.warning("configuration: %s", issue)
     task = asyncio.create_task(broadcast_loop())
+    # Feed the REAL in-situ stream BEFORE warming TIDE, so the warmed cache is
+    # built on real measured evidence. Best-effort and bounded like the warm-up.
+    try:
+        await asyncio.wait_for(asyncio.to_thread(_hydrate_real_observations), timeout=30)
+    except asyncio.TimeoutError:
+        logger.warning("Real in-situ hydration exceeded 30s; continuing without it.")
+    except Exception:  # pragma: no cover - defensive
+        logger.warning("Real in-situ hydration failed; continuing.", exc_info=True)
     # Warm the expensive TIDE shared inputs BEFORE serving requests. This is
     # awaited (not fire-and-forget) so the first TIDE-heavy request - e.g. the
     # demonstration guide opening /api/v1/demo/status - is fast instead of
@@ -174,7 +202,6 @@ app.include_router(glider_router)
 app.include_router(ctd_router)
 app.include_router(ogc_router)
 app.include_router(cf_router)
-app.include_router(voice_router)
 
 
 # ---- Basic Routes (Doors) ----

@@ -1187,13 +1187,3 @@
 .colorbar-scale { display: inline-flex; gap: 2px; }
 .colorbar-scale button { font-size: 8.5px; letter-spacing: 0.8px; padding: 2px 7px; border-radius: 999px; background: #0b1c38; color: #64748b; border: 1px solid rgba(148, 163, 184, 0.25); cursor: pointer; text-transform: uppercase; transition: all 0.15s ease; }
 .colorbar-scale button.on { background: rgba(34, 211, 238, 0.15); color: #22d3ee; border-color: rgba(34, 211, 238, 0.5); }
-
-/* ---- Voice agent panel reveal highlight ---- */
-.voice-reveal {
-  animation: voice-reveal-flash 1.8s ease-out;
-}
-@keyframes voice-reveal-flash {
-  0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.55); border-color: rgba(34, 211, 238, 0.8); }
-  35% { box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.35), 0 0 24px rgba(34, 211, 238, 0.45); border-color: rgba(34, 211, 238, 0.9); }
-  100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
-}

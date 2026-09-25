@@ -1,8 +1,8 @@
 """
 TidalTwin - Ocean Data Refresh Script
 =========================================
-Fetches REAL ocean data from Open-Meteo Marine API
-and stores it for every location in the database.
+Fetches model-derived marine forecasts from Open-Meteo
+and stores them separately from measurements for every location.
 
 Usage:
     .venv\\Scripts\\python -m scripts.refresh_ocean_data

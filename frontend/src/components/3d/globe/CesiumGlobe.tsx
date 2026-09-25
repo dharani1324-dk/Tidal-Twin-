@@ -44,6 +44,9 @@ export interface GlobeLocation {
   longitude: number | null
   temperature?: number | null
   wave_height?: number | null
+  reading_status?: string
+  reading_source?: string | null
+  reading_time?: string | null
 }
 
 export type LayerKey =

@@ -377,5 +377,6 @@ No existing engine is rebuilt and no new scientific feature is added.
 
 Verification: backend **79 tests OK**; frontend `tsc -b`, `oxlint` and
 `npm run build` clean apart from the pre-existing tolerated warnings. The
-demonstration dataset is `8 SIMULATED / 760 REAL` observations producing 3
-detected (demo-labelled) events; reset leaves the 760 real observations intact.
+legacy demonstration artifact reports 8 SIMULATED and 760 rows formerly
+classified REAL, producing 3 detected (demo-labelled) events. The old REAL
+label included Open-Meteo forecasts; reset preserves non-simulated source rows.

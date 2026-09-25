@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.models.location import OceanLocation
 from app.models.observation import OceanObservation
-from app.modules.ai.validation.engine import _latest_rows, classify_events
+from app.modules.ai.twin.events import detect_events
+from app.modules.ai.validation.engine import _latest_rows
 
 # Static (legacy) thresholds used today by the event classifier.
 STATIC = {
@@ -81,7 +82,7 @@ def adaptive_identification(db: Session, location_id: int | None = None) -> dict
         locations = [loc for loc in locations if loc.id == location_id]
 
     regions = []
-    events = classify_events(db)["events"]
+    events = detect_events(db).get("events", [])
 
     for loc in locations:
         obs = _latest_rows(db, loc, window=96)
@@ -132,6 +133,7 @@ def adaptive_identification(db: Session, location_id: int | None = None) -> dict
                 "label": e["label"],
                 "intensity": e["intensity"],
                 "confidence": e["confidence"],
+                "data_status": e.get("data_status") or "real",
                 "under_adaptive_rule": "may tighten or relax — see variables above",
             })
 

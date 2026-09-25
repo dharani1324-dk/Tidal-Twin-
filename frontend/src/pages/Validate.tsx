@@ -37,6 +37,7 @@ interface RegionDiff {
     possible_cause: string
     affected_note: string
     confidence: number
+    confidence_basis?: string
     focus_field?: string
   }
 }
@@ -363,9 +364,12 @@ export default function Validate() {
               )}
               <div className="val-why-conf">
                 <Gauge size={14} />
-                <span>Interpretation confidence</span>
+                <span>Heuristic difference score</span>
                 <b>{diff.explanation.confidence}%</b>
               </div>
+              {diff.explanation.confidence_basis && (
+                <p className="val-why-cause">{diff.explanation.confidence_basis}</p>
+              )}
             </>
           ) : (
             <div className="hint">Select a coast to interpret.</div>

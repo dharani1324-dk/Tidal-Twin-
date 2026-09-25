@@ -40,6 +40,8 @@ class ObservationOut(BaseModel):
     current_speed: float | None = None
     source: str | None = None
     data_type: str
+    provenance_status: str = "UNKNOWN"
+    quality: dict = {}
 
     class Config:
         from_attributes = True

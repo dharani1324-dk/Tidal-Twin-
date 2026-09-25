@@ -24,7 +24,7 @@ const STAGES: Stage[] = [
   { num: '03', label: 'INVESTIGATE', route: '/forensics', routeNote: 'Fingerprint · timeline · autopsy', icon: Search, targets: ['/forensics'] },
   { num: '04', label: 'UNDERSTAND', route: '/intelligence', routeNote: 'Health · causal · relations', icon: Brain, targets: ['/intelligence'] },
   { num: '05', label: 'PRIORITIZE', route: '/tide', routeNote: 'TIDE rankings · verdict', icon: Crosshair, targets: ['/tide'] },
-  { num: '06', label: 'OBSERVE NEXT', route: '/oceanvision', routeNote: 'Highest-value observation', icon: Cable, targets: ['/oceanvision'] },
+  { num: '06', label: 'OBSERVE NEXT', route: '/oceanvision?tab=recommend', routeNote: 'Highest-value observation', icon: Cable, targets: ['/oceanvision'] },
   { num: '07', label: 'SIMULATE', route: '/scenarios', routeNote: 'What-If · counterfactual', icon: FlaskConical, targets: ['/scenarios'] },
   { num: '08', label: 'DECIDE', route: '/tide/replay', routeNote: 'Decision Replay · rules', icon: Scale, targets: ['/tide/replay'] },
   { num: '09', label: 'VALIDATE', route: '/validate', routeNote: 'Skill · confidence · provenance', icon: FileCheck, targets: ['/validate'] },

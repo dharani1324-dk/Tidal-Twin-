@@ -44,31 +44,6 @@ class Settings(BaseSettings):
     # Optional Cesium Ion token for terrain/imagery. Base globe works without it.
     CESIUM_ION_TOKEN: str = ""
 
-    # ---- TIDE Voice Agent (optional realtime voice layer) ----------------
-    # The voice agent is a façade over the existing platform.  Set GEMINI_API_KEY
-    # (or OPENAI_API_KEY for the legacy WebRTC engine) to enable the realtime
-    # voice assistant; without either the frontend degrades to the existing
-    # Copilot text fallback.  The browser only ever receives short-lived
-    # EPHEMERAL keys - never this project key.
-    # "auto" selects the first configured provider (Gemini preferred); set
-    # explicitly to "gemini" or "openai" to force one.
-    VOICE_PROVIDER: str = "auto"
-    # Gemini Live (primary provider). Temp tokens/voice/sessions are minted on
-    # this backend via the provisioning API; the browser WebSockets straight to
-    # Google with the short-lived token.
-    GEMINI_API_KEY: str = ""
-    GEMINI_LIVE_BASE_URL: str = "https://generativelanguage.googleapis.com"
-    GEMINI_LIVE_MODEL: str = "gemini-3.1-flash-live-preview"
-    GEMINI_LIVE_VOICE: str = "Kore"
-    # OpenAI Realtime (legacy/secondary provider, WebRTC transport).
-    OPENAI_API_KEY: str = ""
-    OPENAI_REALTIME_BASE_URL: str = "https://api.openai.com/v1"
-    OPENAI_REALTIME_MODEL: str = "gpt-realtime"
-    OPENAI_REALTIME_VOICE: str = "cedar"
-    # "auto" enables voice when the selected provider's key is set; "on"/"off"
-    # force the state.
-    VOICE_AGENT_ENABLED: str = "auto"
-
     # Tell pydantic to read from a .env file
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -82,54 +57,6 @@ class Settings(BaseSettings):
         if not raw or raw == "*":
             return ["*"]
         return [item.strip() for item in raw.split(",") if item.strip()]
-
-    def provider(self) -> str:
-        """Which realtime voice engine this backend talks to.
-
-        Returns ``"gemini"``, ``"openai"`` or ``"none"``.  With
-        ``VOICE_PROVIDER=auto`` Gemini wins whenever its key is configured,
-        otherwise OpenAI.  An explicit value forces that engine.
-        """
-        explicit = (self.VOICE_PROVIDER or "auto").strip().lower()
-        has_gemini = bool((self.GEMINI_API_KEY or "").strip())
-        has_openai = bool((self.OPENAI_API_KEY or "").strip())
-        if explicit == "gemini":
-            return "gemini"
-        if explicit == "openai":
-            return "openai"
-        if has_gemini:
-            return "gemini"
-        if has_openai:
-            return "openai"
-        return "none"
-
-    def provider_configured(self) -> bool:
-        """Whether the selected provider has its API key set."""
-        provider = self.provider()
-        if provider == "gemini":
-            return bool((self.GEMINI_API_KEY or "").strip())
-        if provider == "openai":
-            return bool((self.OPENAI_API_KEY or "").strip())
-        return False
-
-    def voice_model(self) -> str:
-        """The realtime model name of the selected provider (for status/UIs)."""
-        return self.GEMINI_LIVE_MODEL if self.provider() == "gemini" else self.OPENAI_REALTIME_MODEL
-
-    def voice_voice(self) -> str:
-        """The realtime voice name of the selected provider (for status/UIs)."""
-        return self.GEMINI_LIVE_VOICE if self.provider() == "gemini" else self.OPENAI_REALTIME_VOICE
-
-    def voice_enabled(self) -> bool:
-        """Whether the realtime voice agent may start sessions."""
-        mode = (self.VOICE_AGENT_ENABLED or "auto").strip().lower()
-        if self.provider() not in ("gemini", "openai"):
-            return False
-        if mode == "on":
-            return self.provider_configured()
-        if mode == "off":
-            return False
-        return self.provider_configured()
 
     def validate_environment(self) -> list[str]:
         """Return human-readable configuration issues (empty list == all good).
@@ -146,15 +73,6 @@ class Settings(BaseSettings):
             issues.append("CORS_ORIGINS is empty - the frontend will be blocked by CORS.")
         if not (self.CESIUM_ION_TOKEN or "").strip():
             issues.append("CESIUM_ION_TOKEN not set - Cesium Ion terrain/imagery is optional and disabled.")
-        if self.voice_enabled():
-            provider = self.provider()
-            model = (self.GEMINI_LIVE_MODEL if provider == "gemini" else self.OPENAI_REALTIME_MODEL) or ""
-            if not model.strip():
-                issues.append(f"Voice model is empty while the {provider} voice agent is enabled.")
-        else:
-            issues.append(
-                "Voice agent is disabled (neither GEMINI_API_KEY nor OPENAI_API_KEY set). The Copilot text fallback remains fully available."
-            )
         return issues
 
 

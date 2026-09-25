@@ -118,7 +118,7 @@ Ambient effects live in `effects.tsx`: `OceanGrid`, `ParticleLayer`, `SonarPulse
 - **What-if simulation** displayed as an explicit before/after pair.
 - **Guided demo** — `DemoGuide` drives the real app through 8 stages, no fake animation.
 - **Honesty states** — dedicated `empty-state`, `error-banner`, `skeleton` classes; missing data is textually `NOT AVAILABLE` / `INSUFFICIENT DATA`.
-- **Resilience as UX** — every route, the Copilot FAB, and the voice agent each sit in their own `ErrorBoundary`, so one failure can't blank the app.
+- **Resilience as UX** - every route and the Copilot FAB sit in their own `ErrorBoundary`, so one failure can't blank the app.
 - **Live-feel telemetry** — pulsing dots, count-up numbers, `LIVE` vs `UPDATED 12S AGO`.
 
 ### A7. Measured problems (the redesign case)
@@ -149,7 +149,7 @@ Deliver a design system + screen designs, not just a palette.
 
 ═══ THE PRODUCT ═══
 
-TidalTwin streams live ocean observations (Open-Meteo, Argo floats, NOAA ERSST
+TidalTwin combines model-derived Open-Meteo forecasts with separately ingested Argo profiles, NOAA ERSST
 v5 SST, VIIRS/Himawari chlorophyll, gliders, CTD, NetCDF model grids) onto a
 CesiumJS 3D globe for the Indian Ocean, then does something no ocean viewer
 does: it compares the MODEL against OBSERVED reality field by field, scores
@@ -229,9 +229,8 @@ that breaks them has failed.
 5. EVERY RECOMMENDATION IS INSPECTABLE. Any ranking or verdict must open into
    its evidence: the factors, their inputs, and the arithmetic. Design that
    drill-down as a core pattern.
-6. DEGRADE HONESTLY. Backend, database, Copilot and voice agent can each be
-   independently unavailable. Design the degraded states — partial data, no
-   voice, no AI — so the app stays usable and explains what is missing.
+6. DEGRADE HONESTLY. Backend, database and Copilot can each be independently unavailable. Design degraded states with partial data and no AI
+so the app stays usable and explains what is missing.
 7. ACCESSIBILITY. Honour prefers-reduced-motion. Never encode meaning in colour
    alone — colourblind-safe pairs plus a text/icon signal for every state.
    Minimum 12px for data labels (currently 10px, too small). Visible keyboard

@@ -14,8 +14,6 @@ import type { ScaleDomain, ScaleMode } from '../components/3d/globe/layerMath'
 import type { GlobeLocation, SeriesRegion, StormTrackData, ArgoFloat, RealArgoFloat, ErsstLayer, ChlorLayer, OxygenSample, DisagreementPoint, AnomalyPoint, TransectData, TideGlobeMarker, LayerKey, CurrentVector, ModelSlice, GliderDeployment, GliderSample, GliderTrack } from '../components/3d/globe/CesiumGlobe'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts'
 import TransectHUD from '../components/transect/TransectHUD'
-import { setVoiceContext } from '../services/voice/voiceContext'
-import { voiceBus } from '../services/voice/voiceBus'
 import {
   fetchLocations, fetchObservations, fetchStormTrack, fetchSafetyTimeseries, fetchUncertainty,
   fetchRecommendations, fetchArgo, fetchRealArgoFloats, fetchArgoFloatProfile, fetchErsstLatest,
@@ -84,6 +82,10 @@ interface ComparePayload {
   observation_source: string | null
   observation_time: string | null
   data_status: string
+  baseline?: number | null
+  baseline_method?: string
+  provenance_status?: string
+  confidence_basis?: string
 }
 
 interface ExplainPayload {
@@ -94,6 +96,8 @@ interface ExplainPayload {
   confidence: number
   status: string
   data_status: string
+  provenance_status?: string
+  confidence_basis?: string
 }
 
 /** Rolling baseline + deviation for a point index (mirrors the globe layer). */
@@ -250,12 +254,23 @@ export default function DigitalTwin() {
         const withData = await Promise.all(
           data.map(async (loc) => {
             try {
-              const obs = await fetchObservations(loc.id, 1)
-              const last = obs[0]
+              const obs = await fetchObservations(loc.id, 120)
+              const now = Date.now()
+              const measured = obs.filter((row: any) =>
+                ['REAL', 'HISTORICAL', 'SATELLITE_DERIVED'].includes(row.provenance_status) &&
+                new Date(row.timestamp).getTime() <= now
+              )
+              const forecasts = obs.filter((row: any) => row.provenance_status === 'MODEL_DERIVED')
+              const last = measured[0] ?? forecasts.reduce((best: any, row: any) =>
+                !best || Math.abs(new Date(row.timestamp).getTime() - now) < Math.abs(new Date(best.timestamp).getTime() - now) ? row : best
+              , null)
               return {
                 ...loc,
                 temperature: last?.sea_surface_temperature ?? null,
                 wave_height: last?.wave_height ?? null,
+                reading_status: last?.provenance_status ?? 'UNKNOWN',
+                reading_source: last?.source ?? null,
+                reading_time: last?.timestamp ?? null,
               }
             } catch {
               return loc
@@ -499,120 +514,6 @@ export default function DigitalTwin() {
   const toggleLayer = (key: keyof typeof layers) => {
     setLayers((prev) => ({ ...prev, [key]: !prev[key] }))
   }
-
-  // ---- Voice agent: publish the current globe context every time it changes.
-  useEffect(() => {
-    setVoiceContext({
-      page: 'globe',
-      locationId: activeLoc?.id,
-      focusName: activeLoc?.name,
-      latitude: activeLoc?.latitude ?? undefined,
-      longitude: activeLoc?.longitude ?? undefined,
-      depth: gridDepths.length > 0 ? gridDepth : null,
-      variable,
-      cursor,
-      layers: Object.entries(layers).filter(([, on]) => on).map(([k]) => k),
-      locations: locations.map((l) => ({
-        id: l.id,
-        name: l.name,
-        country: l.country ?? null,
-        regionType: l.region_type ?? null,
-        latitude: l.latitude ?? null,
-        longitude: l.longitude ?? null,
-      })),
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLoc, variable, gridDepth, cursor, layers, gridDepths, locations])
-
-  // ---- Voice agent: focus / depth / time / variable / layer / reveal commands.
-  const lastObservedIndex = series.length > 0 ? Math.max(0, series[0].points.length - 1 - 24) : 0
-  useEffect(() => {
-    const focusByIdOrCoords = (payload: Record<string, unknown>) => {
-      const locId = Number(payload.locationId ?? 0)
-      const byId = locations.find((l) => l.id === locId)
-      if (byId) {
-        setActiveLoc(byId)
-        setFlyToTarget((prev) => ({ locId: byId.id, n: (prev?.n ?? 0) + 1 }))
-        return
-      }
-      const lat = typeof payload.latitude === 'number' ? payload.latitude : null
-      const lon = typeof payload.longitude === 'number' ? payload.longitude : null
-      if (lat == null || lon == null) return
-      let nearest: GlobeLocation | null = null
-      let bestD = Infinity
-      for (const l of locations) {
-        if (l.latitude == null || l.longitude == null) continue
-        const d = (l.latitude - lat) ** 2 + (l.longitude - lon) ** 2
-        if (d < bestD) {
-          bestD = d
-          nearest = l
-        }
-      }
-      if (nearest) {
-        setActiveLoc(nearest)
-        setFlyToTarget((prev) => ({ locId: nearest!.id, n: (prev?.n ?? 0) + 1 }))
-      }
-    }
-
-    const revealPanel = (panel: string) => {
-      const el = document.querySelector<HTMLElement>(`[data-voice-panel="${panel}"]`)
-      if (!el) return
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      el.classList.add('voice-reveal')
-      window.setTimeout(() => el.classList.remove('voice-reveal'), 1800)
-    }
-
-    return voiceBus.subscribe((event) => {
-      const payload = event.payload
-      switch (event.type) {
-        case 'voice:focus':
-          focusByIdOrCoords(payload)
-          break
-        case 'voice:set-depth': {
-          const depth = Number(payload.depthM)
-          if (!Number.isFinite(depth) || gridDepths.length === 0) return
-          const closest = gridDepths.reduce((a, b) => (Math.abs(b - depth) < Math.abs(a - depth) ? b : a), gridDepths[0])
-          setGridDepth(closest)
-          setLayers((prev) => ({ ...prev, modelgrid: true }))
-          break
-        }
-        case 'voice:set-time': {
-          if (series.length === 0 || series[0].points.length === 0) return
-          const last = series[0].points.length - 1
-          const label = typeof payload.label === 'string' ? payload.label : 'now'
-          const hoursAgo = Number(payload.hoursAgo)
-          let target: number
-          if (label === 'start' || label === 'beginning' || label === 'past') target = 0
-          else if (label === 'end' || label === 'forecast' || label === 'latest') target = last
-          else if (Number.isFinite(hoursAgo) && hoursAgo >= 0) target = lastObservedIndex - hoursAgo
-          else target = lastObservedIndex
-          setCursor(Math.max(0, Math.min(last, target)))
-          setPlaying(false)
-          break
-        }
-        case 'voice:set-variable': {
-          const v = typeof payload.variable === 'string' ? payload.variable : ''
-          if (VARIABLES.some((x) => x.key === v)) setVariable(v)
-          break
-        }
-        case 'voice:toggle-layer': {
-          const key = typeof payload.layer === 'string' ? payload.layer : ''
-          if (key !== '' && key in layers) {
-            setLayers((prev) => ({ ...prev, [key]: payload.on === undefined ? !prev[key as keyof typeof layers] : Boolean(payload.on) }))
-          }
-          break
-        }
-        case 'voice:reveal-panel': {
-          const panel = typeof payload.panel === 'string' ? payload.panel : ''
-          if (panel) revealPanel(panel)
-          break
-        }
-        default:
-          break
-      }
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locations, layers, gridDepths, series, lastObservedIndex])
 
   const LAYER_PANEL = [
     { key: 'labels' as const, icon: <Tag size={16} />, name: 'Region Labels', desc: 'Floating labels on the globe' },
@@ -926,7 +827,7 @@ export default function DigitalTwin() {
             </div>
           </div>
 
-          <div className="glass-card control-card" data-voice-panel="layers">
+          <div className="glass-card control-card">
             <div className="control-title">
               <Layers size={16} />
               <span>Data Layers</span>
@@ -958,7 +859,7 @@ export default function DigitalTwin() {
           </div>
 
           {/* Visual style — per-layer opacity (feature #12) + exaggeration (#13) */}
-          <div className="glass-card control-card" data-voice-panel="visual-style">
+          <div className="glass-card control-card">
             <div className="control-title">
               <Gauge size={16} />
               <span>Visual Style</span>
@@ -1113,7 +1014,7 @@ export default function DigitalTwin() {
           </div>
 
           {/* Event replay — 4D model-vs-reality scrubber */}
-          <div className="glass-card control-card" data-voice-panel="time">
+          <div className="glass-card control-card">
             <div className="control-title">
               <Clock size={16} />
               <span>Event Replay</span>
@@ -1189,7 +1090,7 @@ export default function DigitalTwin() {
           </div>
 
           {/* Model vs Reality comparison */}
-          <div className="glass-card control-card" data-voice-panel="compare">
+          <div className="glass-card control-card">
             <div className="control-title">
               <GitCompare size={16} />
               <span>Model vs Reality</span>
@@ -1345,6 +1246,10 @@ export default function DigitalTwin() {
               <div className="explain-block">
                 <p className="explain-what">{explainData.what}</p>
                 <p className="explain-text">{explainData.explanation}</p>
+                <p className="profile-hint">
+                  Evidence: {explainData.provenance_status ?? 'UNKNOWN'} · Confidence {explainData.confidence}% is a heuristic score, not a probability.
+                  {explainData.confidence_basis ? ` ${explainData.confidence_basis}` : ''}
+                </p>
                 <div className="explain-cause">
                   <b>Cause</b>
                   <span>{explainData.cause}</span>
@@ -1354,6 +1259,12 @@ export default function DigitalTwin() {
           )}
 
           {/* Depth profile */}
+          {profileData && (profileData.rows?.length ?? 0) === 0 && (
+            <div className="glass-card control-card">
+              <div className="control-title"><Waves size={16} /><span>Depth Profile — {activeVar.label}</span></div>
+              <p className="profile-hint">{profileData.observation_note ?? 'No measured input is available for a depth profile.'}</p>
+            </div>
+          )}
           {profileData && (profileData.rows?.length ?? 0) > 0 && (
             <div className="glass-card control-card">
               <div className="control-title">
@@ -1539,7 +1450,7 @@ export default function DigitalTwin() {
           </div>
 
           {/* Feature #7 — Ocean-Model horizontal depth slices (real 3D grid) */}
-          <div className="glass-card control-card" data-voice-panel="modelgrid">
+          <div className="glass-card control-card">
             <div className="control-title">
               <Layers size={16} />
               <span>Model Depth Slices</span>
@@ -1645,7 +1556,7 @@ export default function DigitalTwin() {
 
           {/* Region focus */}
           {activeLoc && (
-            <div className="glass-card control-card" data-voice-panel="focus">
+            <div className="glass-card control-card">
               <div className="control-title">
                 <Globe2 size={16} />
                 <span>Region Focus</span>
@@ -1659,6 +1570,11 @@ export default function DigitalTwin() {
                 <div className="focus-coords">
                   {activeLoc.latitude?.toFixed(2)}°N, {activeLoc.longitude?.toFixed(2)}°E
                 </div>
+                <p className="profile-hint">
+                  Evidence: {activeLoc.reading_status ?? 'UNKNOWN'}
+                  {activeLoc.reading_source ? ` · ${activeLoc.reading_source}` : ''}
+                  {activeLoc.reading_time ? ` · valid at ${new Date(activeLoc.reading_time).toLocaleString()}` : ''}
+                </p>
               </div>
             </div>
           )}
@@ -1776,9 +1692,9 @@ function SituationStrip({ situation }: { situation: Situation | null }) {
 
 interface ProfileRow {
   depth_m: number
-  model: number
-  observed: number
-  difference: number
+  model: number | null
+  observed: number | null
+  difference: number | null
   data_status: string
 }
 
@@ -1789,6 +1705,7 @@ interface ProfilePayload {
   surface_data_status: string
   model_note?: string
   observation_note?: string
+  available?: boolean
 }
 
 /** Tiny SVG line chart: model (cyan) vs observed (amber) down the water column. */
@@ -1806,8 +1723,10 @@ function DepthProfileChart({ data }: { data: ProfilePayload }) {
   const span = Math.max(1e-6, vMax - vMin)
   const x = (d: number) => pad + (d / (maxD || 1)) * (W - pad * 2)
   const y = (v: number) => H - pad - ((v - vMin) / span) * (H - pad * 2)
-  const line = (key: 'model' | 'observed') =>
-    rows.map((r, i) => `${i === 0 ? 'M' : 'L'}${x(r.depth_m).toFixed(1)},${y(r[key]).toFixed(1)}`).join(' ')
+  const modelRows = rows.filter((r): r is ProfileRow & { model: number } => r.model != null)
+  const measuredRows = rows.filter((r): r is ProfileRow & { observed: number } => r.observed != null)
+  const line = (points: { depth_m: number; value: number }[]) =>
+    points.map((r, i) => `${i === 0 ? 'M' : 'L'}${x(r.depth_m).toFixed(1)},${y(r.value).toFixed(1)}`).join(' ')
   return (
     <div className="profile-block">
       <svg viewBox={`0 0 ${W} ${H}`} className="profile-svg">
@@ -1815,15 +1734,15 @@ function DepthProfileChart({ data }: { data: ProfilePayload }) {
           <line key={g} x1={pad} x2={W - pad} y1={(g / 100) * (H - pad * 2) + pad} y2={(g / 100) * (H - pad * 2) + pad}
             className="profile-gridline" />
         ))}
-        <path d={line('observed')} fill="none" stroke="#f59e0b" strokeWidth="2.2" />
-        <path d={line('model')} fill="none" stroke="#22d3ee" strokeWidth="2" strokeDasharray="4 3" />
-        {rows.map((r) => (
+        <path d={line(measuredRows.map((r) => ({ depth_m: r.depth_m, value: r.observed })))} fill="none" stroke="#f59e0b" strokeWidth="2.2" />
+        <path d={line(modelRows.map((r) => ({ depth_m: r.depth_m, value: r.model })))} fill="none" stroke="#22d3ee" strokeWidth="2" strokeDasharray="4 3" />
+        {measuredRows.map((r) => (
           <circle key={r.depth_m} cx={x(r.depth_m)} cy={y(r.observed)} r="2.6" fill="#f59e0b" />
         ))}
       </svg>
       <div className="profile-legend">
-        <span><i className="leg-legged" /> Observed {data.surface_data_status === 'derived' ? '(surface real, below derived)' : ''}</span>
-        <span><i className="leg-model" /> Model</span>
+        <span><i className="leg-legged" /> Measured surface only</span>
+        <span><i className="leg-model" /> {data.model_note?.startsWith('Illustrative') ? 'Model-derived profile' : 'Model'}</span>
       </div>
       <div className="profile-hint">{data.observation_note}</div>
     </div>

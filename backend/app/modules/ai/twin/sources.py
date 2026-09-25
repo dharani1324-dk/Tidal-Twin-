@@ -32,10 +32,10 @@ from app.modules.ai.twin.plugins import (
     register,
 )
 
-REAL_SOURCE = "Open-Meteo Marine"
+FORECAST_SOURCE = "Open-Meteo Marine forecast"
 
 
-MODEL_KIND = "Numerical model (history-conditioned estimate)"
+MODEL_KIND = "Historical measurement baseline (not an independent model)"
 
 
 def _coverage(db: Session, cols: list[str]) -> float:
@@ -149,24 +149,30 @@ def _latest_observation(db: Session):
 
 class OpenMeteoPlugin(SensorPlugin):
     source_id = "open_meteo"
-    name = "Open-Meteo Marine"
-    kind = "observation"
-    variables = ["Sea temperature", "Wave height", "Wave direction"]
+    name = "Open-Meteo Marine forecast"
+    kind = "model"
+    variables = ["Sea surface temperature (forecast)", "Wave height (forecast)", "Wave direction (forecast)"]
 
     def info(self, db, now):
-        latest = _latest_observation(db)
+        latest = (
+            db.query(OceanObservation)
+            .filter(OceanObservation.source == "Open-Meteo Marine forecast")
+            .order_by(OceanObservation.timestamp.desc())
+            .first()
+        )
         latest_ts = latest.timestamp if latest else None
         return {
             "id": self.source_id,
             "name": self.name,
             "kind": self.kind,
             "status": "online" if latest_ts else "offline",
-            "status_detail": data_status_for(REAL_SOURCE, latest_ts, now),
+            "status_detail": "model forecast" if latest_ts else "unavailable",
+            "origin_status": "MODEL_DERIVED",
             "last_update": latest_ts.isoformat() if latest_ts else None,
             "variables": self.variables,
             "coverage_pct": _coverage(db, ["sea_surface_temperature", "wave_height"]),
             "note": (
-                "Real ocean-model in-situ feed (MeteoFrance/Copernicus-derived), refreshed on demand. "
+                "Gridded numerical-model forecasts for sea temperature and waves, refreshed on demand. These are not in-situ observations. "
                 "No API key required."
             ),
         }
@@ -174,25 +180,23 @@ class OpenMeteoPlugin(SensorPlugin):
 
 class ModelEstimatePlugin(SensorPlugin):
     source_id = "model_estimate"
-    name = "Ocean model estimate"
-    kind = "model"
+    name = "Historical comparison baseline"
+    kind = "derived"
     variables = ["Sea temperature", "Wave height"]
 
     def info(self, db, now):
-        latest = _latest_observation(db)
-        latest_ts = latest.timestamp if latest else None
         return {
             "id": self.source_id,
             "name": self.name,
             "kind": self.kind,
-            "status": "online" if latest_ts else "offline",
-            "status_detail": "derived",
-            "last_update": latest_ts.isoformat() if latest_ts else None,
+            "status": "offline",
+            "status_detail": "no independent forecast model is configured",
+            "last_update": None,
             "variables": self.variables,
-            "coverage_pct": _coverage(db, ["sea_surface_temperature", "wave_height"]),
+            "coverage_pct": 0.0,
             "note": (
-                "History-conditioned statistical model (validated trend/baseline), fit to the most recent "
-                "observation window. Forecasting pipeline is explainable and evaluated by rolling MAE."
+                "Twin comparisons use the mean of earlier eligible measurements as historical context. "
+                "That baseline is not an independent model forecast and has no validation claim here."
             ),
         }
 
@@ -273,8 +277,8 @@ class PhysicsEnginePlugin(SensorPlugin):
             "variables": self.variables,
             "coverage_pct": _coverage(db, ["dissolved_oxygen", "chlorophyll"]),
             "note": (
-                "Local bio-physical derivation from surface state (oxygen/chlorophyll/pH/density). "
-                "Derived estimates, not direct measurements."
+                "Illustrative, heuristic surface-state estimates (oxygen/chlorophyll/pH/density); "
+                "not source measurements, not calibrated, and not suitable as empirical evidence."
             ),
         }
 
@@ -373,4 +377,4 @@ def data_sources(db: Session) -> dict:
     return build_sources(db)
 
 
-__all__ = ["data_sources", "SOURCE_ORDER", "MODEL_KIND", "REAL_SOURCE"]
+__all__ = ["data_sources", "SOURCE_ORDER", "MODEL_KIND", "FORECAST_SOURCE"]

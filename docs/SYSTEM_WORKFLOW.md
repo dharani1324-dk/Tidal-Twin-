@@ -93,19 +93,17 @@ Current verified live state:
 8 simulated
 ```
 
-| Provenance / status | Meaning | Current source |
+| Provenance / status | Meaning | Example source |
 |---------------------|---------|----------------|
-| `REAL` | Real observation stream | Open-Meteo Marine |
-| `HISTORICAL` | Older cached observation | Open-Meteo Marine (cached) |
-| `SIMULATED` | Labelled demonstration row | `SIMULATED_HEATWAVE` |
-| `SYNTHETIC` | Synthetic/demo row | demo/synthetic markers |
-| `MODEL_DERIVED` | Model estimate, never an observation | Twin baseline / TIDE candidate |
+| REAL | Direct measurement stream identified by source | Argo, glider, buoy, CTD |
+| HISTORICAL | Historical gridded analysis | NOAA ERSST or explicitly historical source |
+| SATELLITE_DERIVED | Remote-sensing retrieval | VIIRS / ocean-colour product |
+| SIMULATED | Labelled demonstration row | SIMULATED_HEATWAVE |
+| SYNTHETIC | Synthetic/demo row | Demo or synthetic markers |
+| MODEL_DERIVED | Forecast or model field, never a measurement | Open-Meteo, HYCOM, model-only TIDE candidate |
+| UNKNOWN | Provenance cannot be safely inferred | Unclassified record |
 
-Observation status is derived from `data_type` + `source`
-(`adapters.observation_status`): `SIMULATED` → `SYNTHETIC`/`DEMO` →
-`MODEL`/`FORECAST` → `HISTORICAL` → else `REAL`. TIDE candidates are always
-`MODEL_DERIVED`; virtual observations and benchmark outcomes are always
-`SIMULATED`.
+Observation status is derived from source and data_type using the shared provenance classifier. Forecasts, simulated values, satellite products, historical grids, direct measurements, and unknown sources stay distinct.
 
 **Why provenance matters:** a recommendation that mixes simulated rows with real
 rows without labelling them is untrustworthy. TidalTwin makes the status explicit

@@ -14,10 +14,9 @@ answers three questions judges and ocean scientists care about:
   3. What is the operational situation right now, in one glance?
      -> situation_panel()         (anomaly level, intensity, agreement)
 
-The "MODEL" baseline is our trend forecast re-evaluated at the latest
-observation window — the same honest verification approach used by the
-comparator: we compare the AI expectation against reality and measure the
-gap. This is real decision intelligence, not just colorbar changes.
+The comparison reference is the mean of prior eligible measurements. It is a
+historical baseline, not an independent numerical-model forecast. Model
+forecasts and simulated data are excluded from observed evidence.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -28,6 +27,7 @@ from sqlalchemy.orm import Session
 from app.models.alert import OceanAlert
 from app.models.location import OceanLocation
 from app.models.observation import OceanObservation
+from app.modules.ai.provenance_quality import origin_status
 from app.modules.ai.reports.risk import compute_risk_index
 from app.modules.ai.safety.advisory import model_trust, safety_advisory
 
@@ -57,13 +57,39 @@ CAUSES = {
 
 
 def _latest_rows(db: Session, loc: OceanLocation, window: int = OBS_WINDOW) -> list:
-    return (
-        db.query(OceanObservation)
-        .filter(OceanObservation.location_id == loc.id)
-        .order_by(OceanObservation.timestamp.desc())
-        .limit(window)
-        .all()
-    )[::-1]
+    """Latest eligible measured/historical records, in chronological order."""
+    from app.modules.ai.provenance_quality import origin_status
+
+    query = (db.query(OceanObservation)
+             .filter(OceanObservation.location_id == loc.id)
+             .order_by(OceanObservation.timestamp.desc()))
+    rows = []
+    for row in query.yield_per(max(1, window)):
+        if origin_status(row.source, row.data_type) in ("REAL", "HISTORICAL", "SATELLITE_DERIVED"):
+            rows.append(row)
+            if len(rows) >= window:
+                break
+    return list(reversed(rows))
+
+
+def _demo_rows(db: Session, loc: OceanLocation, window: int = OBS_WINDOW) -> list:
+    """Latest clearly-labelled SIMULATED/SYNTHETIC demo rows, chronological.
+
+    Used only to surface DEMONSTRATION events; these rows are never counted as
+    real evidence by the validation, confidence or TIDE scoring paths.
+    """
+    from app.modules.ai.provenance_quality import origin_status
+
+    query = (db.query(OceanObservation)
+             .filter(OceanObservation.location_id == loc.id)
+             .order_by(OceanObservation.timestamp.desc()))
+    rows = []
+    for row in query.yield_per(max(1, window)):
+        if origin_status(row.source, row.data_type) in ("SIMULATED", "SYNTHETIC"):
+            rows.append(row)
+            if len(rows) >= window:
+                break
+    return list(reversed(rows))
 
 
 def _baseline(values: list[float | None]) -> float | None:
@@ -193,7 +219,8 @@ def difference_engine(db: Session, location_id: int | None = None) -> dict:
 
     regions = []
     for loc in locations:
-        obs = _latest_rows(db, loc)
+        obs = [row for row in _latest_rows(db, loc)
+               if origin_status(row.source, row.data_type) in ("REAL", "HISTORICAL", "SATELLITE_DERIVED")]
         latest = obs[-1] if obs else None
 
         fields = []
@@ -229,7 +256,8 @@ def difference_engine(db: Session, location_id: int | None = None) -> dict:
                 "location_id": loc.id,
                 "location": loc.name,
                 "latest_time": latest.timestamp.isoformat() if latest else None,
-                "window_hours": len(obs),
+                "window_records": len(obs),
+                "provenance_status": origin_status(latest.source, latest.data_type) if latest else "UNKNOWN",
                 "fields": fields,
                 "explanation": explanation,
             }
@@ -242,36 +270,51 @@ def difference_engine(db: Session, location_id: int | None = None) -> dict:
 
 
 def _explain(fields: list[dict], loc: OceanLocation) -> dict:
-    """Plain-language interpretation: what, why it matters, possible cause."""
+    """Explain the largest measured difference without claiming its cause."""
     if not fields:
         return {
-            "headline": "No measured fields to compare yet.",
-            "possible_cause": "Wait for the next observation cycle.",
+            "headline": f"No eligible fields are available for {loc.name} yet.",
+            "possible_cause": "There is not enough observation data to compare with the model baseline.",
             "confidence": 0,
+            "confidence_basis": "No comparison could be calculated.",
         }
     focus = max(fields, key=lambda f: abs(f["deviation"] or 0.0))
-    dev = focus["deviation"] or 0.0
+    dev = focus["deviation"]
+    if dev is None:
+        return {
+            "headline": f"A {focus['label'].lower()} reading is available for {loc.name}, but there is not enough history to calculate a model baseline.",
+            "possible_cause": "A model comparison and possible cause cannot be determined until more observations are available.",
+            "confidence": 0,
+            "confidence_basis": "No baseline was available.",
+            "focus_field": focus["field"],
+        }
+
     direction = focus["direction"]
     level = focus["deviation_level"]
-
+    observed = focus.get("observed")
+    model = focus.get("model")
+    offset = "above" if direction == "above" else "below" if direction == "below" else "from"
     headline = (
-        f"{loc.name.replace(' Coast', '')}: {focus['label']} is {abs(dev):.1f}{focus['unit']} "
-        f"{'above' if direction == 'above' else 'below' if direction == 'below' else 'at'} "
-        f"the model baseline."
+        f"At {loc.name.replace(' Coast', '')}, {focus['label'].lower()} is {observed}{focus['unit']}; "
+        f"that is {abs(dev):.1f}{focus['unit']} {offset} the historical baseline ({model}{focus['unit']})."
     )
-    cause = CAUSES.get((focus["field"], direction), "Regional ocean dynamics.")
+    hypothesized_cause = CAUSES.get((focus["field"], direction))
     if level == "low":
-        cause += "; within normal variability."
+        cause = "The difference is within the low-disagreement range; this comparison does not point to a specific cause."
+    elif hypothesized_cause:
+        cause = f"Possible explanations include {hypothesized_cause[0].lower() + hypothesized_cause[1:]}. The comparison alone cannot confirm the cause."
+    else:
+        cause = "The comparison identifies a difference but does not provide enough evidence to determine its cause."
 
     confidence = int(min(95, 60 + abs(dev) / FIELD_META[focus["field"]]["high"] * 25))
     return {
         "headline": headline,
         "possible_cause": cause,
-        "affected_note": "Likely affects the surface layer (0–40 m)." if focus["field"] == "temperature" else "Surface forcing only.",
+        "affected_note": "This is a surface-layer comparison; it does not establish what is happening below the surface." if focus["field"] == "temperature" else "This comparison describes the measured field; it does not identify the underlying physical cause.",
         "confidence": confidence,
+        "confidence_basis": "Heuristic score based on the size of the difference; it is not a probability that the proposed cause is correct.",
         "focus_field": focus["field"],
     }
-
 
 # ---------------------------------------------------------------------------
 # 3. Operational Situation Panel
@@ -398,86 +441,91 @@ EVENT_META = {
 _EV_SAFE, _EV_WARN, _EV_DANGER = 1.0, 1.6, 2.4
 
 
+def _span(series: list[float], above: float, rising: bool | None = None) -> dict:
+    """Find start hour & peak for a threshold crossing in a series."""
+    if not series:
+        return {"start_h": None, "peak": None, "peak_h": None, "hours_on": 0}
+    start = next((i for i, v in enumerate(series) if above is None or v >= above), None)
+    peak_i = int(np.argmax(series)) if series else None
+    return {
+        "start_h": len(series) - start - 1 if start is not None else None,
+        "peak": round(float(series[peak_i]), 2) if peak_i is not None else None,
+        "peak_h": len(series) - 1 - peak_i if peak_i is not None else None,
+        "hours_on": (len(series) - start) if start is not None else 0,
+    }
+
+
+def _conf(base: float, mag: float, scale: float) -> int:
+    return int(min(95, max(55, base + mag / scale * 15)))
+
+
+def _classify_series(loc, obs: list, mismatch: bool = False) -> list[dict]:
+    """Classify an ordered list of observations into named events.
+
+    Shared by the real-only event classifier and the clearly-labelled demo
+    event detector (SIMULATED rows), so both use one consistent rule set.
+    """
+    temps = [o.sea_surface_temperature for o in obs if o.sea_surface_temperature is not None]
+    waves = [o.wave_height for o in obs if o.wave_height is not None]
+    speeds = [o.current_speed for o in obs if o.current_speed is not None]
+
+    heat = cold = rapid = curr = flood = False
+
+    if len(temps) >= 5:
+        mean = float(np.mean(temps[:-1]))
+        anom = temps[-1] - mean
+        heat = anom >= 1.0
+        cold = anom <= -1.0
+        diffs = [abs(b - a) for a, b in zip(temps[-13:], temps[-12:])]
+        rapid = bool(diffs and max(diffs) >= 0.5)
+    if speeds and speeds[-1] >= 0.5:
+        curr = True
+    if waves and waves[-1] >= _EV_WARN:
+        flood = True
+
+    latest_temp = temps[-1] if temps else None
+    anom_v = (temps[-1] - float(np.mean(temps[:-1]))) if len(temps) >= 5 else 0.0
+    latest_wave = waves[-1] if waves else None
+
+    events = []
+    if heat:
+        span = _span(temps[:-2], float(np.mean(temps[:-1])) + 1.0)
+        events.append(_event(loc, "marine_heatwave", "high" if anom_v >= 1.5 else "medium",
+                             _conf(78, anom_v, 2.0), span, latest_temp, "SST anomaly"))
+    if cold:
+        span = _span(temps[:-2], float(np.mean(temps[:-1])) - 1.0)
+        events.append(_event(loc, "cold_water_anomaly", "high" if anom_v <= -1.5 else "medium",
+                             _conf(75, abs(anom_v), 2.0), span, latest_temp, "SST anomaly"))
+    if rapid:
+        events.append(_event(loc, "rapid_temp_change", "medium", 72, _span(temps, None), latest_temp, "SST jump"))
+    if curr:
+        events.append(_event(loc, "strong_current_event", "high" if speeds[-1] >= 0.8 else "medium",
+                             80, _span(speeds[::-1], 0.5), speeds[-1], "current speed"))
+    if flood:
+        band = "danger" if latest_wave and latest_wave >= _EV_DANGER else "warning"
+        events.append(_event(loc, "coastal_flooding_risk", band, 82, _span(waves, _EV_WARN), latest_wave, "wave height"))
+    if mismatch:
+        events.append(_event(loc, "model_mismatch_event", "medium", 76, _span(temps, None), None, "observed vs model baseline"))
+    return events
+
+
 def classify_events(db: Session) -> dict:
-    """Upgrade anomalies into named, classified, evolving ocean events."""
-    risk_by = {r["location_id"]: r for r in compute_risk_index(db)["regions"]}
+    """Upgrade anomalies into named, classified, evolving ocean events.
+
+    Real, historical and satellite-observed records only. Clearly-labelled
+    SIMULATED demo rows are classified separately by the demo detector so the
+    real ocean event stream is never polluted by demonstration data.
+    """
     diff_by = {r["location_id"]: r for r in difference_engine(db)["regions"]}
-    alerts = (
-        db.query(OceanAlert)
-        .filter(OceanAlert.status == "active")
-        .all()
-    )
-    active_by: dict = {}
-    for a in alerts:
-        active_by.setdefault(a.location_id, []).append(a)
 
     events: list[dict] = []
     for loc in db.query(OceanLocation).all():
         obs = _latest_rows(db, loc)
-        temps = [o.sea_surface_temperature for o in obs if o.sea_surface_temperature is not None]
-        waves = [o.wave_height for o in obs if o.wave_height is not None]
-        speeds = [o.current_speed for o in obs if o.current_speed is not None]
-
-        def _span(series: list[float], above: float, rising: bool | None = None) -> dict:
-            """Find start hour & peak for a threshold crossing in a series."""
-            if not series:
-                return {"start_h": None, "peak": None, "peak_h": None, "hours_on": 0}
-            start = next((i for i, v in enumerate(series) if above is None or v >= above), None)
-            peak_i = int(np.argmax(series)) if series else None
-            return {
-                "start_h": len(series) - start - 1 if start is not None else None,
-                "peak": round(float(series[peak_i]), 2) if peak_i is not None else None,
-                "peak_h": len(series) - 1 - peak_i if peak_i is not None else None,
-                "hours_on": (len(series) - start) if start is not None else 0,
-            }
-
-        heat = False
-        cold = False
-        rapid = False
-        curr = False
-        flood = False
-        mismatch = False
-
-        if len(temps) >= 5:
-            mean = float(np.mean(temps[:-1]))
-            anom = temps[-1] - mean
-            heat = anom >= 1.0
-            cold = anom <= -1.0
-            diffs = [abs(b - a) for a, b in zip(temps[-13:], temps[-12:])]
-            rapid = bool(diffs and max(diffs) >= 0.5)
-        if speeds and speeds[-1] >= 0.5:
-            curr = True
-        if waves and waves[-1] >= _EV_WARN:
-            flood = True
-        for f in (diff_by.get(loc.id) or {}).get("fields", []):
-            if f.get("deviation_level") in ("high", "moderate"):
-                mismatch = True
-
-        def _conf(base: float, mag: float, scale: float) -> int:
-            return int(min(95, max(55, base + mag / scale * 15)))
-
-        latest_temp = temps[-1] if temps else None
-        anom_v = (temps[-1] - float(np.mean(temps[:-1]))) if len(temps) >= 5 else 0.0
-        latest_wave = waves[-1] if waves else None
-
-        if heat:
-            span = _span(temps[:-2], float(np.mean(temps[:-1])) + 1.0)
-            events.append(_event(loc, "marine_heatwave", "high" if anom_v >= 1.5 else "medium",
-                                 _conf(78, anom_v, 2.0), span, latest_temp, "SST anomaly"))
-        if cold:
-            span = _span(temps[:-2], float(np.mean(temps[:-1])) - 1.0)
-            events.append(_event(loc, "cold_water_anomaly", "high" if anom_v <= -1.5 else "medium",
-                                 _conf(75, abs(anom_v), 2.0), span, latest_temp, "SST anomaly"))
-        if rapid:
-            events.append(_event(loc, "rapid_temp_change", "medium", 72, _span(temps, None), latest_temp, "SST jump"))
-        if curr:
-            events.append(_event(loc, "strong_current_event", "high" if speeds[-1] >= 0.8 else "medium",
-                                 80, _span(speeds[::-1], 0.5), speeds[-1], "current speed"))
-        if flood:
-            band = "danger" if latest_wave and latest_wave >= _EV_DANGER else "warning"
-            events.append(_event(loc, "coastal_flooding_risk", band, 82, _span(waves, _EV_WARN), latest_wave, "wave height"))
-        if mismatch:
-            events.append(_event(loc, "model_mismatch_event", "medium", 76, _span(temps, None), None, "observed vs model baseline"))
+        mismatch = any(
+            f.get("deviation_level") in ("high", "moderate")
+            for f in (diff_by.get(loc.id) or {}).get("fields", [])
+        )
+        events.extend(_classify_series(loc, obs, mismatch=mismatch))
 
     events.sort(key=lambda e: (e["intensity"] != "high", -(e["confidence"] or 0)))
     summary = {e["event_type"]: sum(1 for x in events if x["event_type"] == e["event_type"]) for e in events}
@@ -544,7 +592,7 @@ def scenario_projection(db: Session, location_id: int, wind_percent: float = 0.0
 
     narrative = (
         f"If wind intensity changes by {wind_percent:+.0f}%, projected wave height at "
-        f"{loc.name} moves from {base_wave:.2f} m to ~{proj_wave:.2f} m "
+        f"{loc.name} moves from {(base_wave or 0):.2f} m to ~{proj_wave:.2f} m "
         f"({band_change}). {_band_message(band)}"
     )
 
@@ -578,31 +626,37 @@ def _band_message(band: str) -> str:
 # ---------------------------------------------------------------------------
 
 def provenance(db: Session) -> dict:
-    """For every displayed value: source, dataset, time, processing, model run."""
+    """Report source names and evidence classes actually present in the store."""
+    from app.modules.ai.provenance_quality import origin_status
+
     now = datetime.now(timezone.utc)
     rows = []
     for loc in db.query(OceanLocation).all():
-        obs = _latest_rows(db, loc, window=OBS_WINDOW)
+        obs = (db.query(OceanObservation)
+               .filter(OceanObservation.location_id == loc.id)
+               .order_by(OceanObservation.timestamp.desc())
+               .limit(OBS_WINDOW).all())
         sources = sorted({o.source or "unknown" for o in obs})
-        data_types = sorted({o.data_type or "observation" for o in obs})
+        data_types = sorted({o.data_type or "unspecified" for o in obs})
         times = [o.timestamp for o in obs]
         latest = max(times) if times else None
-
-        rows.append(
-            {
-                "location_id": loc.id,
-                "location": loc.name,
-                "sources": sources,
-                "datasets": ["Open-Meteo Marine (ERA5-driven coastal reanalysis)"],
-                "data_types": data_types,
-                "observation_count": len(obs),
-                "latest_observation": (latest.isoformat() if latest else None),
-                "window_hours": OBS_WINDOW,
-                "processing": "Quality check → temporal alignment → linear trend baseline → deviation & confidence",
-                "model_run_id": f"MR-{now.strftime('%Y%m%d%H')}-L{loc.id:02d}",
-                "last_updated": now.isoformat(),
-            }
-        )
+        counts = {}
+        for row in obs:
+            status = origin_status(row.source, row.data_type)
+            counts[status] = counts.get(status, 0) + 1
+        rows.append({
+            "location_id": loc.id,
+            "location": loc.name,
+            "sources": sources,
+            "datasets": sources,
+            "data_types": data_types,
+            "origin_counts": counts,
+            "record_count": len(obs),
+            "latest_record": latest.isoformat() if latest else None,
+            "window_records": OBS_WINDOW,
+            "processing": "Source and record timestamps are reported as stored; no unrecorded model run or quality-control history is inferred.",
+            "last_updated": now.isoformat(),
+        })
     return {"generated_at": now.isoformat(), "regions": rows}
 
 
@@ -754,7 +808,8 @@ def future_windows(db: Session, location_id: int) -> dict:
         day = h // 24
         t_step = (temps[-1] - temps[0]) / max(1, len(temps)) if len(temps) >= 2 else 0
         proj_temp = round(base_temp + t_step * h, 2)
-        proj_wave = round(max(0.0, base_wave + (waves[-1] - waves[0]) / max(1, len(waves)) * h * 0.3), 2)
+        w_step = (waves[-1] - waves[0]) / max(1, len(waves)) if len(waves) >= 2 else 0
+        proj_wave = round(max(0.0, base_wave + w_step * h * 0.3), 2)
         c_step = (currs[-1] - currs[0]) / max(1, len(currs)) if len(currs) >= 2 else 0
         proj_curr = round(max(0.0, base_curr + c_step * h * 0.2), 2)
 

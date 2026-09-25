@@ -53,15 +53,17 @@ curl -X POST http://127.0.0.1:8000/api/v1/demo/seed
 
 | Item | Value |
 |------|-------|
-| Observation source | **Open-Meteo Marine** public API (real observations) |
+| Forecast source | **Open-Meteo Marine** public API (model-derived forecasts; not observations) |
 | Benchmark dataset id | `tidaltwin-live-store` |
 | Benchmark dataset version | `live` |
-| Dataset size (reference run) | 8 locations, 768 observations, 3 detected events |
+| Dataset size (legacy reference artifact) | 8 locations, 768 stored rows, 3 detected events |
 | Reference run timestamp | see the artifact filename (`docs/benchmark-results/`) |
 | Demonstration rows | 8 rows, `source = SIMULATED_HEATWAVE`, location Goa Coast (Panaji) |
 
-> **REPRODUCTION REQUIRES DATASET.** Open-Meteo Marine is a live, time-varying
-> feed. The *structure* of a run is reproducible; the exact observation values,
+The legacy benchmark artifact reported the remaining 760 rows as REAL under the old classifier. Open-Meteo Marine records are forecasts, not direct observations; those legacy counts must not be read as a verified measurement count.
+
+> **REPRODUCTION REQUIRES DATASET.** Open-Meteo Marine is a live, time-varying forecast
+> feed. The *structure* of a run is reproducible; the exact forecast values,
 > and therefore the exact benchmark numbers, are **not reproducible without the
 > original captured data**. The committed artifacts under
 > `docs/benchmark-results/` are the frozen records of the runs that were

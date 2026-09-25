@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.location import OceanLocation
 from app.models.observation import OceanObservation
+from app.modules.ai.provenance_quality import origin_status
 from app.modules.ai.apex.recommend import build_recommendations
 from app.modules.ai.forensics.intelligence import _obs_stats, uncertainty_map
 from app.modules.ai.twin.compare import compare
@@ -69,26 +70,29 @@ def location_coordinates(location: OceanLocation) -> tuple[float | None, float |
 
 
 def observation_status(row: OceanObservation) -> str:
-    raw = f"{row.data_type or ''} {row.source or ''}".upper()
-    if "SIMULATED" in raw:
-        return "SIMULATED"
-    if "SYNTHETIC" in raw or "DEMO" in raw:
-        return "SYNTHETIC"
-    if "MODEL" in raw or "FORECAST" in raw:
-        return "MODEL_DERIVED"
-    if "HISTORICAL" in raw:
-        return "HISTORICAL"
-    return "REAL"
+    """Shared record-origin classification used by TIDE and APIs."""
+    return origin_status(row.source, row.data_type)
 
 
 def latest_observation(db: Session, location_id: int) -> OceanObservation | None:
-    return (db.query(OceanObservation).filter(OceanObservation.location_id == location_id)
-            .order_by(OceanObservation.timestamp.desc()).first())
+    query = (db.query(OceanObservation).filter(OceanObservation.location_id == location_id)
+             .order_by(OceanObservation.timestamp.desc()))
+    for row in query.yield_per(128):
+        if observation_status(row) in ("REAL", "HISTORICAL", "SATELLITE_DERIVED"):
+            return row
+    return None
 
 
 def normalize_observation(row: OceanObservation, location: OceanLocation) -> TideObservation:
     """Adapt the existing ORM row without introducing a duplicate observation table."""
     lat, lon = location_coordinates(location)
+    try:
+        import json
+        extra = json.loads(row.extra or "{}") if row.extra else {}
+        if extra.get("measured_lat") is not None and extra.get("measured_lon") is not None:
+            lat, lon = float(extra["measured_lat"]), float(extra["measured_lon"])
+    except Exception:
+        pass
     return TideObservation(
         id=f"observation-{row.id}", location_id=location.id, latitude=lat, longitude=lon,
         depth_m=row.depth_m or 0.0, timestamp=row.timestamp, variable="temperature",
@@ -166,6 +170,18 @@ def disagreement_input(db: Session, location: OceanLocation, variable: str, dept
         result = compare(db, location, variable=variable, depth_m=depth_m)
     except Exception:
         result = {"error": "comparison unavailable"}
+    observed_source = result.get("observation_source") if isinstance(result, dict) else None
+    representativeness_km = None
+    if observed_source and isinstance(observed_source, str) and observed_source.startswith("Argo float"):
+        latest = latest_observation(db, location.id)
+        if latest is not None and latest.extra:
+            try:
+                import json
+                extra = json.loads(latest.extra)
+                if extra.get("distance_km_to_coast") is not None and extra.get("float_id"):
+                    representativeness_km = float(extra["distance_km_to_coast"])
+            except Exception:
+                representativeness_km = None
     difference = result.get("difference") if isinstance(result, dict) else None
     severity = unit((result.get("severity_score") or 0) / 100) if isinstance(result, dict) else 0.0
     if isinstance(result, dict) and severity == 0:
@@ -176,4 +192,5 @@ def disagreement_input(db: Session, location: OceanLocation, variable: str, dept
     return {"model_value": result.get("model") if isinstance(result, dict) else None,
             "observed_value": result.get("observed") if isinstance(result, dict) else None,
             "difference": difference, "severity": severity, "persistence": persistence,
-            "spatial_consistency": spatial, "status": result.get("data_status") if isinstance(result, dict) else "unavailable"}
+            "spatial_consistency": spatial, "status": result.get("data_status") if isinstance(result, dict) else "unavailable",
+            "observed_source": observed_source, "representativeness_km": representativeness_km}

@@ -9,7 +9,7 @@ events into a ranked, actionable sampling plan:
   • a network-level aggregate (samples needed to lift average coverage ≥ 80%)
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -17,6 +17,7 @@ from app.models.location import OceanLocation
 from app.models.observation import OceanObservation
 from app.modules.ai.forensics.intelligence import coverage_simulator, uncertainty_map
 from app.modules.ai.validation.engine import classify_events
+from app.modules.ai.provenance_quality import origin_status
 
 # Variable → platform guidance by region type.
 PLATFORMS = {
@@ -56,19 +57,26 @@ def _platforms(region_type: str, variable: str) -> list[str]:
 
 
 def _series_stats(db: Session, loc_id: int) -> tuple[list, int, object | None]:
-    now = datetime.now(timezone.utc)
-    end = now + timedelta(hours=12)      # tolerate the sim's look-ahead timestamps
+    """Measure coverage from eligible measurement records, never forecasts/simulation."""
     rows = (
-        db.query(OceanObservation.timestamp, OceanObservation.sea_surface_temperature)
-        .filter(OceanObservation.location_id == loc_id,
-                OceanObservation.timestamp <= end)
+        db.query(
+            OceanObservation.timestamp,
+            OceanObservation.sea_surface_temperature,
+            OceanObservation.source,
+            OceanObservation.data_type,
+        )
+        .filter(OceanObservation.location_id == loc_id)
         .order_by(OceanObservation.timestamp.desc())
-        .limit(TARGET_COUNT)
         .all()
     )
-    n = len(rows)
-    latest_ts = rows[0][0] if rows else None
-    return rows, n, latest_ts
+    measured = [
+        (timestamp, temperature)
+        for timestamp, temperature, source, data_type in rows
+        if origin_status(source, data_type) in {"REAL", "HISTORICAL", "SATELLITE_DERIVED"}
+    ][:TARGET_COUNT]
+    n = len(measured)
+    latest_ts = measured[0][0] if measured else None
+    return measured, n, latest_ts
 
 
 def _observation_need(db: Session, loc_id: int) -> dict:

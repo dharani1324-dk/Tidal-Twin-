@@ -7,11 +7,9 @@ import {
   Bell, Menu, X, Radio, Satellite, Database, CircleUser, Command, ShieldAlert, Sparkle,
   AlertTriangle, Crosshair, History, ShieldCheck, LayoutDashboard, Palette,
 } from 'lucide-react'
-import AssistantFab from './components/assistant/AssistantFab'
 import ErrorBoundary from './components/ErrorBoundary'
 import SystemStatusPill from './components/system/SystemStatusPill'
 import DemoGuide from './components/system/DemoGuide'
-import TideVoiceAgent from './components/voice/TideVoiceAgent'
 import { fetchLocations, fetchAlerts } from './api/client'
 import './App.css'
 
@@ -100,7 +98,7 @@ const STAGES: { n: number; label: string; to: string }[] = [
   { n: 3, label: 'INVESTIGATE', to: '/forensics' },
   { n: 4, label: 'UNDERSTAND', to: '/intelligence' },
   { n: 5, label: 'PRIORITIZE', to: '/tide' },
-  { n: 6, label: 'OBSERVE NEXT', to: '/oceanvision' },
+  { n: 6, label: 'OBSERVE NEXT', to: '/oceanvision?tab=recommend' },
   { n: 7, label: 'SIMULATE', to: '/scenarios' },
   { n: 8, label: 'DECIDE', to: '/tide/replay' },
   { n: 9, label: 'VALIDATE', to: '/validate' },
@@ -501,17 +499,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Floating "Ask Ocean AI" quick access (hidden on the assistant page).
-          Guarded so a Copilot failure can never take down the Digital Twin. */}
-      <ErrorBoundary label="Ocean AI Copilot">
-        <AssistantFab visible={location.pathname !== '/assistant'} />
-      </ErrorBoundary>
-
-      {/* Floating TIDE Voice Agent (realtime speech). Guarded independently so
-          a voice failure never affects the Digital Twin or the Copilot. */}
-      <ErrorBoundary label="TIDE Voice Agent">
-        <TideVoiceAgent />
-      </ErrorBoundary>
     </div>
   )
 }

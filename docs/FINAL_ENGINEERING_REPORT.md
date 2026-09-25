@@ -72,13 +72,13 @@ information metric**.
 
 | Source | Status |
 |--------|--------|
-| Open-Meteo Marine observations | REAL (live, time-varying) |
+| Open-Meteo Marine forecast | MODEL_DERIVED (time-varying forecast, not in-situ observation) |
 | Derived currents / AIS | SIMULATED / DERIVED, provenance-linked |
 | Demonstration anomaly (`SIMULATED_HEATWAVE`) | DEMONSTRATION ONLY |
 | Independent event ground truth | **NOT AVAILABLE** |
 
-Reference dataset: 8 locations, **768 observations (760 real + 8 simulated)**,
-3 detected (demo-labelled) events.
+Reference dataset: 8 locations, **768 stored rows (760 formerly labelled REAL + 8 simulated)**,
+3 detected (demo-labelled) events. The legacy REAL classification included Open-Meteo forecasts and is not a verified direct-measurement count.
 
 ## APIs
 
@@ -140,7 +140,7 @@ replay returns 200.
 IMPLEMENTED / TESTED / DEMONSTRATED. Machine-readable artifact exported to
 `docs/benchmark-results/` (never overwritten).
 
-Reference run (`budget=1`, `seed=42`, dataset 8 locations / 768 observations /
+Reference run (`budget=1`, `seed=42`, dataset 8 locations / 768 stored rows /
 3 events):
 
 | Strategy | decision_change_rate | mean uncertainty reduction |

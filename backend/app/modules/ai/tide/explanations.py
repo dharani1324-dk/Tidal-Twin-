@@ -38,25 +38,47 @@ def confidence_context(candidate: dict, evidence: list[dict]) -> dict:
 
 
 def recommendation_explanation(candidate: dict, evidence: list[dict], confidence: dict) -> dict:
+    variable = candidate["variable"].replace("_", " ").lower()
+    method = candidate["observation_type"].replace("_", " ").lower()
+    location = candidate["location"]
     reasons = []
-    if candidate.get("uncertainty", 0) >= .5: reasons.append(f"{candidate['variable'].replace('_', ' ').title()} uncertainty is {_band(candidate['uncertainty'])}.")
-    if candidate.get("anomaly_persistence", 0) >= .35: reasons.append("An active event provides persistence evidence at this location.")
-    if any(item["type"] == "MODEL_OBSERVATION_MISMATCH" for item in evidence): reasons.append("The existing Twin reports model-observation disagreement.")
-    if candidate.get("data_gap", 0) >= .35: reasons.append("Observation coverage contains a material data gap.")
-    if candidate.get("decision_impact", 0) >= .45: reasons.append("Reducing this uncertainty could affect the current decision context.")
-    reasons.append(f"The selected {candidate['observation_type'].replace('_', ' ').lower()} has a configured {_band(candidate['observation_cost'])} relative cost.")
-    return {"summary": f"TIDE recommends {candidate['observation_type'].replace('_', ' ').lower()} sampling at {candidate['location']} for {candidate['variable'].replace('_', ' ')}.",
-            "reasons": reasons, "expected_benefit": f"The initial heuristic estimates up to {candidate['expected_uncertainty_reduction'] * 100:.0f}% uncertainty reduction.",
-            "affected_decision": candidate["affected_decision"], "confidence": confidence, "evidence": evidence}
+    if candidate.get("uncertainty", 0) >= .5:
+        reasons.append(f"The current {variable} uncertainty is {_band(candidate['uncertainty'])} ({candidate['uncertainty'] * 100:.0f}% on the engine scale).")
+    if candidate.get("anomaly_persistence", 0) >= .35:
+        reasons.append(f"A persistent event signal is present at {location} ({candidate['anomaly_persistence'] * 100:.0f}% on the engine scale).")
+    mismatch = next((item for item in evidence if item.get("type") == "MODEL_OBSERVATION_MISMATCH"), None)
+    if mismatch:
+        mismatch_detail = (mismatch.get("description") or "details are unavailable").rstrip(". ")
+        reasons.append(f"Twin comparison reports a model and observation mismatch: {mismatch_detail}.")
+    if candidate.get("data_gap", 0) >= .35:
+        reasons.append(f"Observation data gap is material ({candidate['data_gap'] * 100:.0f}% on the engine scale).")
+    if candidate.get("decision_impact", 0) >= .45:
+        reasons.append("Resolving some of this uncertainty could change the current decision context.")
+    if not reasons:
+        reasons.append("This is the highest-ranked available sampling option under the current TIDE scores; the ranking is heuristic.")
+    reasons.append(f"TIDE assigns {method} a {_band(candidate['observation_cost'])} relative cost ({candidate['observation_cost'] * 100:.0f}% on the configured cost scale).")
+
+    reduction = candidate.get("expected_uncertainty_reduction", 0) * 100
+    return {
+        "summary": f"TIDE ranks {method} sampling at {location} highest for reducing uncertainty in {variable} among the candidates it evaluated.",
+        "reasons": reasons,
+        "expected_benefit": f"The scoring heuristic estimates up to {reduction:.0f}% uncertainty reduction if this observation is collected. This is a model estimate, not a measured result or guarantee.",
+        "affected_decision": candidate["affected_decision"],
+        "confidence": confidence,
+        "evidence": evidence,
+    }
 
 
 def decision_context(candidate: dict) -> dict:
     decision = candidate["affected_decision"]
-    return {"current_decision": decision, "affected_decision": decision,
-            "decision_impact_score": candidate["decision_impact"],
-            "possible_decision_change": f"A confirming observation could support {decision}; this is not a simulated outcome.",
-            "why_it_matters": f"Current uncertainty prevents a more confident distinction at {candidate['location']}."}
-
+    readable_decision = decision.replace("_", " ").lower()
+    return {
+        "current_decision": decision,
+        "affected_decision": decision,
+        "decision_impact_score": candidate["decision_impact"],
+        "possible_decision_change": f"A confirming observation could provide evidence relevant to the '{readable_decision}' decision; the outcome has not been simulated.",
+        "why_it_matters": f"At {candidate['location']}, current uncertainty limits confidence in the '{readable_decision}' decision.",
+    }
 
 def verdict_summary(verdict: str, confidence: float) -> str:
     phrases = {
@@ -65,7 +87,7 @@ def verdict_summary(verdict: str, confidence: float) -> str:
         "LIKELY_MISSING_PHENOMENON": "The available evidence is consistent with an unrepresented process, but does not confirm a phenomenon.",
         "INSUFFICIENT_EVIDENCE": "Available evidence cannot reliably distinguish sensor, model, or unrepresented-process explanations.",
     }
-    return phrases[verdict] + f" Heuristic confidence: {confidence * 100:.0f}% ."
+    return phrases[verdict] + f" The heuristic confidence score is {confidence * 100:.0f}%; it is not a probability that this explanation is correct."
 
 
 def _band(value: float) -> str:

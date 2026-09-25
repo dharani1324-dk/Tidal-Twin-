@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from app.models.alert import OceanAlert
 from app.models.location import OceanLocation
 from app.models.observation import OceanObservation
+from app.modules.ai.provenance_quality import origin_status
 
 # Thresholds
 TEMP_ALERT_Z = 2.0        # sea-surface-temperature z threshold
@@ -143,14 +144,18 @@ def analyze_location(db: Session, loc: OceanLocation,
     Analyze one location's recent history and create alerts
     for any anomalies found. Returns the list of new alerts.
     """
-    obs = (
+    query = (
         db.query(OceanObservation)
         .filter(OceanObservation.location_id == loc.id)
-        .order_by(OceanObservation.timestamp.desc())   # newest first
-        .limit(history)
-        .all()
+        .order_by(OceanObservation.timestamp.desc())
     )
-    obs = list(reversed(obs))  # -> oldest ... newest, so [-1] is latest
+    eligible = []
+    for row in query.yield_per(max(1, history)):
+        if origin_status(row.source, row.data_type) in ("REAL", "HISTORICAL", "SATELLITE_DERIVED"):
+            eligible.append(row)
+            if len(eligible) >= history:
+                break
+    obs = list(reversed(eligible))  # eligible evidence only, oldest ... newest
     if len(obs) < MIN_SAMPLES:
         return []
 
@@ -351,14 +356,18 @@ def resolve_stale_alerts(db: Session, history: int = 48) -> int:
         )
         if not active:
             continue
-        obs = (
+        query = (
             db.query(OceanObservation)
             .filter(OceanObservation.location_id == loc.id)
-            .order_by(OceanObservation.timestamp.desc())   # newest first
-            .limit(history)
-            .all()
+            .order_by(OceanObservation.timestamp.desc())
         )
-        obs = list(reversed(obs))  # -> oldest ... newest
+        eligible = []
+        for row in query.yield_per(max(1, history)):
+            if origin_status(row.source, row.data_type) in ("REAL", "HISTORICAL", "SATELLITE_DERIVED"):
+                eligible.append(row)
+                if len(eligible) >= history:
+                    break
+        obs = list(reversed(eligible))  # eligible evidence only, oldest ... newest
         if len(obs) < MIN_SAMPLES:
             continue
         temps = [o.sea_surface_temperature for o in obs if o.sea_surface_temperature is not None]

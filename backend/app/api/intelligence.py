@@ -149,8 +149,14 @@ def investigate_region(location_id: int = Query(...), db: Session = Depends(get_
 @router.get("/similar")
 def similar(event_index: int = Query(0), db: Session = Depends(get_db)):
     events = classify_events(db)["events"]
-    if event_index >= len(events):
-        raise HTTPException(404, "Event index out of range")
+    if event_index >= len(events) or event_index < 0:
+        return {
+            "event_index": event_index,
+            "available": False,
+            "reason": "No classified ocean event exists at that index yet.",
+            "similar": [],
+            "fingerprint": None,
+        }
     fp = build_fp(events[event_index])
     return {"similar": similar_events(db, fp, limit=5), "fingerprint": fp}
 
@@ -158,8 +164,13 @@ def similar(event_index: int = Query(0), db: Session = Depends(get_db)):
 @router.get("/fingerprint")
 def get_fingerprint(event_index: int = Query(0), db: Session = Depends(get_db)):
     events = classify_events(db)["events"]
-    if event_index >= len(events):
-        raise HTTPException(404, "Event index out of range")
+    if event_index >= len(events) or event_index < 0:
+        return {
+            "event_index": event_index,
+            "available": False,
+            "reason": "No classified ocean event exists at that index yet.",
+            "fingerprint": None,
+        }
     return build_fp(events[event_index])
 
 

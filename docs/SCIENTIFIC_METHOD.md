@@ -7,7 +7,7 @@
 
 ## 1. Claim hierarchy
 
-The project distinguishes four levels and never upgrades one into another:
+The project distinguishes four levels and never upgrades one into another. Data-source categories are also kept distinct: forecast/model, historical grid, satellite-derived retrieval, in-situ measurement, simulated, and unknown. See [Ocean data and explanations](OCEAN_DATA_AND_EXPLANATIONS.md) for the current source register and evidence rules.
 
 | Level | Definition | How it is established | Status |
 |-------|------------|-----------------------|--------|

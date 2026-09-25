@@ -803,7 +803,7 @@ export const resetDemoData = async (): Promise<DemoResetResponse> => {
   return data
 }
 
-// --- TIDE Voice Agent API (Phase 12 · interaction façade over existing endpoints) ---
+// --- TIDE evidence and uncertainty API helpers ---
 
 /** TIDE evidence chain + explanation (same engine as /explanation). */
 export const fetchTideEvidence = async (params: {
@@ -837,56 +837,6 @@ export const fetchTideRankings = async (params: {
       variable: params.variable ?? 'temperature',
       depth_m: params.depth_m ?? 0,
     },
-  })
-  return data
-}
-
-/** Voice agent capability + configuration (enabled, model, voice, tools). */
-export const fetchVoiceStatus = async (): Promise<{
-  enabled: boolean
-  model: string
-  voice: string
-  tool_names: string[]
-  ui_layers: string[]
-  ui_pages: string[]
-  provenance: string[]
-  limitations: string[]
-}> => {
-  const { data } = await api.get('/api/v1/voice/status')
-  return data
-}
-
-/** Mint a realtime ephemeral session for the browser voice client
- *  (provider = Gemini Live WebSocket by default, OpenAI Realtime WebRTC as
- *  the legacy provider). */
-export const createVoiceSession = async (body: {
-  brief?: string
-  include_context?: boolean
-} = {}): Promise<{
-  model: string
-  voice: string
-  session_id: string | null
-  ephemeral_key: { value: string; expires_at: number | null }
-  instructions_bytes: number
-  tools: { type: 'function'; name: string; description: string; parameters: Record<string, unknown> }[]
-  includes_context: boolean
-  setup: Record<string, unknown> | null
-}> => {
-  const { data } = await api.post('/api/v1/voice/session', body)
-  return data
-}
-
-/** Keyless server-side web search (DuckDuckGo Instant Answer) for Category D. */
-export const voiceWebSearch = async (query: string, maxResults = 3): Promise<{
-  status: 'ok' | 'no_results' | 'error'
-  query: string
-  answer: string | null
-  results: { title: string; url: string; snippet: string }[]
-  limitations: string[]
-}> => {
-  const { data } = await api.post('/api/v1/voice/web-search', {
-    query,
-    max_results: maxResults,
   })
   return data
 }

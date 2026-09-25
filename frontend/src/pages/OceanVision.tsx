@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Sparkles, Crosshair, Waves, Lightbulb, Satellite, Target,
@@ -142,7 +143,13 @@ const MATURITY_COLOR: Record<string, string> = {
 }
 
 export default function OceanVision() {
-  const [tab, setTab] = useState<TabId>('adaptive')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState<TabId>(() =>
+    searchParams.get('tab') === 'recommend' ? 'recommend' : 'adaptive'
+  )
+  useEffect(() => {
+    if (searchParams.get('tab') === 'recommend') setTab('recommend')
+  }, [searchParams])
   const [loading, setLoading] = useState(true)
 
   const [adaptive, setAdaptive] = useState<AdaptiveRegion[]>([])
@@ -151,6 +158,7 @@ export default function OceanVision() {
   const [light, setLight] = useState<LightRegion[]>([])
   const [sensing, setSensing] = useState<SensingRegion[]>([])
   const [recos, setRecos] = useState<RecoRegion[]>([])
+  const [recommendationError, setRecommendationError] = useState(false)
   const [recoSummary, setRecoSummary] = useState({ network_average_obs_need: 0, estimated_observations_needed: 0, summary: '' })
 
   useEffect(() => {
@@ -159,7 +167,10 @@ export default function OceanVision() {
       fetchCarbon().catch(() => ({ regions: [], national_total_uptake_MtC_per_yr: 0, strongest_co2_sink: '—', atmosphere_reference_pco2: 420 })),
       fetchLightPollution().catch(() => ({ regions: [] })),
       fetchRemoteSensing().catch(() => ({ regions: [] })),
-      fetchRecommendations(0).catch(() => ({ recommendations: [], network_average_obs_need: 0, estimated_observations_needed: 0, summary: '' })),
+      fetchRecommendations(0).catch(() => {
+        setRecommendationError(true)
+        return { recommendations: [], network_average_obs_need: 0, estimated_observations_needed: 0, summary: '' }
+      }),
     ]).then(([a, c, l, s, r]) => {
       setAdaptive(Array.isArray(a.regions) ? a.regions.map((r: AdaptiveRegion) => ({
         ...r,
@@ -513,11 +524,16 @@ export default function OceanVision() {
                 <p className="ov-note">{recoSummary.summary}</p>
               </div>
 
-              {recos.length === 0 && (
-                <div className="ov-panel glass-card">
-                  <p className="ov-empty">Observation coverage is healthy network-wide — no immediate sampling action required.</p>
+              {recommendationError ? (
+                <div className="ov-panel glass-card" role="alert">
+                  <p className="ov-empty">Could not load observation recommendations. Check the backend connection and retry.</p>
+                  <button className="ov-tab" onClick={() => window.location.reload()}>Retry</button>
                 </div>
-              )}
+              ) : recos.length === 0 ? (
+                <div className="ov-panel glass-card">
+                  <p className="ov-empty">No observation regions are available for planning.</p>
+                </div>
+              ) : null}
 
               <div className="ov-reco-grid">
                 {recos.map((r) => (

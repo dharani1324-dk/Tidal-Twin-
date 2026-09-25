@@ -185,7 +185,7 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="hero-meta">
-            <span><Database size={11} /> Open-Meteo Marine + NOAA global models</span>
+            <span><Database size={11} /> Open-Meteo marine forecast + NOAA model grids</span>
             <span><span className="live-dot" /> Auto-refreshes from public marine APIs</span>
           </div>
         </div>
@@ -500,7 +500,7 @@ export default function Dashboard() {
 
       {/* ============ DATA TRANSPARENCY FOOTER ============ */}
       <div className="data-footer">
-        <span><Database size={11} /> Source: <b>Open-Meteo Marine</b> · NOAA global ocean models</span>
+        <span><Database size={11} /> Forecast source: <b>Open-Meteo Marine</b> · NOAA model grids</span>
         <span><Satellite size={11} /> Auth: live API ingestion · refresh on demand</span>
         <span className="mono">SYNC {updatedAgo}s AGO</span>
       </div>

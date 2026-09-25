@@ -27,6 +27,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.models.location import OceanLocation
 from app.models.observation import OceanObservation
+from app.modules.ai.provenance_quality import origin_status
 
 router = APIRouter(tags=["System"])
 
@@ -68,30 +69,41 @@ def _check_database(db: Session) -> dict:
 def _check_ocean_data(db: Session) -> dict:
     try:
         locations = db.query(func.count(OceanLocation.id)).scalar() or 0
-        observations = db.query(func.count(OceanObservation.id)).scalar() or 0
-        simulated = (
-            db.query(func.count(OceanObservation.id)).filter(_simulated_filter()).scalar() or 0
+        groups = (
+            db.query(OceanObservation.source, OceanObservation.data_type, func.count(OceanObservation.id))
+            .group_by(OceanObservation.source, OceanObservation.data_type)
+            .all()
         )
     except Exception as exc:  # pragma: no cover - depends on live DB
         return {"status": UNAVAILABLE, "detail": f"Ocean data unavailable: {type(exc).__name__}."}
-    if observations == 0:
+
+    counts = {"REAL": 0, "HISTORICAL": 0, "SATELLITE_DERIVED": 0,
+              "MODEL_DERIVED": 0, "SIMULATED": 0, "SYNTHETIC": 0, "UNKNOWN": 0}
+    for source, data_type, count in groups:
+        counts[origin_status(source, data_type)] += count
+    total = sum(counts.values())
+    measured = counts["REAL"] + counts["HISTORICAL"] + counts["SATELLITE_DERIVED"]
+    if total == 0:
         return {
             "status": UNAVAILABLE,
-            "detail": "No ocean observations are stored. Run the seed/refresh scripts.",
-            "locations": locations,
-            "observations": observations,
-            "simulated_observations": simulated,
+            "detail": "No ocean time-series records are stored. Run an enabled source ingestion.",
+            "locations": locations, "records": 0, "direct_measurements": 0,
+            "model_forecasts": 0, "simulated_records": 0,
         }
-    status = AVAILABLE if locations >= 1 else LIMITED
-    detail = f"{locations} locations, {observations} observations available."
-    if simulated:
-        detail += f" ({simulated} labelled demonstration rows.)"
+    status = AVAILABLE if measured else LIMITED
+    detail = f"{locations} locations, {measured} measured/historical records, {counts['MODEL_DERIVED']} model-derived records."
+    if counts["SIMULATED"] + counts["SYNTHETIC"]:
+        detail += f" {counts['SIMULATED'] + counts['SYNTHETIC']} simulated/synthetic records are labelled."
+    if measured == 0:
+        detail += " Direct measurement evidence is currently unavailable."
     return {
-        "status": status,
-        "detail": detail,
-        "locations": locations,
-        "observations": observations,
-        "simulated_observations": simulated,
+        "status": status, "detail": detail, "locations": locations, "records": total,
+        "direct_measurements": counts["REAL"],
+        "historical_records": counts["HISTORICAL"],
+        "satellite_derived_records": counts["SATELLITE_DERIVED"],
+        "eligible_evidence_records": measured,
+        "model_forecasts": counts["MODEL_DERIVED"],
+        "simulated_records": counts["SIMULATED"], "synthetic_records": counts["SYNTHETIC"],
     }
 
 
@@ -152,30 +164,6 @@ def _check_cesium() -> dict:
     }
 
 
-def _check_voice() -> dict:
-    """Voice add-on readiness.
-
-    The voice agent is OPTIONAL infrastructure: it never gates the platform,
-    and its status must never share secrets.  It reports the routing/tooling
-    contract as AVAILABLE whenever the modules import, and reserves
-    LIMITED/UNAVAILABLE for genuine missing configuration.
-    """
-    if not settings.voice_enabled():
-        return {
-            "status": "LIMITED",
-            "detail": "Voice agent tooling is loaded but no provider key is set (GEMINI_API_KEY / OPENAI_API_KEY) - text fallback (Copilot) only.",
-        }
-    try:
-        from app.modules.voice import tools
-
-        provider = settings.provider()
-        return {
-            "status": AVAILABLE,
-            "detail": f"Voice agent ready: {len(tools.TOOL_SPECS)} tools, provider {provider}, model {settings.voice_model()}, voice {settings.voice_voice()}.",
-        }
-    except Exception as exc:  # pragma: no cover - defensive
-        return {"status": UNAVAILABLE, "detail": f"Voice agent unavailable: {type(exc).__name__}."}
-
 
 def _overall(checks: dict[str, dict]) -> str:
     if checks["backend"]["status"] != AVAILABLE:
@@ -197,7 +185,6 @@ def build_health(db: Session) -> dict:
         "tide": _check_tide(db),
         "copilot": _check_copilot(),
         "cesium": _check_cesium(),
-        "voice": _check_voice(),
     }
     return {
         "status": _overall(checks),

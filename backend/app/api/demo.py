@@ -80,29 +80,32 @@ def _count(db: Session, *criteria) -> int:
 
 
 def _demo_analysis(db: Session) -> dict:
-    total = _count(db)
-    simulated = _count(db, _simulated_filter())
     rows = (
-        db.query(OceanObservation.source, func.count(OceanObservation.id))
-        .group_by(OceanObservation.source)
+        db.query(OceanObservation.source, OceanObservation.data_type, func.count(OceanObservation.id))
+        .group_by(OceanObservation.source, OceanObservation.data_type)
         .order_by(func.count(OceanObservation.id).desc())
         .all()
     )
     sources = []
-    for source, count in rows:
-        status = observation_status(OceanObservation(source=source, data_type="observation"))
-        sources.append(
-            {
-                "source": source or "UNKNOWN",
-                "count": count,
-                "status": status,
-                "is_simulated": status in ("SIMULATED", "SYNTHETIC"),
-            }
-        )
+    totals = {"REAL": 0, "HISTORICAL": 0, "SATELLITE_DERIVED": 0,
+              "MODEL_DERIVED": 0, "SIMULATED": 0, "SYNTHETIC": 0, "UNKNOWN": 0}
+    for source, data_type, count in rows:
+        status = observation_status(OceanObservation(source=source, data_type=data_type))
+        totals[status] += count
+        sources.append({
+            "source": source or "UNKNOWN", "count": count, "status": status,
+            "is_simulated": status in ("SIMULATED", "SYNTHETIC"),
+        })
+    measured = totals["REAL"] + totals["HISTORICAL"] + totals["SATELLITE_DERIVED"]
     return {
-        "total_observations": total,
-        "simulated_observations": simulated,
-        "real_observations": total - simulated,
+        "total_observations": sum(totals.values()),
+        "real_observations": totals["REAL"],
+        "eligible_evidence_records": measured,
+        "historical_records": totals["HISTORICAL"],
+        "satellite_derived_records": totals["SATELLITE_DERIVED"],
+        "model_derived_records": totals["MODEL_DERIVED"],
+        "simulated_observations": totals["SIMULATED"],
+        "synthetic_observations": totals["SYNTHETIC"],
         "sources": sources,
     }
 
@@ -198,9 +201,8 @@ def demo_status(db: Session = Depends(get_db)) -> dict:
         "demonstration_event": demonstration_event,
         "guide_steps": DEMO_GUIDE_STEPS,
         "notes": [
-            "Demonstration observations are stored alongside real observations but are "
-            "always labelled SIMULATED via their source; they are never presented as real.",
-            "RESET DEMO deletes only labelled simulated rows and never alters real observations.",
+            "Demonstration rows are stored alongside source-labelled records and always remain SIMULATED.",
+            "RESET DEMO deletes only labelled simulated rows; it preserves all other source records.",
         ],
     }
 

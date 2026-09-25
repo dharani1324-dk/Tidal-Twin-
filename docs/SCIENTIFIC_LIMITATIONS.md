@@ -77,7 +77,7 @@ labels are produced by the project's own `classify_events` logic. Therefore:
   and likewise never write to the store.
 - **Demonstration rows** are labelled `SIMULATED` / `SYNTHETIC` by their
   `source`. `POST /api/v1/demo/reset` deletes **only** rows matching that filter;
-  real observations are untouched.
+  non-simulated source records are untouched.
 - A `MODEL_DERIVED` candidate can never be reported as `REAL`.
 
 ## Verdict safety

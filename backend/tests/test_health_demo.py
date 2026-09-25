@@ -127,11 +127,12 @@ class SimulationSafetyTest(unittest.TestCase):
     def test_observation_status_classification(self):
         self.assertEqual(observation_status(self._obs("SIMULATED_HEATWAVE")), "SIMULATED")
         self.assertEqual(observation_status(self._obs("DEMO_SYNTHETIC")), "SYNTHETIC")
-        self.assertEqual(observation_status(self._obs("Open-Meteo Marine")), "REAL")
+        self.assertEqual(observation_status(self._obs("Open-Meteo Marine")), "MODEL_DERIVED")
+        self.assertEqual(observation_status(self._obs("CTD cast import")), "REAL")
         self.assertEqual(observation_status(self._obs("model-run-01", "model")), "MODEL_DERIVED")
 
     def test_reset_filter_selects_only_simulated(self):
-        real = self._obs("Open-Meteo Marine")
+        real = self._obs("CTD cast import")
         sim = self._obs("SIMULATED_PHASE9_TEST")
         self.db.add_all([real, sim])
         self.db.flush()

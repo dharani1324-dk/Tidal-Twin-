@@ -41,27 +41,44 @@ def explain(db: Session, loc: OceanLocation, variable: str = "temperature", dept
     conf = res.get("confidence", 0)
     level = res.get("confidence_level", "unknown")
 
-    what = f"Observed {meta['label'].lower()} is {abs(diff or 0.0):.1f}{meta['unit']} "
-    what += "higher" if (diff or 0) > 0 else "lower" if (diff or 0) < 0 else "equal to"
-    what += f" the model estimate at this location."
-
-    if status in ("unknown", "no data"):
-        explanation = (
-            "No comparison is possible yet: data is marked as "
-            f"{res.get('data_status', 'unavailable')}."
-        )
-        cause = "Cause cannot be determined from available data."
+    if status in ("unknown", "no data") or diff is None:
+        observed = res.get("observed")
+        if observed is not None:
+            what = (
+                f"A {meta['label'].lower()} reading of {observed:g}{meta['unit']} is available at {loc.name}, "
+                "but there is not enough eligible history to calculate a comparison baseline."
+            )
+            explanation = (
+                f"The measurement comes from {res.get('observation_source', 'an unrecorded source')}. "
+                f"{res.get('model_note') or 'More eligible historical measurements are needed before a difference can be calculated.'}"
+            )
+        else:
+            what = (
+                f"There is not enough eligible {meta['label'].lower()} reading data at {loc.name} "
+                "to compare a measurement with a historical baseline yet."
+            )
+            explanation = (
+                "The comparison is unavailable because no eligible reading is available. "
+                f"{res.get('note', 'A difference or cause cannot be determined.')}"
+            )
+        cause = "There is not enough evidence to identify a cause."
         evidence = [
             f"Variable: {meta['label']}",
-            f"Data status: {res.get('data_status', 'unknown')}",
+            f"Data status: {res.get('provenance_status', 'UNKNOWN')}",
+            *( [f"Measurement: {res.get('observed')}{meta['unit']}"] if res.get("observed") is not None else [] ),
+            *( [f"Source: {res.get('observation_source')}"] if res.get("observation_source") else [] ),
         ]
         magnitude_note = None
     elif status == "low":
-        explanation = (
-            "The in-situ observation agrees closely with the model estimate. "
-            "No significant anomaly is indicated by available data."
+        what = (
+            f"At {loc.name}, the latest eligible {meta['label'].lower()} reading is close to "
+            "the historical baseline, within the comparison's low-disagreement range."
         )
-        cause = "No anomaly indicated – model and observation agree."
+        explanation = (
+            f"The eligible reading and historical baseline differ by {abs(diff or 0.0):.1f}{meta['unit']}. "
+            "This comparison does not indicate a significant mismatch."
+        )
+        cause = "No cause is indicated because the observation and estimate agree closely."
         evidence = [
             f"Difference: {diff:+.1f}{meta['unit']} "
             f"({res.get('percent_difference') or 0:+.1f}%)",
@@ -69,20 +86,23 @@ def explain(db: Session, loc: OceanLocation, variable: str = "temperature", dept
         ]
         magnitude_note = f"Difference is within the normal band (< {meta['moderate']}{meta['unit']})."
     else:
-        direction = "above the model estimate" if (diff or 0) > 0 else "below the model estimate"
-        nearby_txt = _nearby_agreement_txt(db, variable, meta.get("column"), direction)
+        direction = "higher than" if (diff or 0) > 0 else "lower than"
+        comparison_direction = "above the historical baseline" if (diff or 0) > 0 else "below the historical baseline"
+        nearby_txt = _nearby_agreement_txt(db, loc.id, variable, depth_m, meta.get("column"), comparison_direction)
 
         explanation = (
-            f"Observed {meta['label'].lower()} deviates {direction} by "
-            f"{abs(diff or 0.0):.1f}{meta['unit']}. {nearby_txt} This increases confidence "
-            f"that the deviation is representative of this region rather than an isolated reading."
+            f"At {loc.name}, the latest eligible {meta['label'].lower()} reading is {abs(diff or 0.0):.1f}{meta['unit']} "
+            f"{direction} the historical baseline. {nearby_txt}"
         )
+        what = explanation
         cause = CAUSE_HINTS.get((variable, "above" if (diff or 0) > 0 else "below"))
         if not cause:
-            cause = "Cause cannot be determined from available data."
+            cause = "Available data does not identify a cause for this difference."
+        else:
+            cause = "Possible drivers include " + cause[0].lower() + cause[1:] + " These are hypotheses, not confirmed causes."
         evidence = [
             f"Variable: {meta['label']}",
-            f"Model: {res.get('model')}{meta['unit']}",
+            f"Historical baseline: {res.get('baseline', res.get('model'))}{meta['unit']}",
             f"Observed: {res.get('observed')}{meta['unit']}",
             f"Difference: {diff:+.1f}{meta['unit']}",
             f"Percentage difference: {res.get('percent_difference') or 0:+.1f}%",
@@ -108,41 +128,46 @@ def explain(db: Session, loc: OceanLocation, variable: str = "temperature", dept
         "evidence": evidence,
         "confidence": conf,
         "confidence_level": level,
+        "confidence_basis": res.get("confidence_basis", "Heuristic disagreement score; it is not a probability that the cause is correct."),
         "explanation": explanation,
         "cause": cause,
         "data_status": res.get("data_status"),
         "status": status,
+        "provenance_status": res.get("provenance_status", "UNKNOWN"),
+        "limitations": [res.get("note")] if status in ("unknown", "no data") and res.get("note") else [],
     }
 
 
 def _nearby_agreement_txt(
-    db: Session, variable: str, column: str | None, direction: str
+    db: Session, location_id: int, variable: str, depth_m: float, column: str | None, direction: str
 ) -> str:
-    """Summarise whether nearby locations deviate in the same direction."""
+    """Summarize whether other monitored regions deviate in the same direction."""
     if not column:
-        return "Available data covers the local stream."
+        return "There is no spatial comparison available for this variable."
     locs = db.query(OceanLocation).all()
     same = 0
     total = 0
     for loc in locs:
-        r = compare(db, loc, variable=variable)
+        if loc.id == location_id:
+            continue
+        r = compare(db, loc, variable=variable, depth_m=depth_m)
         d = r.get("difference")
         if d is None:
             continue
         total += 1
-        if direction == "above the model estimate" and d > 0:
+        if direction == "above the historical baseline" and d > 0:
             same += 1
-        elif direction == "below the model estimate" and d < 0:
+        elif direction == "below the historical baseline" and d < 0:
             same += 1
     if total == 0:
-        return "Nearby observations are insufficient to confirm spatial extent."
+        return "Other regions do not have enough observations to assess spatial extent."
     frac = same / total
     if frac >= 0.5:
         return (
-            f"{same} of {total} nearby regions show a similar deviation, increasing confidence "
-            "this is a genuine regional signal."
+            f"{same} of {total} other monitored regions show a similar deviation. "
+            "This supports a regional pattern but does not establish its cause."
         )
     return (
-        f"Most nearby regions do not share this deviation ({same}/{total} in the same direction), "
+        f"Most other monitored regions do not share this deviation ({same}/{total} in the same direction), "
         "so spatial extent is currently limited."
     )

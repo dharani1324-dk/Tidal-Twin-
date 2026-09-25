@@ -14,7 +14,7 @@
 ## Core Visualization
 
 - [ ] Cesium renders in a browser — not browser-verified
-- [x] Ocean data loads (760 real observations verified via health + counts)
+- [x] Ocean records load (legacy check reported 768; old REAL labels included Open-Meteo forecasts)
 - [x] Events load (3 detected events after seeding the demonstration anomaly)
 - [x] Cesium bundle/asset copy succeeds during the production build
 
@@ -66,7 +66,7 @@
 - [x] `GET /api/v1/demo/status` reports demonstration data + event honestly
 - [x] `POST /api/v1/demo/seed` creates labelled `SIMULATED` rows (created 8,
       detected 3 events, **0 alerts written**)
-- [x] `POST /api/v1/demo/reset` deleted 8 simulation rows, real rows untouched (760)
+- [x] `POST /api/v1/demo/reset` deleted 8 simulation rows, non-simulated source rows untouched
 - [x] One-click guide navigates the real routes (START TIDE DEMO)
 - [x] `DEMONSTRATION DATA` / `SIMULATED OBSERVATION — DEMONSTRATION ONLY` labels
 

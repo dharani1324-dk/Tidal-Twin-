@@ -14,9 +14,10 @@ results remain explicitly labelled.
 validity claim — see [`docs/SCIENTIFIC_LIMITATIONS.md`](docs/SCIENTIFIC_LIMITATIONS.md))
 
 Built for the Smart India Hackathon. This project is **not another ocean
-viewer** — it streams live ocean data, compares the AI model against reality
-field by field (MODEL | OBSERVED | DEVIATION), scores observation confidence,
-flags model–observation disagreement, explains *why* — then pushes a decision
+viewer** — it combines model forecasts with separately ingested measurement and
+historical products, compares eligible evidence with a prior-measurement
+baseline, reports provenance and heuristic confidence, and explains what can
+and cannot be inferred before supporting a decision
 (safety advisory, alert, risk briefing) to a coastal command center. The 3D
 globe is the interface; validation is the product.
 
@@ -24,8 +25,9 @@ globe is the interface; validation is the product.
 
 ## 📌 Project
 
-**TidalTwin** is a 4D Ocean Digital Twin for the Indian Ocean: a live Cesium
-globe fed by public ocean observations, layered with anomaly detection,
+**TidalTwin** is a 4D Ocean Digital Twin for the Indian Ocean: a Cesium
+globe layered with source-labelled forecasts and any separately ingested public
+measurements, anomaly detection,
 forensics, event fingerprinting, and a decision-support recommendation engine.
 
 ## 💡 Innovation
@@ -53,9 +55,9 @@ not a validated value-of-information model.
 - **Architecture** — 4D Twin → Anomaly Radar → Forensics → Event DNA → TIDE-Loop
   (uncertainty / gaps / disagreement) → prioritisation → evidence → what-if →
   replay → validation.
-- **Benchmark status** — reference run (8 locations, 768 observations, 3 events,
+- **Benchmark status** — reference run (8 locations, 768 stored rows, 3 events,
   budget 1, seed 42): pool non-degenerate; **TIDE ties ANOMALY_ONLY**; **no
-  superiority claimed**.
+  superiority claimed**. The legacy artifact counted Open-Meteo model forecasts among its rows previously labelled REAL.
 - **Scientific limitations** — TIDE is implemented, tested and demonstrated;
   `EMPIRICALLY_VALIDATED` is **not available** (no independent ground truth).
 - **Reproducibility** — environment, seed, dataset and frozen artifacts are
@@ -85,7 +87,6 @@ Full component diagram: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 - Decision Replay (model-only vs TIDE-assisted, read-only)
 - Validation & benchmarking framework (honest, baselines, reproducible)
 - Ocean Copilot (context-aware, evidence-grounded)
-- TIDE Voice Agent (realtime speech-to-speech via Gemini Live, OpenAI fallback; never fabricates data)
 - Phase 9: system health indicator, error boundaries, demonstration mode
 
 ## ▶️ Running the project
@@ -146,13 +147,6 @@ Backend settings come from `backend/.env` (see `backend/.env.example`):
 | `ENVIRONMENT`    | no       | `development`          | Startup warnings/logging |
 | `CORS_ORIGINS`   | no       | `*`                    | Allowed frontend origins |
 | `CESIUM_ION_TOKEN` | optional | empty                | Ion terrain/imagery (base globe works without it) |
-| `GEMINI_API_KEY` | optional | empty           | Enables the TIDE Voice Agent (Gemini Live, see [`docs/TIDE_VOICE_AGENT.md`](docs/TIDE_VOICE_AGENT.md)) |
-| `GEMINI_LIVE_MODEL` | no | `gemini-3.1-flash-live-preview` | Gemini Live model for the voice agent |
-| `GEMINI_LIVE_VOICE` | no | `Kore`           | Gemini Live prebuilt voice |
-| `OPENAI_API_KEY` | optional | empty           | Enables the secondary voice agent (OpenAI Realtime) |
-| `OPENAI_REALTIME_MODEL` | no | `gpt-realtime`    | Realtime model for the voice agent |
-| `OPENAI_REALTIME_VOICE` | no | `cedar`            | Realtime voice (`cedar` male / `marin`) |
-| `VOICE_AGENT_ENABLED` | no | `auto`             | `auto` (enable when key set), `on`, `off` |
 | `VITE_API_BASE_URL` | no    | `http://127.0.0.1:8000`| Frontend → backend base URL |
 
 Startup logs a clear warning for any missing/unsafe configuration. No secrets
@@ -168,7 +162,7 @@ are ever returned by the API or written to logs.
 4. **Seed demonstration data** creates clearly-labelled
    `SIMULATED OBSERVATION — DEMONSTRATION ONLY` rows (via
    `POST /api/v1/demo/seed`). **Reset demo** deletes only simulation rows
-   (`POST /api/v1/demo/reset`) and never touches real observations.
+   (`POST /api/v1/demo/reset`) and preserves all non-simulated source records.
 5. `GET /api/v1/demo/status` reports what demonstration data exists and which
    event is selected as the **DEMONSTRATION EVENT** (practical availability,
    not a scientific ranking).
@@ -187,9 +181,6 @@ See [`docs/DEMO_READINESS.md`](docs/DEMO_READINESS.md) for the verified checklis
 | GET | `/api/v1/tide/events` / `/{id}/replay` | Event index / decision replay |
 | GET | `/api/v1/tide/validation` / `/benchmarks` | Validation + benchmarks |
 | GET/POST | `/api/v1/demo/status` `/seed` `/reset` | Demonstration mode |
-| POST | `/api/v1/voice/session` | Mint a short-lived ephemeral credential (Gemini or OpenAI) |
-| GET | `/api/v1/voice/status` | Voice agent capability + enabled state |
-| POST | `/api/v1/voice/web-search` | Keyless web search (used by the voice agent) |
 
 ## ✅ Testing
 
@@ -207,10 +198,6 @@ npx oxlint          # lint
 npm run build       # production build
 npm test            # unit tests (node --test, pure modules)
 ```
-
-Frontend unit tests cover the voice agent's pure modules (place resolution,
-json-schema validation, intent routing, voice bus TTL/replay, context
-registry); the rest is verified via typecheck + lint + build + Docker health.
 
 Export a machine-readable benchmark artifact (writes a new file, never
 overwrites):
@@ -244,7 +231,6 @@ See [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) and
 | [`docs/TIDE_BENCHMARK_PROTOCOL.md`](docs/TIDE_BENCHMARK_PROTOCOL.md) | Fair benchmark methodology |
 | [`docs/TIDE_VALIDATION_REPORT.md`](docs/TIDE_VALIDATION_REPORT.md) | Actual validation/benchmark results |
 | [`docs/DEMO_READINESS.md`](docs/DEMO_READINESS.md) | Verified demo checklist |
-| [`docs/TIDE_VOICE_AGENT.md`](docs/TIDE_VOICE_AGENT.md) | Voice agent: architecture, endpoints, tools, running |
 | [`docs/FINAL_DEMO_CHECKLIST.md`](docs/FINAL_DEMO_CHECKLIST.md) | Before / during / backup demo checklist |
 | [`docs/FINAL_ENGINEERING_REPORT.md`](docs/FINAL_ENGINEERING_REPORT.md) | Final status + evidence |
 | [`docs/ENDPOINTS.md`](docs/ENDPOINTS.md) | Full served-endpoint inventory |
@@ -384,7 +370,7 @@ What happens on startup (automatically):
 2. Backend container waits for the DB, then:
    - creates all tables (`init_db`)
    - seeds the 8 Indian coastal locations (`seed_data`)
-   - pulls live ocean observations from Open-Meteo (`refresh_ocean_data` — best effort)
+   - pulls model-derived marine forecasts from Open-Meteo (`refresh_ocean_data` — best effort)
 3. Frontend container serves the app and proxies every `/api/...` call to the backend.
 
 Stop everything:

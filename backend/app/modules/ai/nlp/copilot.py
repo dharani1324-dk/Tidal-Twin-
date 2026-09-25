@@ -329,22 +329,37 @@ def _suggest_for(intent: str) -> list[str]:
 # Intent answers (with citations)
 # ---------------------------------------------------------------------------
 
-SOURCE_API = "Open-Meteo Marine"
+SOURCE_API = "Open-Meteo Marine forecast"
 SOURCE_ENGINE = "TidalTwin engine"
 
 
 def ans_current(db, loc, variables) -> dict:
-    obs = (
+    from app.modules.ai.provenance_quality import origin_status
+
+    candidates = (
         db.query(OceanObservation)
         .filter(OceanObservation.location_id == loc.id)
         .order_by(OceanObservation.timestamp.desc())
-        .first()
+        .limit(200)
+        .all()
+    )
+    now = datetime.now(timezone.utc)
+    direct = [row for row in candidates
+              if origin_status(row.source, row.data_type) in ("REAL", "HISTORICAL", "SATELLITE_DERIVED")
+              and (row.timestamp.replace(tzinfo=timezone.utc) if row.timestamp.tzinfo is None else row.timestamp) <= now]
+    forecasts = [row for row in candidates
+                 if origin_status(row.source, row.data_type) == "MODEL_DERIVED"]
+    obs = direct[0] if direct else min(
+        forecasts,
+        key=lambda row: abs(((row.timestamp.replace(tzinfo=timezone.utc) if row.timestamp.tzinfo is None else row.timestamp) - now).total_seconds()),
+        default=None,
     )
     if obs is None:
-        return {"answer": f"I don't have live readings for **{loc.name}** yet.",
+        return {"answer": f"I don't have a measured reading or model forecast for **{loc.name}** yet.",
                 "intent": "current", "location": loc.name, "location_id": loc.id,
                 "data": None, "suggestions": _suggest_for("current"),
-                "sources": [SOURCE_API], "steps": ["Located coast", "Read latest observation"]}
+                "sources": [SOURCE_API], "steps": ["Located coast", "Checked available records"]}
+    status = origin_status(obs.source, obs.data_type)
     rows, units = [], {"temperature": "°C", "waves": "m", "salinity": "PSU", "current": "m/s"}
     if (not variables or "temperature" in variables) and obs.sea_surface_temperature is not None:
         rows.append(("Sea surface temperature", f"{obs.sea_surface_temperature:.1f} °C", "#0ea5e9"))
@@ -354,30 +369,33 @@ def ans_current(db, loc, variables) -> dict:
         rows.append(("Salinity", f"{obs.salinity:.1f} PSU", "#a78bfa"))
     if "current" in variables and obs.current_speed is not None:
         rows.append(("Current speed", f"{obs.current_speed:.2f} m/s", "#22d3ee"))
-    if not rows:
-        rows.append(("Latest reading time", obs.timestamp.strftime("%H:%M IST"), "#94a3b8"))
-
-    answer_parts = [f"At **{loc.name}** right now:"]
-    for label, value, _ in rows[:3]:
-        answer_parts.append(f"- {label}: **{value}**")
     ts = obs.timestamp
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=timezone.utc)
-    answer_parts.append(f"_Observed {ts.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime('%H:%M IST')}._")
+    local_time = ts.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime("%H:%M IST")
+    if not rows:
+        rows.append(("Record time", local_time, "#94a3b8"))
+
+    kind = {
+        "MODEL_DERIVED": "Model forecast",
+        "HISTORICAL": "Latest historical record",
+        "SATELLITE_DERIVED": "Latest satellite-derived record",
+        "REAL": "Latest measured record",
+    }.get(status, "Latest source record")
+    answer_parts = [f"{kind} for **{loc.name}** (valid at {local_time}):"]
+    answer_parts.extend(f"- {label}: **{value}**" for label, value, _ in rows[:3])
+    answer_parts.append(f"_Source: {obs.source or 'unknown'} · Evidence class: {status}._")
 
     real_notes, real_sources = _real_grid_notes(db, loc)
     if real_notes:
-        answer_parts.append("")
-        answer_parts.append("_Real ingested grid (not simulated):_")
-        answer_parts.extend(real_notes)
-
-    sources = [SOURCE_API, *real_sources]
+        answer_parts.extend(["", "_Real ingested grid values (separate from this record):_", *real_notes])
     return {"answer": "\n".join(answer_parts), "intent": "current",
             "location": loc.name, "location_id": loc.id,
-            "data": _metrics(rows), "suggestions": _suggest_for("current"),
-            "sources": sources,
-            "steps": ["Located coast", "Read latest observation",
-                      *(["Cross-checked real NOAA grid(s)"] if real_notes else [])]}
+            "data": _metrics(rows), "data_status": status, "source": obs.source,
+            "suggestions": _suggest_for("current"),
+            "sources": [obs.source or SOURCE_API, *real_sources],
+            "steps": ["Located coast", "Selected the nearest eligible record",
+                      *( ["Cross-checked real NOAA grid(s)"] if real_notes else [])]}
 
 
 def _real_grid_notes(db, loc):
@@ -1108,7 +1126,7 @@ def ans_brief(db, loc) -> dict:
     evidence = []
     sources = []
     if live_obs is not None:
-        evidence.append(f"- [Open-Meteo Marine] Latest observation row feeds the live picture.")
+        evidence.append(f"- [Open-Meteo Marine forecast] Forecast rows provide model context; they are not measurements.")
         sources.append(SOURCE_API)
     if row is not None and disagreement is not None:
         evidence.append(

@@ -195,6 +195,10 @@ class TideEngine:
         decision = "INVESTIGATE_ANOMALY" if impact >= .65 else "INCREASE_MONITORING" if gap >= .5 else "CONTINUE_MONITORING"
         limitations = ["Scores are transparent heuristics, not a validated value-of-information model."]
         if disagreement["observed_value"] is None: limitations.append("No supported observed value was available for this variable/depth comparison.")
+        if disagreement["observed_value"] is not None and disagreement.get("representativeness_km") is not None:
+            limitations.append(
+                "Observed reference is the nearest real in-situ Argo float (~{:.0f} km from the {} coast centroid); the comparison is basin-scale, not co-located.".format(
+                    disagreement["representativeness_km"], location.name))
         return {"candidate_id": f"tide-{location.id}-{variable}-{int(depth_m)}-{method.lower()}", "location_id": location.id,
                 "location": location.name, "latitude": lat, "longitude": lon, "depth_m": depth_m, "variable": variable,
                 "observation_type": method, "status": "MODEL_DERIVED", **score, "affected_decision": decision,

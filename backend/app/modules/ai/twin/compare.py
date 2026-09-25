@@ -6,12 +6,11 @@ computes the numerical-model estimate and the real observation value,
 their difference, percentage difference, observation quality, temporal
 and spatial alignment, and a transparent confidence score.
 
-Honesty contract:
-    * temperature / wave_height / wave_direction comparisons are REAL
-      (Open-Meteo Marine observations vs the history-conditioned model).
-    * salinity / current_speed have no in-situ columns populated yet, so
-      they are reported as ``data_status = unavailable`` rather than faked.
-    * demo rows (source SIMULATED_HEATWAVE) are flagged ``demo``.
+Evidence contract:
+    * Open-Meteo values are model forecasts, never direct observations.
+    * comparisons use only records classified as measured, historical,
+      or satellite-derived evidence.
+    * model forecasts and simulated rows are excluded from observed evidence.
 """
 
 import math
@@ -23,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.models.location import OceanLocation
 from app.models.observation import OceanObservation
+from app.modules.ai.provenance_quality import assess_record, origin_status
 from app.modules.ai.twin import confidence as conf
 from app.modules.ai.validation.engine import _baseline, _latest_rows
 
@@ -93,7 +93,10 @@ def data_status_for(source: str, ts: datetime | None, now: datetime | None = Non
     """Classify an observation row as live / recent / cached / demo."""
     if not ts:
         return "unavailable"
-    if source and source.upper().startswith(SIMULATED_PREFIX):
+    origin = origin_status(source, None)
+    if origin == "MODEL_DERIVED":
+        return "forecast"
+    if origin in ("SYNTHETIC", "SIMULATED"):
         return "demo"
     now = now or datetime.now(timezone.utc)
     age_h = max(0.0, (now - _aware(ts)).total_seconds() / 3600.0)
@@ -138,15 +141,14 @@ def _band(status: str, diff: float | None, variable: str) -> str:
 
 def _model_value(variable: str, obs: list) -> tuple[float | None, str]:
     """
-    Numerical-model estimate = history-conditioned normal (mean of all
-    observations except the very latest), the same explainable statistical
-    model used by the Model Validation engine.
+    Historical reference = mean of prior eligible measurements; this is
+    not an independent numerical model.
     """
     meta = VARIABLES[variable]
     values = _values_for(obs, meta["column"])
     model = _baseline(values)
     if model is None:
-        return None, "Not enough history to form a model estimate."
+        return None, "Not enough eligible history to form a historical baseline."
     return round(float(model), 3), None
 
 
@@ -154,7 +156,7 @@ def _observation_value(variable: str, obs: list) -> tuple[float | None, str | No
     meta = VARIABLES[variable]
     values = [v for v in _values_for(obs, meta["column"]) if v is not None]
     if not values:
-        return None, "No in-situ observation available for this variable."
+        return None, "No eligible measurement is available for this variable."
     return round(float(values[-1]), 3), None
 
 
@@ -172,16 +174,25 @@ def compare(
     window: int = 96,
 ) -> dict:
     """
-    Full model-vs-observation comparison for one location + variable.
+    Compare the latest eligible measurement with the prior-measurement mean.
 
-    Returns a dict suitable for serialisation by the twin router. Every
-    value is derived from database rows; nothing is randomised.
+    The reference is historical context, not an independent forecast model.
     """
     meta = VARIABLES.get(variable)
     if meta is None:
         return {"error": f"Unknown variable '{variable}'", "data_status": "unavailable"}
     role = meta.get("role", "observation")
-    obs = _latest_rows(db, loc, window=window)
+    # Forecast/model/simulated rows are not valid substitutes for observed evidence.
+    query = (db.query(OceanObservation)
+             .filter(OceanObservation.location_id == loc.id)
+             .order_by(OceanObservation.timestamp.desc()))
+    obs_desc = []
+    for row in query.yield_per(max(1, window)):
+        if origin_status(row.source, row.data_type) in ("REAL", "HISTORICAL", "SATELLITE_DERIVED"):
+            obs_desc.append(row)
+            if len(obs_desc) >= window:
+                break
+    obs = list(reversed(obs_desc))
     ll = _loc_latlon(loc)
     now = datetime.now(timezone.utc)
 
@@ -204,8 +215,24 @@ def compare(
             "status": "no data",
             "severity": "none",
             "data_status": "unavailable",
-            "note": "No observations exist for this location yet.",
-            "model_note": "n/a",
+            "available": False,
+            "comparison_kind": "OBSERVATION_VS_HISTORICAL_BASELINE",
+            "provenance_status": "MODEL_DERIVED" if db.query(OceanObservation).filter(
+                OceanObservation.location_id == loc.id,
+                OceanObservation.source.like("%Open-Meteo%"),
+            ).first() else "UNKNOWN",
+            "model_forecast_records": (
+                db.query(OceanObservation).filter(
+                    OceanObservation.location_id == loc.id,
+                    OceanObservation.source.like("%Open-Meteo%"),
+                ).count()
+            ),
+            "note": (
+                "No direct measurement is available from the current source for this comparison. "
+                "Open-Meteo values are model forecasts and are not treated as observed evidence."
+            ),
+            "model_note": "No historical measurement baseline is available.",
+
             "observation_note": "n/a",
         }
 
@@ -275,7 +302,11 @@ def compare(
         "label": meta["label"],
         "unit": meta["unit"],
         "depth_m": depth_m,
-        "model": model,
+        "model": model,  # compatibility alias for the historical baseline
+        "baseline": model,
+        "baseline_method": "mean of prior eligible measurements; not an independent numerical model",
+        "comparison_kind": "OBSERVATION_VS_PRIOR_OBSERVATION_MEAN",
+        "available": observed is not None and model is not None,
         "observed": observed,
         "difference": diff,
         "percent_difference": pct,
@@ -286,16 +317,19 @@ def compare(
         "observation_time": observation_time,
         "model_time": model_time,
         "observation_source": observation_source,
+        "provenance_status": origin_status(observation_source, obs[-1].data_type),
+        "provenance": assess_record(obs[-1], loc, now),
         "temporal_distance_h": round(0.0, 2),
         "spatial_distance_km": round(0.0, 2),
-        "spatial_note": "co-located: observed and model grid refer to the same station point.",
+        "spatial_note": "The observation and historical baseline use the same location time series; this is not an independent model-grid comparison.",
         "confidence": confidence[0],
         "confidence_level": confidence[1],
         "confidence_factors": confidence[2],
         "confidence_reasons": confidence[3],
         "model_note": model_note,
         "observation_note": obs_note,
-        "note": "Model estimate = history-conditioned normal; observed = latest in-situ reading.",
+        "confidence_basis": "Heuristic score from eligible-record count, spread, source label and record age; not a probability that the cause is correct.",
+        "note": "Historical baseline = mean of earlier eligible measurements; observed = latest eligible measurement. This is not an independent numerical-model comparison.",
     }
 
 

@@ -567,7 +567,7 @@ function FuturePane({ windows, loading }: { windows: FutureWindow[]; loading: bo
               </div>
               <div className="lab-horizon-src">
                 <Database size={12} />
-                {w.data_sources.length > 0 ? w.data_sources.join(', ') : 'Open-Meteo Marine reanalysis'}
+                {w.data_sources.length > 0 ? w.data_sources.join(', ') : 'Open-Meteo Marine forecast'}
               </div>
             </div>
           )

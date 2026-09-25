@@ -59,6 +59,10 @@ export interface DemoStatusResponse {
   total_observations: number
   simulated_observations: number
   real_observations: number
+  eligible_evidence_records?: number
+  historical_records?: number
+  satellite_derived_records?: number
+  model_derived_records?: number
   sources: DemoSource[]
   detected_events: number
   demonstration_event: DemonstrationEvent
