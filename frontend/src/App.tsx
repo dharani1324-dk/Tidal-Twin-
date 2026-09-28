@@ -5,7 +5,7 @@ import {
   Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, BookOpen,
   LifeBuoy, Siren, Scale, Search, Brain, FlaskConical, Sparkles, Anchor,
   Bell, Menu, X, Radio, Satellite, Database, CircleUser, Command, ShieldAlert, Sparkle,
-  AlertTriangle, Crosshair, History, ShieldCheck, LayoutDashboard, Palette, Droplets,
+  AlertTriangle, LayoutDashboard, Palette, Droplets,
   Gauge, Activity, TestTube2,
 } from 'lucide-react'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -30,9 +30,6 @@ const ScenarioLab = lazy(() => import('./pages/ScenarioLab'))
 const OceanVision = lazy(() => import('./pages/OceanVision'))
 const CoastalIntel = lazy(() => import('./pages/CoastalIntel'))
 const AnomalyIntel = lazy(() => import('./pages/AnomalyIntel'))
-const Tide = lazy(() => import('./pages/Tide'))
-const DecisionReplay = lazy(() => import('./pages/DecisionReplay'))
-const TideValidation = lazy(() => import('./pages/TideValidation'))
 const Microplastics = lazy(() => import('./pages/Microplastics'))
 const MicroplasticsDashboard = lazy(() => import('./pages/MicroplasticsDashboard'))
 const Deoxygenation = lazy(() => import('./pages/Deoxygenation'))
@@ -72,9 +69,6 @@ const NAV_GROUPS: NavSpec[] = [
       { to: '/anomalies', label: 'Anomaly Intel', icon: AlertTriangle },
       { to: '/forensics', label: 'Ocean Forensics', icon: Search },
       { to: '/intelligence', label: 'Decision Intelligence', icon: Brain },
-      { to: '/tide', label: 'TIDE Command Center', icon: Crosshair },
-      { to: '/tide/replay', label: 'Decision Replay', icon: History },
-      { to: '/tide/validation', label: 'TIDE Validation', icon: ShieldCheck },
       { to: '/scenarios', label: 'Scenario Lab', icon: FlaskConical },
     ],
   },
@@ -104,25 +98,22 @@ const NAV_GROUPS: NavSpec[] = [
 
 const FLAT_NAV = NAV_GROUPS.flatMap((g) => g.items)
 
-/** 9-phase mission workflow — the stewardship arc every tool serves.
+/** 7-stage ocean workflow — the stewardship arc every tool serves.
     Shown as a context rail under the system bar across the whole platform. */
 const STAGES: { n: number; label: string; to: string }[] = [
   { n: 1, label: 'OBSERVE', to: '/globe' },
   { n: 2, label: 'DETECT', to: '/anomalies' },
   { n: 3, label: 'INVESTIGATE', to: '/forensics' },
   { n: 4, label: 'UNDERSTAND', to: '/intelligence' },
-  { n: 5, label: 'PRIORITIZE', to: '/tide' },
-  { n: 6, label: 'OBSERVE NEXT', to: '/oceanvision?tab=recommend' },
-  { n: 7, label: 'SIMULATE', to: '/scenarios' },
-  { n: 8, label: 'DECIDE', to: '/tide/replay' },
-  { n: 9, label: 'VALIDATE', to: '/validate' },
+  { n: 5, label: 'OBSERVE NEXT', to: '/oceanvision?tab=recommend' },
+  { n: 6, label: 'SIMULATE', to: '/scenarios' },
+  { n: 7, label: 'VALIDATE', to: '/validate' },
 ]
 
 /** Resolve the current stage index (0-based, -1 when off-workflow). */
 function stageIndexFor(pathname: string): number {
-  if (pathname.startsWith('/tide/replay')) return 7
-  if (pathname.startsWith('/tide/validation') || pathname.startsWith('/validate')) return 8
-  if (pathname.startsWith('/tide') || pathname.startsWith('/intelligence')) return 4
+  if (pathname.startsWith('/validate')) return 6
+  if (pathname.startsWith('/intelligence')) return 3
   if (pathname.startsWith('/globe') || pathname.startsWith('/monitoring')) return 0
   if (pathname.startsWith('/anomalies') || pathname.startsWith('/microplastics')) return 1
   if (pathname.startsWith('/forensics')) return 2
@@ -275,7 +266,7 @@ export default function App() {
           <span className="brand-name">Warming System</span>
           <span className="pulse-dot ok" title="System Operational" />
         </div>
-        <span className="brand-sub">TIDE · Ocean Intelligence</span>
+        <span className="brand-sub">Ocean Intelligence</span>
       </div>
     </div>
   )
@@ -300,9 +291,6 @@ export default function App() {
               )}
               {to === '/validate' && (
                 <span className="nav-badge-pill warn" title="Active Model Disagreement">GOA</span>
-              )}
-              {to === '/tide' && (
-                <span className="nav-badge-pill live" title="TIDE-Loop Active">TIDE</span>
               )}
             </NavLink>
           ))}
@@ -468,9 +456,6 @@ export default function App() {
               <Route path="/anomalies" element={guard('Anomaly Intel', <AnomalyIntel />)} />
               <Route path="/forensics" element={guard('Ocean Forensics', <Forensics />)} />
               <Route path="/intelligence" element={guard('Decision Intelligence', <Intelligence />)} />
-              <Route path="/tide" element={guard('TIDE Command Center', <Tide />)} />
-              <Route path="/tide/replay" element={guard('Decision Replay', <DecisionReplay />)} />
-              <Route path="/tide/validation" element={guard('TIDE Validation', <TideValidation />)} />
               <Route path="/oceanvision" element={guard('Ocean Vision', <OceanVision />)} />
               <Route path="/coastal" element={guard('Coastal Intel', <CoastalIntel />)} />
               <Route path="/microplastics" element={guard('Microplastics', <Microplastics />)} />

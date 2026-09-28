@@ -7,7 +7,7 @@ ecosystem observations.
 
 This package deliberately does **not** introduce a second observation store.
 It extends the existing `OceanObservation` contract, the existing source
-registry (`app.modules.ai.twin.sources`) and the existing TIDE scoring engine.
+registry (`app.modules.ai.twin.sources`).
 
 Modules
 -------

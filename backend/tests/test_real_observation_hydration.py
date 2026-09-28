@@ -82,22 +82,6 @@ class TestRealObservationHydration(unittest.TestCase):
             self.assertIn(str(location.id), hydrated, f"location {location.id} missing real in-situ reference")
             self.assertIn("float_id", hydrated[str(location.id)])
 
-    def test_tide_verdict_consumes_real_rows(self):
-        from app.modules.ai.tide.engine import TideEngine
-        from app.modules.ai.tide.adapters import latest_observation
-
-        db = self._db()
-        hydrate_real_observations(db)
-        latest = latest_observation(db, 1)
-        self.assertIsNotNone(latest, "Mumbai coast should have a REAL latest observation")
-        self.assertEqual(origin_status(latest.source, latest.data_type), "REAL")
-        self.assertIsNotNone(latest.source)
-        verdict = TideEngine(db).verdict(location_id=1, variable="temperature", depth_m=0.0)
-        self.assertIsNotNone(verdict)
-        self.assertIn("verdict", verdict)
-        self.assertIn("evidence", verdict)
-        self.assertGreaterEqual(len(verdict["evidence"]), 0)
-
     def test_noop_when_guard_has_no_surface_reference(self):
         # The pure guard path: with no float assignments the service reports
         # status "noop" instead of fabricating rows. (Real rows exist in the

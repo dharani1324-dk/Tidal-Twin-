@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     # Release identity (NOT a scientific maturity claim - see
     # docs/SCIENTIFIC_LIMITATIONS.md).
     VERSION: str = "1.0.0"
-    RELEASE_NAME: str = "TIDE-Loop"
+    RELEASE_NAME: str = "OceanVerse AI"
 
     # "development" | "production" - controls startup warnings/logging verbosity.
     ENVIRONMENT: str = "development"

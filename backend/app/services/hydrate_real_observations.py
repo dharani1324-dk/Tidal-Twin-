@@ -2,8 +2,8 @@
 TidalTwin - REAL In-Situ Observation Hydration
 =================================================
 Bridges the REAL Argo GDAC surface measurements already ingested into
-``argo_profiles`` into the shared ``ocean_observations`` store so TIDE,
-Twin comparison, and the validation stack can score them as REAL measured
+``argo_profiles`` into the shared ``ocean_observations`` store so Twin
+comparison and the validation stack can score them as REAL measured
 evidence.
 
 Design principles (honesty first):
@@ -135,8 +135,6 @@ def _assign_locations(db: Session, samples: list[dict[str, Any]]) -> dict[int, t
 def hydrate_real_observations(db: Session) -> dict[str, Any]:
     """Replace the app-managed REAL in-situ rows with the freshest surface
     cycles from the REAL Argo profiles on record. Idempotent."""
-    from app.modules.ai.tide.adapters import invalidate_caches
-
     samples = _surface_samples(db)
     if not samples:
         return {
@@ -200,7 +198,6 @@ def hydrate_real_observations(db: Session) -> dict[str, Any]:
         }
 
     db.commit()
-    invalidate_caches()
     return {
         "status": "hydrated",
         "hydrated": total,

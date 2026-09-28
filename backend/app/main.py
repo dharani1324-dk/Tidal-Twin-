@@ -34,7 +34,6 @@ from app.api.twin import router as twin_router
 from app.api.currents import router as currents_router
 from app.api.edr import router as edr_router
 from app.api.lens import router as lens_router
-from app.api.tide import router as tide_router
 from app.api.argo import router as argo_router
 from app.api.ersst import router as ersst_router
 from app.api.chlor import router as chlor_router
@@ -58,7 +57,7 @@ def _hydrate_real_observations() -> None:
     """Best-effort feed of the REAL in-situ observation stream before boot.
 
     Bridges the real Argo surface cycles into the shared observation store so
-    TIDE/Twin/validation score REAL measured evidence rather than an empty or
+    Twin/validation score REAL measured evidence rather than an empty or
     forecast-only stream. Never blocks or crashes startup.
     """
     from app.core.database import SessionLocal
@@ -75,26 +74,6 @@ def _hydrate_real_observations() -> None:
         db.close()
 
 
-def _warm_tide_cache() -> None:
-    """Best-effort warm-up of the expensive TIDE shared inputs.
-
-    Without this, the first TIDE request in a fresh process pays the full
-    computation cost (~5s on the live dataset).  Runs off the event loop and
-    never blocks or crashes startup.
-    """
-    from app.core.database import SessionLocal
-    from app.modules.ai.tide.engine import TideEngine
-
-    db = SessionLocal()
-    try:
-        TideEngine(db).rankings()
-        logger.info("TIDE shared-input cache warmed.")
-    except Exception:  # pragma: no cover - startup resilience
-        logger.warning("TIDE cache warm-up skipped.", exc_info=True)
-    finally:
-        db.close()
-
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Start the background live-broadcast task on boot, stop it on shutdown."""
@@ -102,7 +81,7 @@ async def lifespan(_: FastAPI):
     for issue in settings.validate_environment():
         logger.warning("configuration: %s", issue)
     task = asyncio.create_task(broadcast_loop())
-    # Feed the REAL in-situ stream BEFORE warming TIDE, so the warmed cache is
+    # Feed the REAL in-situ stream before serving requests so summaries are
     # built on real measured evidence. Best-effort and bounded like the warm-up.
     try:
         await asyncio.wait_for(asyncio.to_thread(_hydrate_real_observations), timeout=30)
@@ -110,17 +89,6 @@ async def lifespan(_: FastAPI):
         logger.warning("Real in-situ hydration exceeded 30s; continuing without it.")
     except Exception:  # pragma: no cover - defensive
         logger.warning("Real in-situ hydration failed; continuing.", exc_info=True)
-    # Warm the expensive TIDE shared inputs BEFORE serving requests. This is
-    # awaited (not fire-and-forget) so the first TIDE-heavy request - e.g. the
-    # demonstration guide opening /api/v1/demo/status - is fast instead of
-    # racing the warm-up and paying the full ~6-13s computation cost. It is
-    # bounded by a timeout so a slow/unreachable database cannot block startup.
-    try:
-        await asyncio.wait_for(asyncio.to_thread(_warm_tide_cache), timeout=60)
-    except asyncio.TimeoutError:
-        logger.warning("TIDE cache warm-up exceeded 60s; continuing without it.")
-    except Exception:  # pragma: no cover - defensive
-        logger.warning("TIDE cache warm-up failed; continuing.", exc_info=True)
     try:
         yield
     finally:
@@ -197,7 +165,6 @@ app.include_router(twin_router)
 app.include_router(currents_router)
 app.include_router(edr_router)
 app.include_router(lens_router)
-app.include_router(tide_router)
 app.include_router(argo_router)
 app.include_router(ersst_router)
 app.include_router(chlor_router)

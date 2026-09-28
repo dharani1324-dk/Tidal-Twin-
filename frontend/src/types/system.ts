@@ -40,7 +40,6 @@ export interface DemonstrationEvent {
   data_status?: string | null
   completeness_score?: number
   criteria?: string[]
-  candidate_count?: number
   reason: string
   candidates_considered?: number
 }

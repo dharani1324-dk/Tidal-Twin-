@@ -76,7 +76,7 @@ def _demo_rows(db: Session, loc: OceanLocation, window: int = OBS_WINDOW) -> lis
     """Latest clearly-labelled SIMULATED/SYNTHETIC demo rows, chronological.
 
     Used only to surface DEMONSTRATION events; these rows are never counted as
-    real evidence by the validation, confidence or TIDE scoring paths.
+    real evidence by the validation and confidence paths.
     """
     from app.modules.ai.provenance_quality import origin_status
 

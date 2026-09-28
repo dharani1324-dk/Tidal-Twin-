@@ -15,7 +15,6 @@ Design notes
 
 from __future__ import annotations
 
-import time
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
@@ -35,12 +34,6 @@ AVAILABLE = "AVAILABLE"
 LIMITED = "LIMITED"
 UNAVAILABLE = "UNAVAILABLE"
 OPTIONAL = "OPTIONAL / UNAVAILABLE"
-
-# Small in-process TTL cache so frequent status polling does not re-run the
-# heavier TIDE candidate build on every request.
-_TIDE_CACHE: dict[str, tuple[float, dict]] = {}
-_TIDE_TTL_SECONDS = 30.0
-
 
 def _check_backend() -> dict:
     return {
@@ -107,41 +100,6 @@ def _check_ocean_data(db: Session) -> dict:
     }
 
 
-def _check_tide(db: Session) -> dict:
-    """Lightweight TIDE probe.
-
-    Building the full candidate ranking is intentionally NOT done here: it is a
-    request-time computation over every location, and folding it into a health
-    poll would make the endpoint slow.  Instead we verify the scoring contract
-    loads and responds, and report that candidate ranking is computed per request.
-    """
-    now = time.monotonic()
-    cached = _TIDE_CACHE.get("tide")
-    if cached and now - cached[0] < _TIDE_TTL_SECONDS:
-        return cached[1]
-    try:
-        from app.modules.ai.tide import scoring
-
-        probe = scoring.calculate_observation_value(
-            {
-                "decision_impact": 0.5,
-                "uncertainty": 0.5,
-                "data_gap": 0.5,
-                "anomaly_persistence": 0.5,
-                "observation_cost": scoring.METHOD_COSTS["BUOY"],
-            }
-        )
-        value = probe.get("observation_value")
-        result = {
-            "status": AVAILABLE if value is not None else LIMITED,
-            "detail": f"TIDE scoring v{scoring.TIDE_ALGORITHM_VERSION} loaded; candidate ranking is computed per request.",
-        }
-    except Exception as exc:  # pragma: no cover - defensive
-        result = {"status": UNAVAILABLE, "detail": f"TIDE scoring unavailable: {type(exc).__name__}."}
-    _TIDE_CACHE["tide"] = (now, result)
-    return result
-
-
 def _check_copilot() -> dict:
     try:
         from app.modules.ai.nlp import copilot
@@ -170,7 +128,7 @@ def _overall(checks: dict[str, dict]) -> str:
         return "unavailable"
     if checks["database"]["status"] != AVAILABLE:
         return "unavailable"
-    core = [checks["ocean_data"], checks["tide"]]
+    core = [checks["ocean_data"]]
     if any(c["status"] == UNAVAILABLE for c in core):
         return "degraded"
     return "healthy"
@@ -182,7 +140,6 @@ def build_health(db: Session) -> dict:
         "backend": _check_backend(),
         "database": _check_database(db),
         "ocean_data": _check_ocean_data(db),
-        "tide": _check_tide(db),
         "copilot": _check_copilot(),
         "cesium": _check_cesium(),
     }

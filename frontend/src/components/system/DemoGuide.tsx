@@ -1,5 +1,5 @@
 /**
- * Phase 9 — one-click TIDE demonstration launcher + dismissible guide.
+ * One-click ocean demonstration launcher + dismissible guide.
  *
  * The guide only NAVIGATES the real application. It never fabricates a
  * calculation or animation. Demonstration data is always labelled.
@@ -93,17 +93,17 @@ export default function DemoGuide() {
         className={`demo-launch ${open ? 'active' : ''}`}
         onClick={openGuide}
         aria-expanded={open}
-        title="Start the guided TIDE demonstration"
+        title="Start the guided ocean demonstration"
       >
         <Beaker size={13} />
-        <span>{hidden ? 'RESUME DEMO' : 'START TIDE DEMO'}</span>
+        <span>{hidden ? 'RESUME DEMO' : 'START OCEAN DEMO'}</span>
       </button>
 
       {open && (
-        <aside className="demo-guide" role="dialog" aria-label="TIDE demonstration guide">
+        <aside className="demo-guide" role="dialog" aria-label="Ocean demonstration guide">
           <header className="demo-guide-head">
             <div>
-              <b>TIDE DEMONSTRATION</b>
+              <b>OCEAN DEMONSTRATION</b>
               <span className="demo-guide-sub">
                 {status?.demo_data_present ? 'DEMONSTRATION DATA active' : 'No demonstration data loaded'}
               </span>
@@ -143,7 +143,7 @@ export default function DemoGuide() {
                   <b>DEMONSTRATION EVENT</b>
                   <span>
                     {demoEvent.label ?? demoEvent.event_type} — {demoEvent.location}
-                    {typeof demoEvent.completeness_score === 'number' && ` · ${demoEvent.completeness_score}/4 criteria`}
+                    {typeof demoEvent.completeness_score === 'number' && ` · ${demoEvent.completeness_score}/3 criteria`}
                   </span>
                   <em>{demoEvent.reason}</em>
                 </>

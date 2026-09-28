@@ -13,7 +13,7 @@ DESIGN NOTES
   than duplicates.
 
 * The overview payload is cached in-process with a TTL, the same pattern the
-  TIDE engine uses.  There is no Redis in this project and no reason to add one.
+  shared analysis uses.  There is no Redis in this project and no reason to add one.
 
 * Nothing here fabricates.  Every empty result carries a reason, and the
   coverage report states how much of the picture is real measurements versus

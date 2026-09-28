@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Activity, AlertTriangle, Database, Droplets, GitCompare, Layers, Navigation, Orbit,
-  Radar, Route, Satellite, ScanLine, Crosshair,
+  Radar, Route, Satellite, Crosshair,
 } from 'lucide-react'
 import {
   fetchAnomalies,
@@ -15,7 +15,6 @@ import {
   fetchModelGridVectors,
   fetchRealArgoFloats,
   fetchSituation,
-  fetchTideCandidates,
   fetchTwinDisagreement,
   fetchUncertainty,
 } from '../api/client'
@@ -81,19 +80,6 @@ interface SourceRow {
   coverage_pct?: number
   last_update?: string
   note?: string
-}
-
-interface TideRow {
-  candidate_id?: string
-  location: string
-  variable: string
-  location_id: number
-  observation_type?: string
-  status?: string
-  observation_value?: number
-  expected_uncertainty_reduction?: number
-  observation_cost?: number
-  affected_decision?: string
 }
 
 function unwrap<T>(d: unknown): T {
@@ -177,8 +163,6 @@ export default function DataLayers() {
   const [disLoading, setDisLoading] = useState(true)
   const [anomalies, setAnomalies] = useState<AnomalyPoint[]>([])
   const [anLoading, setAnLoading] = useState(true)
-  const [tide, setTide] = useState<TideRow[]>([])
-  const [tideLoading, setTideLoading] = useState(true)
   const [uncRegions, setUncRegions] = useState<Record<string, unknown>[]>([])
   const [uncLoading, setUncLoading] = useState(true)
   const [sit, setSit] = useState<AgSit | null>(null)
@@ -268,11 +252,6 @@ export default function DataLayers() {
       .then((d) => setAnomalies(arrayOrEmpty<AnomalyPoint>(d?.anomalies)))
       .catch(() => setAnomalies([]))
       .finally(() => setAnLoading(false))
-
-    fetchTideCandidates({})
-      .then((d) => setTide(arrayOrEmpty<TideRow>(unwrap<unknown>(d))))
-      .catch(() => setTide([]))
-      .finally(() => setTideLoading(false))
 
     fetchUncertainty()
       .then((d) => setUncRegions(arrayOrEmpty<Record<string, unknown>>(d?.regions)))
@@ -542,34 +521,6 @@ export default function DataLayers() {
                 )}
                 <span>conf {a.confidence}</span>
               </div>
-            </div>
-          ))}
-          </Scroll>}
-        </Card>
-
-        <Card title="TIDE Candidates" icon={<ScanLine size={16} />} count={`${tide.length} MARKERS`}>
-          <Loading busy={tideLoading} empty="No TIDE candidates." label="TIDE candidates" />
-          {!tideLoading && <Scroll>
-            {tide.map((c, i) => (
-            <div className="dl-item" key={`${c.candidate_id ?? c.location_id}-${i}`}>
-              <div className="dl-item-top">
-                <b>{c.location}</b>
-                <span className="dl-meta">#{i + 1} {c.variable}</span>
-              </div>
-              <div className="dl-item-meta">
-                {c.observation_type && <span>{c.observation_type}</span>}
-                {c.status && <span>{c.status}</span>}
-                {c.observation_value != null && <span>value {c.observation_value.toFixed(3)}</span>}
-                {c.expected_uncertainty_reduction != null && (
-                  <span>−unc {c.expected_uncertainty_reduction.toFixed(3)}</span>
-                )}
-                {c.observation_cost != null && <span>cost {c.observation_cost.toFixed(2)}</span>}
-              </div>
-              {c.affected_decision && (
-                <div className="dl-item-meta">
-                  <span className="dl-decision">{String(c.affected_decision).replace(/_/g, ' ')}</span>
-                </div>
-              )}
             </div>
           ))}
           </Scroll>}

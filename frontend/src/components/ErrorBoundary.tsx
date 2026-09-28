@@ -1,7 +1,7 @@
 /**
  * Phase 9 — route/surface error boundary.
  *
- * A failure in one surface (Copilot, TIDE, Cesium, a chart) must never crash
+ * A failure in one surface (Copilot, Cesium, a chart) must never crash
  * the whole Digital Twin. Each route is wrapped in its own boundary so the
  * navigation, status bar and remaining surfaces keep working.
  */

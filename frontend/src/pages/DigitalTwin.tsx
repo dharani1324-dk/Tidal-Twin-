@@ -11,7 +11,7 @@ import CesiumGlobe from '../components/3d/globe/CesiumGlobe'
 import ColorScaleBar from '../components/3d/globe/ColorScaleBar'
 import { inIndiaBox, nearestCell, domainFrom, isoLevelsFor, TEMP_DEFAULT_DOMAIN, SAL_DEFAULT_DOMAIN, CHL_LEGACY_DOMAIN } from '../components/3d/globe/layerMath'
 import type { ScaleDomain, ScaleMode } from '../components/3d/globe/layerMath'
-import type { GlobeLocation, SeriesRegion, StormTrackData, ArgoFloat, RealArgoFloat, ErsstLayer, ChlorLayer, OxygenSample, PhSample, PhMetric, DisagreementPoint, AnomalyPoint, TransectData, TideGlobeMarker, LayerKey, LayersState, CurrentVector, ModelSlice, GliderDeployment, GliderSample, GliderTrack } from '../components/3d/globe/CesiumGlobe'
+import type { GlobeLocation, SeriesRegion, StormTrackData, ArgoFloat, RealArgoFloat, ErsstLayer, ChlorLayer, OxygenSample, PhSample, PhMetric, DisagreementPoint, AnomalyPoint, TransectData, LayerKey, LayersState, CurrentVector, ModelSlice, GliderDeployment, GliderSample, GliderTrack } from '../components/3d/globe/CesiumGlobe'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts'
 import TransectHUD from '../components/transect/TransectHUD'
 import {
@@ -21,7 +21,6 @@ import {
   fetchGliderDeployments, fetchGliderSamples, fetchGliderBgc, fetchGliderOxygenMap,
   fetchTwinCompare, fetchTwinExplain, fetchTwinProfile,
   fetchTwinDisagreement, fetchAnomalies, fetchSituation, fetchDataSources, fetchTransect,
-  fetchTideCandidates,
   fetchDeoxygenationOverview,
   fetchAcidificationSamples,
 } from '../api/client'
@@ -147,7 +146,6 @@ export default function DigitalTwin() {
   acidification: false,
     disagreement: false,
     anomalies: false,
-    tide: false,
     isos: false,
     vectors: false,
     modelgrid: false,
@@ -226,7 +224,6 @@ export default function DigitalTwin() {
   // --- Ocean Digital Twin intelligence state ---
   const [disagreement, setDisagreement] = useState<DisagreementPoint[]>([])
   const [anomalyRows, setAnomalyRows] = useState<AnomalyPoint[]>([])
-  const [tideCandidates, setTideCandidates] = useState<TideGlobeMarker[]>([])
   const [compare, setCompare] = useState<ComparePayload | null>(null)
   const [explainData, setExplainData] = useState<ExplainPayload | null>(null)
   const [profileData, setProfileData] = useState<ProfilePayload | null>(null)
@@ -436,12 +433,6 @@ export default function DigitalTwin() {
     fetchAnomalies({ sort: 'severity' })
       .then((d) => setAnomalyRows(d.anomalies ?? []))
       .catch(() => {})
-    fetchTideCandidates({ variable })
-      .then((d) => {
-        const list = (d as { data?: TideGlobeMarker[] }).data ?? []
-        setTideCandidates(list.map((c, i) => ({ ...c, rank: i + 1 })))
-      })
-      .catch(() => {})
 
     // Fetch deoxygenation overview (hotspots, trends, coverage).
     fetchDeoxygenationOverview()
@@ -618,7 +609,6 @@ export default function DigitalTwin() {
     { key: 'vectors' as const, icon: <Navigation size={16} />, name: 'Current Vectors', desc: 'True u/v arrows of the real model current field' },
     { key: 'modelgrid' as const, icon: <Layers size={16} />, name: 'Model Depth Slice', desc: 'One real model grid layer at the selected depth' },
     { key: 'glider' as const, icon: <Route size={16} />, name: 'Real Gliders', desc: 'Underwater-glider transects · click for depth profile' },
-    { key: 'tide' as const, icon: <Radar size={16} />, name: 'TIDE Decisions', desc: 'Ranked observation recommendation markers' },
   ]
 
   // Feature #12: per-layer sliders in the Visual Style card, in display order.
@@ -883,7 +873,6 @@ export default function DigitalTwin() {
             scaleModes={globeScaleModes}
             disagreement={disagreement}
             anomalies={globeAnomalies}
-            tideCandidates={tideCandidates}
             opacity={opacity}
             exaggeration={exaggeration}
             isolevels={layers.isos ? isoLevels : null}

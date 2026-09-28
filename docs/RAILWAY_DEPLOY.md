@@ -53,7 +53,7 @@ service logs to identify the failing step before redeploying.
 
 Open the generated frontend `*.up.railway.app` URL. Check that the home page
 loads and that `/api/v1/health` and `/api/v1/moes/registry` respond through that
-same domain. Frontend refreshes on routes such as `/tide` should load the SPA
+same domain. Frontend refreshes on routes such as `/digital-twin` should load the SPA
 rather than return a 404.
 
 Do not commit database passwords or Railway tokens. Keep the database private

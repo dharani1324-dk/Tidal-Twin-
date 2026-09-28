@@ -29,8 +29,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.observation import OceanObservation
 from app.modules.ai.forensics.fingerprint import fingerprint
-from app.modules.ai.tide.adapters import invalidate_caches, observation_status
-from app.modules.ai.tide.engine import TideEngine
+from app.modules.ai.provenance_quality import origin_status as observation_status
 from app.modules.ai.twin.events import detect_events
 
 router = APIRouter(prefix="/api/v1/demo", tags=["Demonstration"])
@@ -47,16 +46,12 @@ DEMO_GUIDE_STEPS: list[dict] = [
      "description": "Open Ocean Forensics for the event's region."},
     {"step": 3, "title": "Inspect Event DNA", "route": "/forensics",
      "description": "View the event fingerprint built from the available signals."},
-    {"step": 4, "title": "See where information is missing", "route": "/tide",
-     "description": "Inspect uncertainty and data-gap factors. Values that cannot be computed show as unavailable."},
-    {"step": 5, "title": "TIDE recommends the next observation", "route": "/tide",
-     "description": "Ranked candidates from the real TIDE scoring pipeline."},
-    {"step": 6, "title": "Simulate the observation", "route": "/tide",
-     "description": "Use 'What if we measure here?' - clearly labelled SIMULATED OBSERVATION."},
-    {"step": 7, "title": "Replay the decision", "route": "/tide/replay",
-     "description": "Compare model-only vs TIDE-assisted decision paths."},
-    {"step": 8, "title": "Validate and ask Copilot", "route": "/tide/validation",
-     "description": "Review the validation/benchmark framework, then ask the Copilot to explain."},
+    {"step": 4, "title": "Review the ocean data", "route": "/data-layers",
+     "description": "Inspect source coverage, observations, model fields, and gaps."},
+    {"step": 5, "title": "Explore a scenario", "route": "/scenarios",
+     "description": "Run a clearly labelled what-if scenario."},
+    {"step": 6, "title": "Ask the Ocean Copilot", "route": "/assistant",
+     "description": "Ask about current conditions, data sources, or detected events."},
 ]
 
 
@@ -90,7 +85,7 @@ def _demo_analysis(db: Session) -> dict:
     totals = {"REAL": 0, "HISTORICAL": 0, "SATELLITE_DERIVED": 0,
               "MODEL_DERIVED": 0, "SIMULATED": 0, "SYNTHETIC": 0, "UNKNOWN": 0}
     for source, data_type, count in rows:
-        status = observation_status(OceanObservation(source=source, data_type=data_type))
+        status = observation_status(source, data_type)
         totals[status] += count
         sources.append({
             "source": source or "UNKNOWN", "count": count, "status": status,
@@ -128,35 +123,24 @@ def _select_demonstration_event(db: Session, events: list[dict]) -> dict:
             "candidates_considered": 0,
         }
 
-    engine = TideEngine(db)
     best: dict | None = None
     considered = events[:20]
     for index, event in enumerate(considered):
         event_id = f"event-{index}"
-        variable = {
-            "strong_current_event": "current_speed",
-            "coastal_flooding_risk": "wave_height",
-        }.get(event.get("event_type"), "temperature")
         try:
             dna = fingerprint(event)
         except Exception:
             dna = {}
-        try:
-            candidates = engine.rankings(location_id=event.get("location_id"), variable=variable)
-        except Exception:
-            candidates = []
         has_dna = bool(dna)
-        has_candidates = bool(candidates)
-        has_evidence = any(c.get("evidence") for c in candidates)
         has_timeline = event.get("began_hours_ago") is not None
-        score = sum([has_dna, has_candidates, has_evidence, has_timeline])
+        has_location = event.get("location_id") is not None
+        score = sum([has_dna, has_timeline, has_location])
         criteria = [
             label
             for ok, label in (
                 (has_dna, "Event DNA available"),
-                (has_candidates, "TIDE candidates available"),
-                (has_evidence, "Evidence available"),
                 (has_timeline, "Event timeline available"),
+                (has_location, "Coastal location available"),
             )
             if ok
         ]
@@ -170,10 +154,9 @@ def _select_demonstration_event(db: Session, events: list[dict]) -> dict:
             "data_status": event.get("data_status") or "real",
             "completeness_score": score,
             "criteria": criteria,
-            "candidate_count": len(candidates),
             "reason": (
                 "Selected as the DEMONSTRATION EVENT because it has the most "
-                f"downstream intelligence available ({score}/4 practical criteria). "
+                f"event context available ({score}/3 practical criteria). "
                 "This is not a scientific ranking."
             ),
             "candidates_considered": len(considered),
@@ -252,13 +235,6 @@ def demo_seed(
         alerts_created = simulate(db, name, kind, scan=False)
     except SystemExit as exc:
         return {"created": 0, "skipped": True, "reason": str(exc), "label": SIMULATED_MARKER}
-    invalidate_caches()
-    try:
-        # Re-warm the shared TIDE inputs so the demonstration guide (which reads
-        # /demo/status right after seeding) responds quickly.
-        TideEngine(db).rankings()
-    except Exception:
-        pass
     simulated = _count(db, _simulated_filter())
     return {
         "created": simulated - (existing - replaced),
@@ -280,7 +256,6 @@ def demo_reset(db: Session = Depends(get_db)) -> dict:
     before = _count(db, _simulated_filter())
     deleted = db.query(OceanObservation).filter(_simulated_filter()).delete(synchronize_session=False)
     db.commit()
-    invalidate_caches()
     remaining = _count(db, _simulated_filter())
     return {
         "deleted": int(deleted or 0),

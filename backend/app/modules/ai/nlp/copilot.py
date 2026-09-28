@@ -56,8 +56,6 @@ from app.modules.ai.coastal.spill import simulate_drift
 from app.modules.ai.coastal.slr import slr_inundation
 from app.modules.ai.coastal.beach import compute_beach_safety
 from app.modules.ai.coastal.impact import compute_economic_impact
-from app.modules.ai.tide.engine import TideEngine
-from app.modules.ai.tide import validation as tide_validation
 
 # ---------------------------------------------------------------------------
 # Location resolution (explicit mention only — context fills the rest)
@@ -138,7 +136,6 @@ def resolve_context(db: Session, text: str, context: dict) -> tuple[OceanLocatio
 # ---------------------------------------------------------------------------
 
 INTENT_KEYWORDS = {
-    "tide": ["tide evidence", "tide recommend", "why is tide", "model disagree", "sensor issue", "model issue", "event dna", "tide event", "decision could this observation", "confidence low", "what evidence", "verify the evidence", "why this location", "measure next", "measure there", "virtual observation", "simulate an observation", "simulate a sample", "what if we measure", "sampling", "sampled at the site", "replay", "recap the event", "what happened", "step by step", "did the decision change", "was it validated", "why did tide recommend"],
     "carbon": ["carbon", "co2", "sink", "sequestration", "blue carbon", "absorb",
                "flux", "emission", "uptake", "carbon flux", " co2 ", "co₂"],
     "lights": ["light pollution", "night light", "artificial light", "aln",
@@ -165,13 +162,6 @@ INTENT_KEYWORDS = {
                "cold water", "alerts near", "what's happening", "activity"],
     "risk": ["risk", "risk index", "danger zone", "riskier", "riskiest",
              "safest region", "rank", "ranking", "worst coast", "dangerous coast"],
-    "tide_validation": ["tide scientifically", "is tide validated", "scientifically validated",
-                        "empirically validated", "tide validation", "validate tide", "tide benchmark",
-                        "benchmark tide", "tide baseline", "baseline comparison", "validate the tide",
-                        "how was tide tested", "tide tested", "tide accuracy", "tide reliable",
-                        "ground truth", "false alarm", "missed event", "tide algorithm version",
-                        "compare strategies", "which strategy performs", "baselines", "compare tide",
-                        "tide compare", "tide versus", "tide vs"],
     "validation": ["model", "trust", "accurate", "accuracy", "reliable",
                    "deviation", "mismatch", "skill", "confidence", "wrong model",
                    "difference", "validate", "verif"],
@@ -247,11 +237,6 @@ def _suggest_for(intent: str) -> list[str]:
         "recommend": ["Where should we sample next?",
                       "Which region needs observations most?",
                       "How many extra observations are needed?",],
-        "tide": ["What evidence supports the TIDE recommendation?",
-                 "What is the TIDE verdict for this location?",
-                 "What happens if we measure the top-ranked location?",
-                 "Replay the TIDE decision for the active event.",
-                 "Which existing event maps into TIDE?",],
         "brief": ["Give me the ocean intelligence brief.",
                   "Add the decision to the brief for this coast.",
                   "What is the picture for the whole network?",
@@ -289,10 +274,6 @@ def _suggest_for(intent: str) -> list[str]:
         "risk": ["Rank all coasts by risk today.",
                  "Why is Goa ranked high risk?",
                  "What is the composite risk index made of?",],
-        "tide_validation": ["Is TIDE scientifically validated?",
-                            "What is the TIDE algorithm version?",
-                            "How does TIDE compare to the baselines?",
-                            "Can I reproduce the TIDE benchmark?"],
         "validation": ["Is the model accurate at Goa?",
                        "How confident are we in the observations?",
                        "Which coast deviates most from the model?",],
@@ -879,345 +860,111 @@ def ans_recommend(db) -> dict:
             "steps": ["Combined coverage + uncertainty + events", "Ranked decision impact"]}
 
 
-def ans_tide_validation(db) -> dict:
-    """Answer TIDE validation/benchmark questions from the Phase 8 framework.
-
-    Never claims scientific validation: TIDE is implemented, demonstrated and
-    tested, but has no independent ground truth, so it is NOT empirically
-    validated. All numbers come from the framework, not from this answer.
-    """
-    status = tide_validation.validation_status(db)
-    try:
-        report = tide_validation.run_database_benchmark(db, budget=1)
-    except Exception:
-        report = None
-    maturity = status["maturity"]
-    dataset = status["dataset"]
-    boundary = status["scientific_boundary"]
-
-    lines = [
-        "**Is TIDE scientifically validated? No.** TIDE is *implemented*, *demonstrated* and "
-        "*computationally tested* — it is **not scientifically or empirically validated**. "
-        "This project has no independent, externally labelled event ground truth.",
-        "",
-        f"**Algorithm version:** TIDE `{status['algorithm_version']}`  ",
-        f"**Dataset:** {dataset['locations']} locations, {dataset['observations']} observations, "
-        f"{dataset['events']} system-derived events (`{dataset['id']}` / `{dataset['version']}`).",
-        f"**Ground truth:** {'available' if status['ground_truth']['available'] else 'NOT AVAILABLE'} — "
-        f"false alarm / missed event rates are therefore **{status['ground_truth']['false_alarm']}**.",
-    ]
-    if report is not None:
-        best = sorted(report["aggregates"], key=lambda a: (a["uncertainty_reduction"].get("mean") or -1), reverse=True)[0]
-        lines.append(
-            f"**Benchmark (budget {report['configuration']['budget']}, seed {report['configuration']['seed']}):** "
-            f"across {len(report['rows'])} evaluated selections no strategy can be declared superior here"
-            + (" — every candidate has zero observation value, so score-based strategies tie."
-               if report["selection"]["pool_is_degenerate"] else ".")
-        )
-        lines.append(f"Largest mean uncertainty reduction: **{best['strategy']}** "
-                     f"({best['uncertainty_reduction'].get('mean')} over N={best['uncertainty_reduction'].get('N')}) "
-                     "— a demonstration outcome, not a scientific result.")
-    lines += [
-        "",
-        "**What this validation can show:** " + "; ".join(boundary["can_show"][:3]) + ".",
-        "**What it cannot show:** " + "; ".join(boundary["cannot_show"][:3]) + ".",
-        "",
-        f"**Reproducible:** seed `{status['reproducibility']['default_seed']}`, budget "
-        f"`{status['reproducibility']['default_budget']}`, algorithm `{status['algorithm_version']}`, "
-        f"dataset `{status['reproducibility']['dataset_id']}`.",
-    ]
-
-    return {
-        "answer": "\n".join(lines),
-        "intent": "tide_validation",
-        "location": None,
-        "location_id": None,
-        "data": _metrics([
-            ("Algorithm version", status["algorithm_version"], "#22d3ee"),
-            ("Empirically validated", "NO", "#f43f5e"),
-            ("Ground truth", "UNAVAILABLE", "#f59e0b"),
-            ("Tested states", str(len(maturity["TESTED"])), "#10b981"),
-        ]),
-        "suggestions": _suggest_for("tide_validation"),
-        "sources": ["TIDE Validation Framework", "TIDE Engine", "Twin Comparison"],
-        "steps": ["Read validation status", "Ran the reproducibility benchmark", "Reported only supported metrics"],
-    }
-
-
-def ans_tide(db, loc, text) -> dict:
-    """Use deterministic TIDE output; never invent a score, verdict, or explanation."""
-    engine = TideEngine(db)
-    lower = text.lower()
-    loc_id = loc.id if loc else None
-
-    if any(w in lower for w in ("what if we measure", "virtual observation", "simulate an observation", "simulate a sample", "measure there")):
-        sim = engine.virtual_observation(location_id=loc_id) if loc else None
-        if sim is None:
-            return {"answer": "TIDE cannot build a what-if observation because no candidate exists for that location yet.",
-                    "intent": "tide", "location": loc.name if loc else None, "location_id": loc_id, "data": None,
-                    "suggestions": _suggest_for("tide"), "sources": ["TIDE Engine"], "steps": ["Checked TIDE candidates"]}
-        before, after = sim["before"], sim["after"]
-        reading = sim["simulated_observation"]
-        change = "**changes**" if sim["decision_changed"] else "does not change"
-        answer = (f"**Simulated observation {reading['value']} {sim['variable']} at {sim['location']}** — "
-                  f"demonstration only, never written to the observation store.\n\n"
-                  f"- Uncertainty **{before['uncertainty'] * 100:.0f}% -> {after['uncertainty'] * 100:.0f}%**\n"
-                  f"- Anomaly risk **{before['anomaly_risk'] * 100:.0f}% -> {after['anomaly_risk'] * 100:.0f}%**\n"
-                  f"- Ranking **#{before['ranking']} -> #{after['ranking']}**\n\n"
-                  f"Your decision {change}: `{before['decision']}` remains until a real reading is collected.")
-        return {"answer": answer, "intent": "tide", "location": sim["location"], "location_id": sim["location_id"],
-                "data": _metrics([("Uncertainty", f"{before['uncertainty'] * 100:.0f}% -> {after['uncertainty'] * 100:.0f}%", "#22d3ee"),
-                                  ("Anomaly risk", f"{before['anomaly_risk'] * 100:.0f}% -> {after['anomaly_risk'] * 100:.0f}%", "#f43f5e"),
-                                  ("Ranking", f"#{before['ranking']} -> #{after['ranking']}", "#a78bfa")]),
-                "suggestions": _suggest_for("tide"), "sources": ["TIDE Engine", "Ocean Forensics", "APEX"],
-                "steps": ["Derived simulated reading from existing inputs", "Re-ranked candidates deterministically"]}
-
-    if any(w in lower for w in ("replay", "recap the event", "what happened", "step by step", "did the decision change", "decision change", "was it validated", "why did tide recommend")):
-        from app.modules.ai.tide.replay import ReplayEngine
-        replay = ReplayEngine(db).build("event-0", location_id=loc_id) if loc else ReplayEngine(db).build("event-0")
-        if replay is None:
-            return {"answer": "The TIDE Decision Replay could not be built yet: no threshold-crossing event maps into TIDE for that location.",
-                    "intent": "tide", "location": None, "location_id": None, "data": None,
-                    "suggestions": _suggest_for("tide"), "sources": ["TIDE Replay"], "steps": ["Checked playable events", "Built replay paths"]}
-        comp = replay["comparison"]
-        decision = replay["decision"]
-        changed = "changed" if decision["decision_changed"] else "unchanged"
-        validation = replay["validation"]
-        answer = (f"**TIDE Decision Replay ({replay['event_id']})** — {replay['location']}, {replay['variable'].replace('_', ' ')}.\n\n"
-                  f"A read-only, two-mode replay of the detected event. Both paths agree until the observation:\n"
-                  f"- **MODEL-ONLY** keeps uncertainty **{comp['uncertainty']['model_only'] * 100:.0f}%**; **TIDE-ASSISTED** (simulated reading, never persisted) reaches **{comp['uncertainty']['tide_assisted'] * 100:.0f}%**.\n"
-                  f"- Confidence **{comp['confidence']['model_only'] * 100:.0f}% -> {comp['confidence']['tide_assisted'] * 100:.0f}%**; anomaly risk **{comp['anomaly_risk']['model_only'] * 100:.0f}% -> {comp['anomaly_risk']['tide_assisted'] * 100:.0f}%**.\n"
-                  f"- Decision **{decision['before']} -> {decision['after']}** ({changed}) via the documented rules.\n"
-                  f"- Regret (demonstration metric only): **{replay['regret']['value']:.2f}** — {replay['regret']['caveat']}.\n"
-                  f"- Validation: **{validation['message']}**\n\n"
-                  f"{comp['uncertainty']['detail']} {decision['explanation']}")
-        return {"answer": answer, "intent": "tide", "location": replay["location"], "location_id": replay["location_id"],
-                "data": _metrics([("Uncertainty", f"{comp['uncertainty']['model_only'] * 100:.0f}% -> {comp['uncertainty']['tide_assisted'] * 100:.0f}%", "#22d3ee"),
-                                  ("Confidence", f"{comp['confidence']['model_only'] * 100:.0f}% -> {comp['confidence']['tide_assisted'] * 100:.0f}%", "#10b981"),
-                                  ("Decision", f"{decision['before'].replace('_', ' ')} -> {decision['after'].replace('_', ' ')}", "#f59e0b")]),
-                "suggestions": _suggest_for("tide"), "sources": ["TIDE Replay", "TIDE Engine", "Twin Comparison", "Ocean Forensics"],
-                "steps": ["Resolved the detected event", "Composed MODEL-ONLY and TIDE-ASSISTED paths", "Compared decisions and validation"]}
-
-    if any(w in lower for w in ("verdict", "sensor issue", "model issue", "missing phenomenon", "phenomenon")):
-        verdict = engine.verdict(location_id=loc_id) if loc else None
-        if verdict is None:
-            return {"answer": "TIDE has insufficient evidence to produce a verdict for that location yet.",
-                    "intent": "tide", "location": None, "location_id": None, "data": None,
-                    "suggestions": _suggest_for("tide"), "sources": ["TIDE Engine"], "steps": ["Checked TIDE verdict"]}
-        return {"answer": f"**TIDE verdict: {verdict['verdict'].replace('_', ' ').title()}**\n\n{verdict['summary']}\nAlternative explanation: {verdict['alternative_explanation']}.",
-                "intent": "tide", "location": loc.name, "location_id": loc.id,
-                "data": _metrics([("Verdict confidence", f"{verdict['confidence'] * 100:.0f}%", "#22d3ee"),
-                                  ("Evidence signals", str(len(verdict["evidence"])), "#a78bfa")]),
-                "suggestions": _suggest_for("tide"), "sources": ["Twin Comparison", "Ocean Forensics", "TIDE Engine"],
-                "steps": ["Classified mismatch + persistence", "Listed alternative explanations"]}
-
-    if any(w in lower for w in ("event dna", "tide event", "dna")):
-        ctx = engine.event_context("event-0")
-        if ctx is None or not ctx.get("top_candidates"):
-            return {"answer": "No existing ocean event currently maps into TIDE candidates.",
-                    "intent": "tide", "location": None, "location_id": None, "data": None,
-                    "suggestions": _suggest_for("tide"), "sources": ["Ocean Event DNA"], "steps": ["Matched active events"]}
-        event = ctx["event"]
-        dna = ctx["event_dna"]
-        tags = ", ".join(dna.get("tags", [])) or "no categorical DNA tags available"
-        top = ctx["top_candidates"][0]
-        return {"answer": (f"Existing **{event.get('event_type', 'event').replace('_', ' ').title()}** flows into TIDE.\n\n"
-                           f"- Event DNA tags: **{tags}**\n"
-                           f"- Model vs observed: model **{ctx['disagreement']['model_value']}** vs observed **{ctx['disagreement']['observed_value']}**\n"
-                           f"- TIDE maps it to **{top['location']}** with uncertainty **{ctx['uncertainty']['score'] * 100:.0f}%**\n\n"
-                           f"This reuses the existing Event DNA — no new event engine was built."),
-                "intent": "tide", "location": event.get("location", top["location"]), "location_id": event.get("location_id", top["location_id"]),
-                "data": _metrics([("Event confidence", f"{(event.get('confidence') or 0) * 100:.0f}%", "#f59e0b"),
-                                  ("Uncertainty", f"{ctx['uncertainty']['score'] * 100:.0f}%", "#22d3ee")]),
-                "suggestions": _suggest_for("tide"), "sources": ["Ocean Event DNA", "Twin Comparison", "TIDE Engine"],
-                "steps": ["Read event fingerprint", "Composed TIDE context"]}
-
-    result = engine.explanation(location_id=loc_id)
-    if result is None:
-        return {"answer": "TIDE has insufficient available evidence to explain a recommendation yet.", "intent": "tide", "location": None, "location_id": None, "data": None, "suggestions": _suggest_for("tide"), "sources": ["TIDE Engine"], "steps": ["Checked TIDE evidence"]}
-    exp = result["explanation"]
-    evidence_lines = "\n".join(f"- [{item['source_system']}] {item['description']}" for item in exp["evidence"][:4]) or "- No standalone evidence signals."
-    answer = (f"**TIDE recommendation** — {exp['summary']}\n\n" + "\n".join(f"- {reason}" for reason in exp["reasons"])
-              + f"\n\nEvidence chain:\n{evidence_lines}\n\n{exp['expected_benefit']}\nAffected decision: **{exp['affected_decision']}**.")
-    return {"answer": answer, "intent": "tide", "location": loc.name if loc else None, "location_id": loc.id if loc else None,
-            "data": _metrics([("Confidence", f"{exp['confidence']['overall_confidence'] * 100:.0f}%", "#22d3ee"), ("Evidence", str(exp['confidence']['evidence_count']), "#a78bfa")]),
-            "suggestions": _suggest_for("tide"), "sources": ["TIDE Engine", "Twin Comparison", "Ocean Forensics", "APEX"], "steps": ["Read TIDE evidence chain", "Built deterministic explanation"]}
-
-
 def ans_brief(db, loc) -> dict:
-    """Unified Ocean Intelligence Brief across twin, validation, forensics and TIDE.
-
-    A single structured read — ANSWER / EVIDENCE / CONFIDENCE / LIMITATIONS /
-    NEXT ACTION — built entirely from the existing engines (no new computation).
-    Every number is real; anything absent is stated as unavailable.
-    """
-    engine = TideEngine(db)
-    sit = {r["location_id"]: r for r in situation_panel(db)["regions"]}
+    """Summarize the available coastal situation, evidence, and limitations."""
+    situations = {r["location_id"]: r for r in situation_panel(db)["regions"]}
     all_events = classify_events(db)["events"]
-
-    # Focus the brief on an explicit coast, else fall back to the first coast.
     focus = loc if loc is not None else first_location(db)
     lid = focus.id if focus is not None else None
-    fname = focus.name if focus is not None else "the network"
-
-    row = sit.get(lid) if lid is not None else None
+    name = focus.name if focus is not None else "the network"
+    row = situations.get(lid) if lid is not None else None
     health = intelligence_health(db, lid) if lid is not None else []
-
-    live_obs = None
+    latest = None
     if lid is not None:
-        live_obs = (
-            db.query(OceanObservation)
-            .filter(OceanObservation.location_id == lid)
-            .order_by(OceanObservation.timestamp.desc())
-            .first()
-        )
-
-    candidates = engine.rankings(location_id=lid) if lid is not None else engine.rankings()
-    top = candidates[0] if candidates else None
-
-    local_events = [ev for ev in all_events if ev.get("location_id") == lid] if lid is not None else all_events
-
-    obs_conf = row.get("observation_confidence") if row else None
+        latest = (db.query(OceanObservation)
+                  .filter(OceanObservation.location_id == lid)
+                  .order_by(OceanObservation.timestamp.desc()).first())
+    events = [event for event in all_events if lid is None or event.get("location_id") == lid]
+    health_score = health[0]["score"] if health else None
+    health_label = health[0]["label"] if health else None
+    headline = row.get("headline") if row else None
+    confidence = row.get("observation_confidence") if row else None
     trust = row.get("model_trust") if row else None
     disagreement = bool(row.get("disagreement")) if row else None
-    status = row.get("status") if row else None
-    headline = row.get("headline") if row else None
-    h_score = health[0]["score"] if health else None
-    h_label = health[0]["label"] if health else None
 
-    # ---------------- ANSWER ----------------
-    answer_bits = [f"**Ocean Intelligence Brief — {fname}**"]
-    if headline and status:
-        answer_bits.append(f"{headline} (_site status: **{status.upper()}**).")
-    elif headline:
-        answer_bits.append(f"{headline}.")
+    answer_bits = [f"**Ocean Intelligence Brief ? {name}**"]
+    answer_bits.append(headline or "No unified situation row is available for this coast yet.")
+    values = []
+    if latest is not None:
+        for value, label, fmt in (
+            (latest.sea_surface_temperature, "SST", lambda v: f"{v:.1f} ?C"),
+            (latest.wave_height, "waves", lambda v: f"{v:.2f} m"),
+            (latest.salinity, "salinity", lambda v: f"{v:.1f} PSU"),
+        ):
+            if value is not None:
+                values.append(f"{label} {fmt(value)}")
+        answer_bits.append("Latest stored record: " + (" ? ".join(values) if values else "no numeric fields") + ".")
     else:
-        answer_bits.append("No unified situation row is available for this coast yet.")
-
-    live_bits = []
-    if live_obs is not None:
-        if live_obs.sea_surface_temperature is not None:
-            live_bits.append(f"SST **{live_obs.sea_surface_temperature:.1f}°C**")
-        if live_obs.wave_height is not None:
-            live_bits.append(f"waves **{live_obs.wave_height:.2f} m**")
-        if live_obs.salinity is not None:
-            live_bits.append(f"salinity **{live_obs.salinity:.1f} PSU**")
-        if live_bits:
-            answer_bits.append("Live: " + " · ".join(live_bits) + " (latest observation).")
-        else:
-            answer_bits.append("Live observations exist but carry no numeric fields.")
-    else:
-        answer_bits.append("No live observations are loaded for this coast — data that would confirm the picture is unavailable.")
-
-    if h_score is not None:
-        answer_bits.append(f"Network health score: **{h_score:.0f}/100** ({h_label}).")
-    if local_events:
-        kinds = ", ".join(sorted({(ev.get("event_type") or "event").replace("_", " ") for ev in local_events}))
-        answer_bits.append(f"{len(local_events)} detected event(s): **{kinds}**.")
+        answer_bits.append("No stored observation is available for this coast.")
+    if health_score is not None:
+        answer_bits.append(f"Coastal health index: **{health_score:.0f}/100** ({health_label}).")
+    if events:
+        kinds = ", ".join(sorted({(e.get("event_type") or "event").replace("_", " ") for e in events}))
+        answer_bits.append(f"{len(events)} detected event(s): **{kinds}**.")
     elif lid is not None:
-        answer_bits.append("No threshold-crossing events are detected for this coast in the available data (an honest reading).")
-    if top is not None:
-        answer_bits.append(
-            f"Highest-value next observation per TIDE: **{top['location']}** "
-            f"({top['variable']} @ {top['depth_m']}, value **{top['observation_value']:.4f}** · decision **{top['affected_decision'].replace('_', ' ')}**)."
-        )
+        answer_bits.append("No threshold-crossing event is currently detected for this coast.")
 
-    # ---------------- EVIDENCE ----------------
     evidence = []
     sources = []
-    if live_obs is not None:
-        evidence.append(f"- [Open-Meteo Marine forecast] Forecast rows provide model context; they are not measurements.")
-        sources.append(SOURCE_API)
-    if row is not None and disagreement is not None:
+    if latest is not None:
+        evidence.append(f"- Latest record source: {latest.source or 'unknown'} ({latest.data_type or 'type unavailable'}).")
+        sources.append(latest.source or SOURCE_API)
+    if row is not None:
         evidence.append(
-            f"- [Twin Comparison] Model↔observation {'disagreement flagged — verify manually' if disagreement else 'agreement detected'} "
-            f"(obs confidence {obs_conf}% · model trust {trust}%)."
+            f"- Model comparison: {'disagreement flagged for review' if disagreement else 'no disagreement flagged'}; "
+            f"observation confidence {confidence if confidence is not None else 'unavailable'}%, "
+            f"model trust {trust if trust is not None else 'unavailable'}%."
         )
         sources.append("Twin Comparison")
-    if health:
-        evidence.append(f"- [Decision Intelligence] Health index {h_score:.0f}/100 ({h_label}) blends temperature, oxygen, salinity, chlorophyll, waves, events and coverage.")
+    if health_score is not None:
+        evidence.append(f"- Coastal health index: {health_score:.0f}/100 ({health_label}).")
         sources.append("Decision Intelligence")
-    if top is not None:
-        reason = (top.get("reason") or "").strip()
-        if reason:
-            evidence.append(f"- [TIDE Engine] {reason}")
-        sources.append("TIDE Engine")
-        for ev in top.get("evidence", [])[:3]:
-            evidence.append(f"- [{ev.get('source_system') or 'TIDE'}] {ev.get('description') or ev.get('type', 'evidence signal')}")
-    if local_events:
-        first = local_events[0]
-        evidence.append(f"- [Ocean Event DNA] {first.get('event_type', 'event').replace('_', ' ').title()} — model {first.get('model')} vs observed {first.get('observed')}.")
-        sources.append("Ocean Event DNA")
+    if events:
+        evidence.append(f"- Event detector returned {len(events)} event(s) for this focus.")
+        sources.append("Ocean Event Detector")
     if not evidence:
-        evidence.append("- [TidalTwin engine] No evidence chain can be assembled from the currently available data.")
+        evidence.append("- No evidence records are available for this focus.")
 
-    # ---------------- CONFIDENCE ----------------
-    conf_bits = []
-    if obs_conf is not None:
-        conf_bits.append(f"observation confidence **{obs_conf}%**")
+    confidence_lines = []
+    if confidence is not None:
+        confidence_lines.append(f"observation confidence **{confidence}%**")
     if trust is not None:
-        conf_bits.append(f"model trust **{trust}%**")
-    if top is not None and top.get("confidence") is not None:
-        conf_bits.append(f"TIDE decision confidence **{top['confidence'] * 100:.0f}%**")
-    if live_obs is None and obs_conf is None:
-        conf_bits.append("confidence **unavailable** (no observation stream)")
-    conf_line = "**CONFIDENCE**\n" + ("\n".join(f"- {b}" for b in conf_bits) if conf_bits else "- Not enough evidence to express a confidence yet.")
-
-    # ---------------- LIMITATIONS ----------------
+        confidence_lines.append(f"model trust **{trust}%**")
+    if not confidence_lines:
+        confidence_lines.append("Confidence is unavailable from the current evidence.")
     limitations = []
-    if live_obs is None:
-        limitations.append("No live observation rows exist for this coast — the live picture is empty, not assumed.")
-    if not top:
-        limitations.append("TIDE has no candidate (insufficient evidence or no anomaly), so no observation can be prioritised.")
-    elif top.get("status") == "MODEL_DERIVED":
-        limitations.append("The TIDE candidate is MODEL_DERIVED — an observation is required to confirm it.")
-    if not local_events:
-        limitations.append("No threshold-crossing events are detected; guidance can only reflect normal state.")
+    if latest is None:
+        limitations.append("No stored observation is available for this coast.")
+    if not events:
+        limitations.append("No threshold-crossing events are currently detected.")
     if not limitations:
-        limitations.append("This brief is a decision-support read, not a validated scientific claim.")
-    limitation_line = "**LIMITATIONS**\n" + "\n".join(f"- {l}" for l in limitations)
-
-    # ---------------- NEXT ACTION ----------------
+        limitations.append("This summary describes available system evidence; it is not a scientific attribution.")
     actions = []
-    if top is not None:
-        actions.append(f"Prioritise an observation at **{top['location']}** ({top['observation_type'].replace('_', ' ')} for {top['variable']} @ {top['depth_m']} m) — TIDE expects it to reduce uncertainty most.")
-    if local_events:
-        actions.append("Replay the decided path for the detected event in Decision Replay to see how the decision would change.")
     if disagreement:
-        actions.append("Investigate the model↔observation disagreement in Ocean Forensics before acting.")
+        actions.append("Review the model-observation disagreement in Ocean Forensics.")
+    if latest is None:
+        actions.append("Check source coverage in Data Layers and sync an eligible observation source.")
     if not actions:
-        actions.append("Sync more observations, then request the brief again once evidence exists to prioritise.")
-    action_line = "**NEXT ACTION**\n" + "\n".join(f"- {a}" for a in actions)
-
-    # A compact, honest prose recap + the structured sections in one text block.
+        actions.append("Review the source records and validation results before acting.")
     answer = (
         "\n\n".join(answer_bits)
         + f"\n\n**ANSWER**\n{headline or 'No headline row available.'}"
-        + "\n\n" + ("\n".join(["**EVIDENCE**"] + evidence))
-        + "\n\n" + conf_line
-        + "\n\n" + limitation_line
-        + "\n\n" + action_line
+        + "\n\n**EVIDENCE**\n" + "\n".join(evidence)
+        + "\n\n**CONFIDENCE**\n" + "\n".join(f"- {item}" for item in confidence_lines)
+        + "\n\n**LIMITATIONS**\n" + "\n".join(f"- {item}" for item in limitations)
+        + "\n\n**NEXT ACTION**\n" + "\n".join(f"- {item}" for item in actions)
     )
-
-    data_items = [("Health", f"{h_score:.0f}/100" if h_score is not None else "—", "#22d3ee")]
-    if obs_conf is not None:
-        data_items.append(("Obs confidence", f"{obs_conf}%", "#10b981"))
+    metrics = [("Health", f"{health_score:.0f}/100" if health_score is not None else "?", "#22d3ee")]
+    if confidence is not None:
+        metrics.append(("Obs confidence", f"{confidence}%", "#10b981"))
     if trust is not None:
-        data_items.append(("Model trust", f"{trust}%", "#38bdf8"))
-    if top is not None:
-        data_items.append(("Top obs value", f"{top['observation_value']:.4f}", "#a78bfa"))
-        data_items.append(("Decision", top["affected_decision"].replace("_", " "), "#f59e0b"))
-    data_items.append(("Events", str(len(local_events)), "#f43f5e"))
-
+        metrics.append(("Model trust", f"{trust}%", "#38bdf8"))
+    metrics.append(("Events", str(len(events)), "#f43f5e"))
     return {
-        "answer": answer,
-        "intent": "brief",
-        "location": fname,
-        "location_id": lid,
-        "data": _metrics(data_items),
-        "suggestions": _suggest_for("brief"),
+        "answer": answer, "intent": "brief", "location": name, "location_id": lid,
+        "data": _metrics(metrics), "suggestions": _suggest_for("brief"),
         "sources": sources or [SOURCE_ENGINE],
-        "steps": ["Resolved focus coast", "Fused situation + health + TIDE", "Composed brief sections"],
+        "steps": ["Resolved coastal focus", "Read available records and event status", "Summarized evidence and limitations"],
     }
 
 
@@ -1498,9 +1245,7 @@ def copilot_answer(db: Session, question: str, context: dict | None = None) -> d
         "lights": lambda: ans_lights(db),
         "sensing": lambda: ans_sensing(db),
         "recommend": lambda: ans_recommend(db),
-        "tide": lambda: ans_tide(db, loc, text),
-        "tide_validation": lambda: ans_tide_validation(db),
-        "brief": lambda: ans_brief(db, loc),
+                        "brief": lambda: ans_brief(db, loc),
         "adaptive": lambda: ans_adaptive(db),
         "multimodal": lambda: ans_multimodal(db, text),
         "fisheries": lambda: ans_fisheries(db, loc),

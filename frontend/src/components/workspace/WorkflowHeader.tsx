@@ -6,7 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, Bot, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
-  Eye, Radar, Search, Brain, Crosshair, Cable, FlaskConical, Scale, FileCheck,
+  Eye, Radar, Search, Brain, Cable, FlaskConical, FileCheck,
 } from 'lucide-react'
 
 interface Stage {
@@ -23,11 +23,9 @@ const STAGES: Stage[] = [
   { num: '02', label: 'DETECT', route: '/anomalies', routeNote: 'Anomaly Intel · alerts', icon: Radar, targets: ['/anomalies'] },
   { num: '03', label: 'INVESTIGATE', route: '/forensics', routeNote: 'Fingerprint · timeline · autopsy', icon: Search, targets: ['/forensics'] },
   { num: '04', label: 'UNDERSTAND', route: '/intelligence', routeNote: 'Health · causal · relations', icon: Brain, targets: ['/intelligence'] },
-  { num: '05', label: 'PRIORITIZE', route: '/tide', routeNote: 'TIDE rankings · verdict', icon: Crosshair, targets: ['/tide'] },
-  { num: '06', label: 'OBSERVE NEXT', route: '/oceanvision?tab=recommend', routeNote: 'Highest-value observation', icon: Cable, targets: ['/oceanvision'] },
-  { num: '07', label: 'SIMULATE', route: '/scenarios', routeNote: 'What-If · counterfactual', icon: FlaskConical, targets: ['/scenarios'] },
-  { num: '08', label: 'DECIDE', route: '/tide/replay', routeNote: 'Decision Replay · rules', icon: Scale, targets: ['/tide/replay'] },
-  { num: '09', label: 'VALIDATE', route: '/validate', routeNote: 'Skill · confidence · provenance', icon: FileCheck, targets: ['/validate'] },
+  { num: '05', label: 'OBSERVE NEXT', route: '/oceanvision?tab=recommend', routeNote: 'Observation planner', icon: Cable, targets: ['/oceanvision'] },
+  { num: '06', label: 'SIMULATE', route: '/scenarios', routeNote: 'What-If · counterfactual', icon: FlaskConical, targets: ['/scenarios'] },
+  { num: '07', label: 'VALIDATE', route: '/validate', routeNote: 'Skill · confidence · provenance', icon: FileCheck, targets: ['/validate'] },
 ]
 
 export default function WorkflowHeader() {
@@ -66,7 +64,7 @@ export default function WorkflowHeader() {
         </button>
       </div>
       <span className="ws-workflow-note">
-        Each stage opens the real TidalTwin engine for that step — OBSERVE→DETECT→INVESTIGATE→UNDERSTAND→PRIORITIZE→OBSERVE NEXT→SIMULATE→DECIDE→VALIDATE, explainable by the Copilot.
+        Each stage opens the TidalTwin tool for that step — OBSERVE→DETECT→INVESTIGATE→UNDERSTAND→OBSERVE NEXT→SIMULATE→VALIDATE, explainable by the Copilot.
       </span>
     </div>
   )

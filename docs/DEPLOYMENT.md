@@ -57,7 +57,7 @@ curl      http://127.0.0.1:8000/api/v1/demo/status      # demo data + demo event
 curl -X POST http://127.0.0.1:8000/api/v1/demo/reset    # remove only simulated rows
 ```
 
-Or use **START TIDE DEMO** in the running frontend. Reset affects only
+Or use the demo guide in the running frontend. Reset affects only
 simulation-labelled rows and saved UI state; real observations are never
 modified.
 
@@ -129,6 +129,5 @@ docker compose down -v         # stop AND wipe the database volume (fresh start)
 | Frontend calls fail in the browser | CORS blocked / wrong API base | set `CORS_ORIGINS`; set `VITE_API_BASE_URL` for cross-origin |
 | `POSTGIS` errors on table creation | DB is plain PostgreSQL | use `postgis/postgis` image or install PostGIS |
 | Globe has no detailed terrain | no Cesium Ion token | optional — set `CESIUM_ION_TOKEN` / `VITE_CESIUM_ION_TOKEN` |
-| First TIDE request is slow (~5 s) | cold shared-input cache | expected once; startup warms it, subsequent calls ~0.2 s |
 | Live refresh failed at startup | no internet in container | non-fatal; app runs on seeded data |
 | Port already in use | 8000/8080/5173/5433 taken | stop the other process or remap the port |

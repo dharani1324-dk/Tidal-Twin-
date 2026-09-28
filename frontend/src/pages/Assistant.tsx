@@ -66,12 +66,11 @@ const DEFAULT_SUGGESTIONS = [
   'Rank all coasts by risk today.',
   'What if wind increases by 30%?',
   'Where is the cyclone heading?',
-  'Is TIDE scientifically validated?',
 ]
 
 export default function Assistant({ embedded }: { embedded?: boolean } = {}) {
   const [messages, setMessages] = useState<Message[]>([
-    { id: ++msgId, role: 'assistant', text: "I'm the **TidalTwin Copilot** — a live ocean analyst for this digital twin. I query the observation, validation, forensics, TIDE and coastal-SLR engines and answer like a senior operations scientist: number, source, confidence — with the caveat stated. Context persists, so you can chain questions across the mission workflow (OBSERVE → DETECT → INVESTIGATE → UNDERSTAND → PRIORITIZE → SIMULATE → DECIDE → VALIDATE)." },
+    { id: ++msgId, role: 'assistant', text: "I'm the **TidalTwin Copilot** — a live ocean analyst for this digital twin. I query ocean observations, validation, forensics, safety, and coastal models, and explain answers with their source and limits. Context persists, so you can chain questions across the workflow (OBSERVE → DETECT → INVESTIGATE → UNDERSTAND → SIMULATE → VALIDATE)." },
   ])
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)

@@ -56,7 +56,7 @@ QC_LABELS: dict[str, str] = {
     "8": "NOT_GENERATED", "9": "MISSING", " ": "MISSING", "": "MISSING",
 }
 
-#: Only these flags are acceptable evidence for TIDE scoring.  "Probably good"
+#: Only these flags are acceptable for quality-controlled observation evidence.  "Probably good"
 #: is retained but its weaker weight is recorded by the caller, not hidden.
 QC_USABLE = {"1", "2"}
 
@@ -338,7 +338,7 @@ def _check_qc(candidate: dict[str, Any], report: ValidationReport) -> None:
                        f"unverified evidence.", f"qc_flags.{name}", flag)
         if not qc_is_usable(flag) and candidate.get(name) is not None and name in CANONICAL_FIELDS:
             report.add("QC_NOT_USABLE_FOR_SCORING", INFO,
-                       f"{name} will be excluded from TIDE scoring because its QC flag is {label}.",
+                       f"{name} will be excluded from evidence summaries because its QC flag is {label}.",
                        f"qc_flags.{name}", label)
 
 

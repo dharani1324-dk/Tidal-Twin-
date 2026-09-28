@@ -1,12 +1,10 @@
 /**
  * TrustBadge — Phase 7 trust/data-status visual language.
- * Every dataset surface (TIDE, What-If, Replay, Forensics, Anomaly Intel)
+ * Every dataset surface (scenarios, Forensics, Anomaly Intel)
  * now carries a consistent trust chip: REAL / HISTORICAL / MODEL_DERIVED /
  * SIMULATED / SYNTHETIC + the explicit simulation caveat.
  */
-import type { TideStatus } from '../../types/tide'
-
-export type DataStatus = TideStatus | (string & {})
+export type DataStatus = string
 
 export interface TrustMeta {
   label: string

@@ -15,8 +15,7 @@ from app.api.health import AVAILABLE, UNAVAILABLE, _overall
 from app.core.database import SessionLocal
 from app.models.location import OceanLocation
 from app.models.observation import OceanObservation
-from app.modules.ai.tide.adapters import observation_status
-from app.modules.ai.tide.engine import TideEngine
+from app.modules.ai.provenance_quality import origin_status as observation_status
 
 
 class HealthEndpointTest(unittest.TestCase):
@@ -31,7 +30,7 @@ class HealthEndpointTest(unittest.TestCase):
         body = res.json()
         self.assertIn(body["status"], ("healthy", "degraded", "unavailable"))
         self.assertEqual(body["service"], "TidalTwin Backend")
-        for key in ("backend", "database", "ocean_data", "tide", "copilot", "cesium"):
+        for key in ("backend", "database", "ocean_data", "copilot", "cesium"):
             self.assertIn(key, body["checks"])
             self.assertIn(body["checks"][key]["status"], (AVAILABLE, "LIMITED", UNAVAILABLE, "OPTIONAL / UNAVAILABLE"))
             self.assertTrue(body["checks"][key]["detail"])
@@ -52,15 +51,15 @@ class HealthEndpointTest(unittest.TestCase):
             return {"status": status}
 
         self.assertEqual(
-            _overall({"backend": c(AVAILABLE), "database": c(AVAILABLE), "ocean_data": c(AVAILABLE), "tide": c(AVAILABLE)}),
+            _overall({"backend": c(AVAILABLE), "database": c(AVAILABLE), "ocean_data": c(AVAILABLE)}),
             "healthy",
         )
         self.assertEqual(
-            _overall({"backend": c(AVAILABLE), "database": c(UNAVAILABLE), "ocean_data": c(AVAILABLE), "tide": c(AVAILABLE)}),
+            _overall({"backend": c(AVAILABLE), "database": c(UNAVAILABLE), "ocean_data": c(AVAILABLE)}),
             "unavailable",
         )
         self.assertEqual(
-            _overall({"backend": c(AVAILABLE), "database": c(AVAILABLE), "ocean_data": c("LIMITED"), "tide": c(UNAVAILABLE)}),
+            _overall({"backend": c(AVAILABLE), "database": c(AVAILABLE), "ocean_data": c(UNAVAILABLE)}),
             "degraded",
         )
 
@@ -78,7 +77,7 @@ class DemoStatusTest(unittest.TestCase):
         self.assertIn("demo_data_present", body)
         self.assertEqual(body["labels"]["dataset"], DEMO_MARKER)
         self.assertEqual(body["labels"]["simulated_observation"], SIMULATED_MARKER)
-        self.assertEqual(len(body["guide_steps"]), 8)
+        self.assertEqual(len(body["guide_steps"]), 6)
         self.assertIsInstance(body["sources"], list)
         self.assertGreaterEqual(body["total_observations"], body["simulated_observations"])
 
@@ -125,11 +124,11 @@ class SimulationSafetyTest(unittest.TestCase):
         )
 
     def test_observation_status_classification(self):
-        self.assertEqual(observation_status(self._obs("SIMULATED_HEATWAVE")), "SIMULATED")
-        self.assertEqual(observation_status(self._obs("DEMO_SYNTHETIC")), "SYNTHETIC")
-        self.assertEqual(observation_status(self._obs("Open-Meteo Marine")), "MODEL_DERIVED")
-        self.assertEqual(observation_status(self._obs("CTD cast import")), "REAL")
-        self.assertEqual(observation_status(self._obs("model-run-01", "model")), "MODEL_DERIVED")
+        self.assertEqual(observation_status("SIMULATED_HEATWAVE", "observation"), "SIMULATED")
+        self.assertEqual(observation_status("DEMO_SYNTHETIC", "observation"), "SYNTHETIC")
+        self.assertEqual(observation_status("Open-Meteo Marine", "observation"), "MODEL_DERIVED")
+        self.assertEqual(observation_status("CTD cast import", "observation"), "REAL")
+        self.assertEqual(observation_status("model-run-01", "model"), "MODEL_DERIVED")
 
     def test_reset_filter_selects_only_simulated(self):
         real = self._obs("CTD cast import")
@@ -143,23 +142,6 @@ class SimulationSafetyTest(unittest.TestCase):
             .all()
         )
         self.assertEqual([o.id for o in matched], [sim.id])
-
-    def test_virtual_observation_is_not_persisted(self):
-        before = self.db.query(OceanObservation).count()
-        candidates = TideEngine(self.db).rankings(location_id=self.location.id)
-        if candidates:
-            TideEngine(self.db).virtual_observation(
-                location_id=self.location.id, variable="temperature", depth_m=0.0
-            )
-        after = self.db.query(OceanObservation).count()
-        self.assertEqual(before, after, "A simulated observation must never be written to the store.")
-
-    def test_tide_candidate_never_claims_real(self):
-        candidates = TideEngine(self.db).rankings()
-        for candidate in candidates:
-            self.assertNotEqual(candidate["status"], "REAL")
-            self.assertEqual(candidate["status"], "MODEL_DERIVED")
-
 
 if __name__ == "__main__":
     unittest.main()

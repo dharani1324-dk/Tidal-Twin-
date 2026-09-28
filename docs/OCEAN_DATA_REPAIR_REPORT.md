@@ -39,7 +39,7 @@ These are point-in-time checks; provider availability and data age can change. A
 | NCESS | PORTAL_IN_TRIAL | Portal exists; no stable public API verified. |
 | ERSST / chlorophyll grids | UNAVAILABLE | No latest grid readings ingested; API response truthfully reports unavailable. |
 
-Production `/api/v1/health` was reachable and reported database/PostGIS, TIDE, and Copilot available; Cesium was optional/unavailable and ocean data was limited. It reported 384 model-derived records and zero direct measurements, historical records, or satellite-derived records in the shared health snapshot. This is a limitation of populated shared stores, separate from the live provider adapter checks above.
+At the time of the production check, `/api/v1/health` reported database/PostGIS and Copilot available; Cesium was optional/unavailable and ocean data was limited. It reported 384 model-derived records and zero direct measurements, historical records, or satellite-derived records in the shared health snapshot. This is a limitation of populated shared stores, separate from the live provider adapter checks above.
 
 ## Repairs and contract checks
 

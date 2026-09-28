@@ -1,7 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 import './CesiumGlobe.css'
-import type { TideCandidate } from '../../../types/tide'
 import {
   arrowFor,
   buildLatLonField,
@@ -70,7 +69,6 @@ export type LayerKey =
   | 'acidification'
   | 'disagreement'
   | 'anomalies'
-  | 'tide'
   | 'isos'
   | 'vectors'
   | 'modelgrid'
@@ -358,29 +356,6 @@ export interface AnomalyPoint {
   data_status?: string
 }
 
-/** TIDE observation candidate marker (from /api/v1/tide/candidates). */
-export interface TideGlobeMarker extends TideCandidate {
-  /** Display rank within the current candidate list (1 = top priority). */
-  rank?: number
-}
-
-/** Phase 6 — Decision Replay marker on the shared globe. */
-export interface ReplayGlobeMarker {
-  id: string
-  lat: number
-  lon: number
-  label: string
-  /** event = detected ocean event location · candidate = TIDE next observation ·
-   *  observation = simulated observation location (SIMULATED). */
-  kind: 'event' | 'candidate' | 'observation'
-  /** Show only while the replay is on (or past) the relevant step. */
-  visible: boolean
-  /** sprite sub-label, e.g. the TIDE rank number. */
-  sub?: string
-  /** Real location id so clicking the marker focuses that region on the replay. */
-  location_id?: number
-}
-
 /** One vertical column of the 3D transect curtain (from /api/v1/twin/transect). */
 export interface TransectSample {
   lat: number
@@ -609,91 +584,6 @@ function getAnomalySprite(severity: string) {
   ctx.fill()
   anomalySpriteCache[key] = c.toDataURL()
   return anomalySpriteCache[key]
-}
-
-let tideSpriteUrl: string | null = null
-/** TIDE decision marker: turquoise diamond + soft cyan halo + white core. */
-function getTideSprite() {
-  if (tideSpriteUrl) return tideSpriteUrl
-  const size = 96
-  const c = document.createElement('canvas')
-  c.width = c.height = size
-  const ctx = c.getContext('2d')!
-  const cx = size / 2
-  const tint = '#22d3ee'
-  const g = ctx.createRadialGradient(cx, cx, 0, cx, cx, 46)
-  g.addColorStop(0, 'rgba(255,255,255,0.95)')
-  g.addColorStop(0.28, tint + 'cc')
-  g.addColorStop(1, tint + '00')
-  ctx.fillStyle = g
-  ctx.beginPath()
-  ctx.arc(cx, cx, 46, 0, Math.PI * 2)
-  ctx.fill()
-  // Diamond "decision" marker.
-  ctx.save()
-  ctx.translate(cx, cx)
-  ctx.rotate(Math.PI / 4)
-  ctx.fillStyle = tint
-  ctx.shadowColor = tint
-  ctx.shadowBlur = 12
-  ctx.fillRect(-13, -13, 26, 26)
-  ctx.restore()
-  // Target cross on top.
-  ctx.strokeStyle = 'rgba(165,243,252,0.9)'
-  ctx.lineWidth = 3
-  ctx.beginPath()
-  ctx.moveTo(cx, cx - 26)
-  ctx.lineTo(cx, cx + 26)
-  ctx.moveTo(cx - 26, cx)
-  ctx.lineTo(cx + 26, cx)
-  ctx.stroke()
-  ctx.fillStyle = '#ffffff'
-  ctx.beginPath()
-  ctx.arc(cx, cx, 5, 0, Math.PI * 2)
-  ctx.fill()
-  tideSpriteUrl = c.toDataURL()
-  return tideSpriteUrl
-}
-
-let obsSpriteUrl: string | null = null
-/** Phase 6 — simulated observation marker: rose diamond + soft halo + white core. */
-function getObsSprite() {
-  if (obsSpriteUrl) return obsSpriteUrl
-  const size = 96
-  const c = document.createElement('canvas')
-  c.width = c.height = size
-  const ctx = c.getContext('2d')!
-  const cx = size / 2
-  const tint = '#fb7185'
-  const g = ctx.createRadialGradient(cx, cx, 0, cx, cx, 46)
-  g.addColorStop(0, 'rgba(255,255,255,0.95)')
-  g.addColorStop(0.28, tint + 'cc')
-  g.addColorStop(1, tint + '00')
-  ctx.fillStyle = g
-  ctx.beginPath()
-  ctx.arc(cx, cx, 46, 0, Math.PI * 2)
-  ctx.fill()
-  // Diamond "observation" marker.
-  ctx.save()
-  ctx.translate(cx, cx)
-  ctx.rotate(Math.PI / 4)
-  ctx.fillStyle = tint
-  ctx.shadowColor = tint
-  ctx.shadowBlur = 12
-  ctx.fillRect(-13, -13, 26, 26)
-  ctx.restore()
-  // Inner ring (distinct from the TIDE cross).
-  ctx.strokeStyle = 'rgba(254,205,211,0.9)'
-  ctx.lineWidth = 3
-  ctx.beginPath()
-  ctx.arc(cx, cx, 18, 0, Math.PI * 2)
-  ctx.stroke()
-  ctx.fillStyle = '#ffffff'
-  ctx.beginPath()
-  ctx.arc(cx, cx, 5, 0, Math.PI * 2)
-  ctx.fill()
-  obsSpriteUrl = c.toDataURL()
-  return obsSpriteUrl
 }
 
 /** Rolling 12h baseline of a region's merged timeline up to (excluding) idx. */
@@ -1205,10 +1095,6 @@ interface CesiumGlobeProps {
   disagreement?: DisagreementPoint[]
   /** Ranked anomalies to draw as focus beacons. */
   anomalies?: AnomalyPoint[]
-  /** TIDE observation candidates to draw as ranked decision markers. */
-  tideCandidates?: TideGlobeMarker[]
-  /** Phase 6 — Decision Replay markers (event / candidate / simulated observation). */
-  replayMarkers?: ReplayGlobeMarker[]
   /** 3D vertical transect curtain (subsurface wall + thermocline + Argo). */
   transect?: TransectData | null
   /** When true, left-clicking the ocean picks transect endpoints (A then B). */
@@ -1261,8 +1147,6 @@ interface Scene {
   /** Real measured in-situ pH samples (batched point field, depth-placed). */
   ph: PointFieldLayer | null
   anomalies: VizEntity[]
-  tide: VizEntity[]
-  replay: VizEntity[]
   /** Marching-squares isosurface contours of the real SST field (batched). */
   iso: PolyLayer | null
   /** True current-velocity arrows from the real model grid (batched). */
@@ -1310,8 +1194,6 @@ function emptyScene(): Scene {
   oxygenHotspots: [],
   ph: null,
     anomalies: [],
-    tide: [],
-    replay: [],
     iso: null,
     curVec: null,
     slice: null,
@@ -1324,7 +1206,7 @@ function emptyScene(): Scene {
   }
 }
 
-function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor = 'temp', uncertainties, priorities, argoFloats, realArgoFloats, ersst, chlor, oxygenSamples, oxygenHotspots, phSamples, phMetric = 'ph', phDepthRange = null, phDepthScale = PH_DEPTH_SCALE_DEFAULT, scaleModes, disagreement, anomalies, tideCandidates, replayMarkers, transect, transectActive, opacity, exaggeration = 1, isolevels, currentVectors, modelSlice, gliderTracks, onGliderClick, onRegionClick, onArgoFloatClick, onTransectPick, flyToTarget }: CesiumGlobeProps) {
+function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor = 'temp', uncertainties, priorities, argoFloats, realArgoFloats, ersst, chlor, oxygenSamples, oxygenHotspots, phSamples, phMetric = 'ph', phDepthRange = null, phDepthScale = PH_DEPTH_SCALE_DEFAULT, scaleModes, disagreement, anomalies, transect, transectActive, opacity, exaggeration = 1, isolevels, currentVectors, modelSlice, gliderTracks, onGliderClick, onRegionClick, onArgoFloatClick, onTransectPick, flyToTarget }: CesiumGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<Viz | null>(null)
   /** Set when WebGL/Viewer construction fails, so the blank container explains itself. */
@@ -1406,10 +1288,6 @@ function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor =
   disagreementRef.current = disagreement ?? []
   const anomaliesRef = useRef(anomalies ?? [])
   anomaliesRef.current = anomalies ?? []
-  const tideRef = useRef<TideGlobeMarker[]>([])
-  tideRef.current = tideCandidates ?? []
-  const replayRef = useRef<ReplayGlobeMarker[]>([])
-  replayRef.current = replayMarkers ?? []
   const onRegionClickRef = useRef(onRegionClick)
   onRegionClickRef.current = onRegionClick
   const transectActiveRef = useRef(transectActive ?? false)
@@ -1477,8 +1355,6 @@ function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor =
     ensureLayer('curVec', [currentVectorsRef.current], () => buildVectorsLayer(Cesium, viewer))
     ensureLayer('slice', [modelSliceRef.current], () => buildSliceLayer(Cesium, viewer))
     ensureLayer('glider', [gliderTracksRef.current], () => buildGliderLayer(Cesium, viewer))
-    ensureLayer('tide', [tideRef.current], () => buildTideLayer(Cesium, viewer))
-    ensureLayer('replay', [replayRef.current], () => buildReplayLayer(Cesium, viewer))
     ensureLayer('oxygenHotspots', [oxygenHotspotsRef.current], () => buildHotspotLayer(Cesium, viewer))
     ensureLayer('realArgo', [realArgoRef.current], () => buildRealArgoLayer(Cesium, viewer))
     // The transect curtain is entity-backed too, and has no `ensureLayer` guard of
@@ -1666,34 +1542,6 @@ function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor =
       clearStormEntities(viewer)
     }
   }, [storm, locations])
-
-  // TIDE decision markers. Guarded so a stable candidate set is not re-added
-  // on every unrelated re-render; a full scene rebuild re-syncs them.
-  useEffect(() => {
-    const viewer = viewerRef.current
-    if (!viewer) return
-    let cancelled = false
-    loadCesium().then((Cesium) => {
-      if (cancelled || viewer.isDestroyed()) return
-      ensureLayer('tide', [tideRef.current], () => buildTideLayer(Cesium, viewer))
-    })
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tideCandidates])
-
-  // Phase 6 — Decision Replay markers. Per-marker visibility follows the
-  // current replay step, so this is also guarded.
-  useEffect(() => {
-    const viewer = viewerRef.current
-    if (!viewer) return
-    let cancelled = false
-    loadCesium().then((Cesium) => {
-      if (cancelled || viewer.isDestroyed()) return
-      ensureLayer('replay', [replayRef.current], () => buildReplayLayer(Cesium, viewer))
-    })
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [replayMarkers])
 
   // Real Argo float markers. Drawn separately so they can arrive after the base
   // scene builds; also re-drawn after any full scene rebuild.
@@ -2219,7 +2067,7 @@ function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor =
       }
     }
     // Only the *primitive*-backed layers survive `entities.removeAll()`. The
-    // entity-backed ones (hotspots / TIDE / replay) are deliberately left empty
+    // entity-backed hotspot markers are deliberately left empty
     // and their build guards cleared, so `syncDeferredLayers` repaints them
     // instead of leaving a scene that silently lost them.
     scene.sst = previous.sst
@@ -2234,7 +2082,7 @@ function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor =
     scene.currentStream = previous.currentStream
     scene.wavePulses = previous.wavePulses
     scene.focusPulses = previous.focusPulses
-    invalidateLayers('oxygenHotspots', 'tide', 'replay')
+    invalidateLayers('oxygenHotspots')
 
     const valid = (locations.length > 0 ? locations : FALLBACK_LOCATIONS).filter(
       (l) => l.latitude != null && l.longitude != null,
@@ -2588,154 +2436,6 @@ function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor =
       }
     }
     sceneRef.current = { ...sceneRef.current, storm: [] }
-  }
-
-  /** Remove all TIDE decision markers from the scene. */
-  function clearTide(viewer: Viz | null) {
-    for (const e of sceneRef.current.tide) {
-      try {
-        viewer?.entities.remove(e)
-      } catch {
-        /* already disposed */
-      }
-    }
-    sceneRef.current = { ...sceneRef.current, tide: [] }
-  }
-
-  /** Draw ranked TIDE observation candidates as pulsing decision markers. */
-  function buildTideLayer(Cesium: CesiumModule, viewer: Viz) {
-    clearTide(viewer)
-    const list = tideRef.current
-    const show = layersRef.current.tide
-    const scene = sceneRef.current
-    list.forEach((c, index) => {
-      if (c.latitude == null || c.longitude == null) return
-      const rank = c.rank ?? index + 1
-      const config = {
-        decision: c.affected_decision,
-        variable: c.variable,
-        location: c.location,
-      }
-      const marker = viewer.entities.add({
-        position: Cesium.Cartesian3.fromDegrees(c.longitude, c.latitude, 480),
-        billboard: {
-          image: getTideSprite(),
-          width: 46,
-          height: 46,
-          scale: new Cesium.CallbackProperty(
-            () => 0.86 + 0.3 * (0.5 + 0.5 * Math.sin(Date.now() / 1000 * 3.6 + c.location_id)),
-            false,
-          ),
-          scaleByDistance: new Cesium.NearFarScalar(1.4e6, 1.0, 5.5e6, 0.55),
-          verticalOrigin: Cesium.VerticalOrigin.CENTER,
-        },
-        label: {
-          text: `#${rank} · ${config.variable.replace('_', ' ').toUpperCase()}`,
-          font: '700 12px Inter, sans-serif',
-          fillColor: Cesium.Color.fromCssColorString('#ecfeff'),
-          showBackground: true,
-          backgroundColor: Cesium.Color.fromCssColorString('#062a38').withAlpha(0.92),
-          backgroundPadding: new Cesium.Cartesian2(6, 4),
-          pixelOffset: new Cesium.Cartesian2(0, -30),
-          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-          outlineColor: Cesium.Color.fromCssColorString('#000000').withAlpha(0.5),
-          outlineWidth: 2,
-          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 4.5e6),
-        },
-        show,
-      })
-      scene.tide.push(marker)
-      scene.markerMap.set(marker as never, c.location_id)
-    })
-    viewer.scene.requestRender()
-  }
-
-  /** Remove all Phase 6 replay markers from the scene. */
-  function clearReplay(viewer: Viz | null) {
-    for (const e of sceneRef.current.replay) {
-      try {
-        viewer?.entities.remove(e)
-      } catch {
-        /* already disposed */
-      }
-    }
-    sceneRef.current = { ...sceneRef.current, replay: [] }
-  }
-
-  /** Draw Phase 6 Decision Replay markers (event / candidate / observation). */
-  function buildReplayLayer(Cesium: CesiumModule, viewer: Viz) {
-    clearReplay(viewer)
-    const list = replayRef.current
-    const scene = sceneRef.current
-    for (const m of list) {
-      if (m.lat == null || m.lon == null) continue
-      const isObs = m.kind === 'observation'
-      const isEvent = m.kind === 'event'
-      const sprite = isObs ? getObsSprite() : isEvent ? getBeaconUrl() : getTideSprite()
-      const tint = isObs ? '#fb7185' : isEvent ? '#a5f3fc' : '#22d3ee'
-      const entity = viewer.entities.add({
-        position: Cesium.Cartesian3.fromDegrees(m.lon, m.lat, isEvent ? 520 : 500),
-        billboard: {
-          image: sprite,
-          width: isEvent ? 60 : 44,
-          height: isEvent ? 60 : 44,
-          scale: new Cesium.CallbackProperty(
-            () => 0.84 + 0.3 * (0.5 + 0.5 * Math.sin(Date.now() / 1000 * 3.4 + (m.id.length || 1))),
-            false,
-          ),
-          scaleByDistance: new Cesium.NearFarScalar(1.2e6, 1.0, 5.5e6, 0.5),
-          verticalOrigin: Cesium.VerticalOrigin.CENTER,
-        },
-        label: {
-          text: m.label ? m.label.toUpperCase() : '',
-          font: '700 12px Inter, sans-serif',
-          fillColor: Cesium.Color.fromCssColorString(isObs ? '#fecdd3' : isEvent ? '#ecfeff' : '#ecfeff'),
-          showBackground: true,
-          backgroundColor: Cesium.Color.fromCssColorString(isObs ? '#31101a' : '#062a38').withAlpha(0.92),
-          backgroundPadding: new Cesium.Cartesian2(6, 4),
-          pixelOffset: new Cesium.Cartesian2(0, -30),
-          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-          outlineColor: Cesium.Color.fromCssColorString('#000000').withAlpha(0.5),
-          outlineWidth: 2,
-          show: m.visible,
-          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 4.5e6),
-        },
-        show: m.visible,
-      })
-      scene.replay.push(entity)
-      if (m.location_id != null) {
-        scene.markerMap.set(entity as never, m.location_id)
-      }
-      // Event spatial-extent footprint: soft pulsing ellipse around the event.
-      if (isEvent) {
-        scene.replay.push(
-          viewer.entities.add({
-            position: Cesium.Cartesian3.fromDegrees(m.lon, m.lat, 240),
-            ellipse: {
-              semiMajorAxis: new Cesium.CallbackProperty(
-                () => 38000 + ((Date.now() % 2600) / 2600) * 38000,
-                false,
-              ),
-              semiMinorAxis: new Cesium.CallbackProperty(
-                () => (38000 + ((Date.now() % 2600) / 2600) * 38000) * 0.8,
-                false,
-              ),
-              rotation: Cesium.Math.toRadians((m.id.length || 1) * 11),
-              material: Cesium.Color.fromCssColorString(tint).withAlpha(0.04),
-              outline: true,
-              outlineColor: new Cesium.CallbackProperty(() => {
-                const k = (Date.now() % 2600) / 2600
-                return Cesium.Color.fromCssColorString(tint).withAlpha(Math.max(0.05, 1 - k) * 0.8)
-              }, false),
-              outlineWidth: 2,
-              height: 240,
-            },
-            show: m.visible,
-          }),
-        )
-      }
-    }
-    viewer.scene.requestRender()
   }
 
   function buildStorm(Cesium: CesiumModule, viewer: Viz, data: StormTrackData) {
@@ -3578,7 +3278,6 @@ function CesiumGlobe({ locations, layers, storm, series, timeCursor, timeColor =
     scene.argo.forEach((e) => (e.show = state.argo))
     scene.realArgo.forEach((e) => (e.show = state.realArgo))
     scene.anomalies.forEach((e) => (e.show = state.anomalies))
-    scene.tide.forEach((e) => (e.show = state.tide))
     setPointFieldEnabled(scene.sst, state.realSST)
     setPointFieldEnabled(scene.chl, state.realChl)
     setPointFieldEnabled(scene.oxygen, state.oxygen)

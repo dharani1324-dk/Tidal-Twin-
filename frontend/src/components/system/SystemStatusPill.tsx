@@ -14,12 +14,11 @@ const CHECK_LABELS: Record<string, string> = {
   backend: 'Backend',
   database: 'Database',
   ocean_data: 'Ocean data',
-  tide: 'TIDE',
   copilot: 'Copilot',
   cesium: 'Cesium',
 }
 
-const CHECK_ORDER = ['backend', 'database', 'ocean_data', 'tide', 'copilot', 'cesium']
+const CHECK_ORDER = ['backend', 'database', 'ocean_data', 'copilot', 'cesium']
 
 function toneFor(status?: string): string {
   switch ((status ?? '').toUpperCase()) {
@@ -133,7 +132,7 @@ export default function SystemStatusPill() {
           <p className="sys-pop-foot">
             {simulationMode
               ? 'SIMULATION MODE: labelled demonstration rows are present. They are always marked SIMULATED and are never presented as real observations.'
-              : 'Optional services may be unavailable without affecting core TIDE analysis. No values are fabricated during an outage.'}
+              : 'Optional services may be unavailable without affecting core ocean data. No values are fabricated during an outage.'}
           </p>
         </div>
       )}

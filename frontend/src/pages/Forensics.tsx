@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
 import {
   Search, MapPin, Fingerprint, GitCompareArrows, Clock,
   AlertTriangle, ChevronDown, ChevronUp, FileText, Shield,
-  Crosshair, Waves, Thermometer, Dna, Target, Scan, History,
+  Crosshair, Waves, Thermometer, Dna, Target, Scan,
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -124,14 +123,6 @@ const INTENSITY_COLOR: Record<string, string> = {
   warning: '#f59e0b',
 }
 
-/* map a forensics event variable label onto the TIDE engine variable key */
-function tideVariableFor(ev: OceanEvent): string {
-  const v = (ev.variable ?? '').toLowerCase()
-  if (v.includes('current')) return 'current_speed'
-  if (v.includes('wave')) return 'wave_height'
-  return 'temperature'
-}
-
 /* ---- normalize backend payloads into the page's data model ---- */
 function normalizeInvestigation(inv: any): Investigation | null {
   if (!inv) return null
@@ -205,7 +196,6 @@ function normalizeAutopsy(aut: any): AutopsyReport | null {
 }
 
 export default function Forensics() {
-  const navigate = useNavigate()
   const [locs, setLocs] = useState<Region[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [events, setEvents] = useState<OceanEvent[]>([])
@@ -421,18 +411,6 @@ export default function Forensics() {
                         {ev.evolution && isLocal && (
                           <div className="event-evolution">{ev.evolution}</div>
                         )}
-                        <button
-                          className="replay-link"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            navigate(
-                              `/tide/replay?location_id=${encodeURIComponent(ev.location_id)}&variable=${tideVariableFor(ev)}`
-                            )
-                          }}
-                          title="Open the Phase 6 TIDE Decision Replay for this event"
-                        >
-                          <History size={12} /> Replay decision
-                        </button>
                       </motion.div>
                     )
                   })}

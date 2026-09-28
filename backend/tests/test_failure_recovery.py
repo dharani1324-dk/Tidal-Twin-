@@ -18,78 +18,13 @@ class FailureRecoveryTest(unittest.TestCase):
 
         self.client = TestClient(app)
 
-    # --- missing / invalid resources -------------------------------------
-
-    def test_unknown_event_replay_404(self):
-        res = self.client.get("/api/v1/tide/events/event-99999/replay")
-        self.assertEqual(res.status_code, 404)
-        self.assertIn("detail", res.json())
-
-    def test_event_replay_bad_observation_type_422(self):
-        res = self.client.get("/api/v1/tide/events/event-0/replay", params={"observation_type": "TELEPORT"})
-        self.assertEqual(res.status_code, 422)
-        self.assertEqual(res.json()["detail"]["code"], "TIDE_INVALID_REQUEST")
-
-    def test_unknown_event_context_404(self):
-        res = self.client.get("/api/v1/tide/events/event-99999")
-        self.assertEqual(res.status_code, 404)
-
-    def test_unknown_benchmark_case_404(self):
-        res = self.client.get("/api/v1/tide/benchmarks/not-a-case", params={"budget": 1})
-        self.assertEqual(res.status_code, 404)
-
-    def test_unknown_location_candidates_is_empty_not_error(self):
-        res = self.client.get("/api/v1/tide/candidates", params={"location_id": UNKNOWN_ID})
-        self.assertEqual(res.status_code, 200)
-        body = res.json()
-        self.assertTrue(body["success"])
-        self.assertEqual(body["data"], [])
-
-    def test_unknown_location_verdict_404(self):
-        res = self.client.get("/api/v1/tide/verdict", params={"location_id": UNKNOWN_ID})
-        self.assertIn(res.status_code, (404, 200))  # 404 preferred; 200 only if graceful empty
-        if res.status_code == 200:
-            self.assertIsNone(res.json()["data"])
-
-    def test_virtual_observation_unknown_location_404(self):
-        res = self.client.post(
-            "/api/v1/tide/virtual-observation",
-            json={"location_id": UNKNOWN_ID, "variable": "temperature"},
-        )
-        self.assertEqual(res.status_code, 404)
-
-    # --- invalid parameters ----------------------------------------------
-
-    def test_unknown_variable_422(self):
-        res = self.client.get("/api/v1/tide/candidates", params={"variable": "not_a_variable"})
-        self.assertEqual(res.status_code, 422)
-
-    def test_negative_depth_422(self):
-        res = self.client.get("/api/v1/tide/data-gaps", params={"depth_m": -1})
-        self.assertEqual(res.status_code, 422)
-
-    def test_benchmark_bad_budget_422(self):
-        res = self.client.get("/api/v1/tide/benchmarks", params={"budget": 99})
-        self.assertEqual(res.status_code, 422)
-
-    def test_benchmark_bad_strategy_422(self):
-        res = self.client.get("/api/v1/tide/benchmarks", params={"budget": 1, "strategies": "MAGIC"})
-        self.assertEqual(res.status_code, 422)
-
-    def test_virtual_observation_bad_method_422(self):
-        res = self.client.post(
-            "/api/v1/tide/virtual-observation",
-            json={"location_id": 1, "variable": "temperature", "observation_type": "TELEPORT"},
-        )
-        self.assertEqual(res.status_code, 422)
-
-    def test_virtual_observation_missing_body_422(self):
-        res = self.client.post("/api/v1/tide/virtual-observation", json={})
-        self.assertEqual(res.status_code, 422)
+    def test_removed_tide_api_is_not_registered(self):
+        response = self.client.get("/api/v1/tide/candidates")
+        self.assertEqual(response.status_code, 404)
 
     def test_demo_seed_bad_kind_422(self):
-        res = self.client.post("/api/v1/demo/seed", params={"kind": "tsunami"})
-        self.assertEqual(res.status_code, 422)
+        response = self.client.post("/api/v1/demo/seed", params={"kind": "tsunami"})
+        self.assertEqual(response.status_code, 422)
 
     # --- Copilot graceful failure ----------------------------------------
 

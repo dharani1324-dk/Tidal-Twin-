@@ -4,7 +4,6 @@ const ANCHORS = [
   { href: '#overview', label: 'OVERVIEW' },
   { href: '#sea-level', label: 'SEA LEVEL' },
   { href: '#regions', label: 'REGIONS' },
-  { href: '#tide-loop', label: 'TIDE' },
   { href: '#forensics', label: 'FORENSICS' },
   { href: '#projections', label: 'PROJECTIONS' },
 ]
@@ -28,7 +27,7 @@ export default function MastheadNav({ scrolled = false }: { scrolled?: boolean }
       {ROUTES.map((r) => (
         <Link key={r.to} className="mh-link mh-link--route" to={r.to}>{r.label}</Link>
       ))}
-      <span className="masthead__more">INDICATIVE SERIES · REAL TIDE ENGINE</span>
+      <span className="masthead__more">INDICATIVE SERIES · LIVE OCEAN DATA</span>
     </nav>
   )
 }
