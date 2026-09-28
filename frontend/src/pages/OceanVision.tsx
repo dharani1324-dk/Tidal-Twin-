@@ -92,6 +92,7 @@ interface LightRegion {
   color: string
   biota_impact: Record<string, number>
   recommendation: string
+  source_proxy?: string
 }
 
 interface SrcVar {
@@ -154,23 +155,29 @@ export default function OceanVision() {
 
   const [adaptive, setAdaptive] = useState<AdaptiveRegion[]>([])
   const [carbon, setCarbon] = useState<CarbonRegion[]>([])
-  const [carbonMeta, setCarbonMeta] = useState({ national_total_uptake_MtC_per_yr: 0, strongest_co2_sink: '—', atmosphere_reference_pco2: 420 })
+  const [carbonMeta, setCarbonMeta] = useState<{ national_total_uptake_MtC_per_yr: number | null; strongest_co2_sink: string | null; atmosphere_reference_pco2: number }>({ national_total_uptake_MtC_per_yr: null, strongest_co2_sink: null, atmosphere_reference_pco2: 420 })
   const [light, setLight] = useState<LightRegion[]>([])
   const [sensing, setSensing] = useState<SensingRegion[]>([])
   const [recos, setRecos] = useState<RecoRegion[]>([])
-  const [recommendationError, setRecommendationError] = useState(false)
+  const [failedServices, setFailedServices] = useState<string[]>([])
   const [recoSummary, setRecoSummary] = useState({ network_average_obs_need: 0, estimated_observations_needed: 0, summary: '' })
 
   useEffect(() => {
+    const failed: string[] = []
+    const safeFetch = async <T,>(name: string, request: () => Promise<T>, fallback: T): Promise<T> => {
+      try {
+        return await request()
+      } catch {
+        failed.push(name)
+        return fallback
+      }
+    }
     Promise.all([
-      fetchAdaptive().catch(() => ({ regions: [] })),
-      fetchCarbon().catch(() => ({ regions: [], national_total_uptake_MtC_per_yr: 0, strongest_co2_sink: '—', atmosphere_reference_pco2: 420 })),
-      fetchLightPollution().catch(() => ({ regions: [] })),
-      fetchRemoteSensing().catch(() => ({ regions: [] })),
-      fetchRecommendations(0).catch(() => {
-        setRecommendationError(true)
-        return { recommendations: [], network_average_obs_need: 0, estimated_observations_needed: 0, summary: '' }
-      }),
+      safeFetch('Adaptive detection', fetchAdaptive, { regions: [] }),
+      safeFetch('Carbon flux', fetchCarbon, { regions: [], national_total_uptake_MtC_per_yr: null, strongest_co2_sink: null, atmosphere_reference_pco2: 420 }),
+      safeFetch('Light pollution', fetchLightPollution, { regions: [] }),
+      safeFetch('Satellite data', fetchRemoteSensing, { regions: [] }),
+      safeFetch('Observation planner', () => fetchRecommendations(0), { recommendations: [], network_average_obs_need: null, estimated_observations_needed: null, summary: '' }),
     ]).then(([a, c, l, s, r]) => {
       setAdaptive(Array.isArray(a.regions) ? a.regions.map((r: AdaptiveRegion) => ({
         ...r,
@@ -181,11 +188,12 @@ export default function OceanVision() {
         adaptation_index: r.adaptation_index ?? 0,
       })) : [])
       setCarbon(Array.isArray(c.regions) ? c.regions : [])
-      setCarbonMeta({ national_total_uptake_MtC_per_yr: c.national_total_uptake_MtC_per_yr, strongest_co2_sink: c.strongest_co2_sink, atmosphere_reference_pco2: c.atmosphere_reference_pco2 })
+      setCarbonMeta({ national_total_uptake_MtC_per_yr: c.national_total_uptake_MtC_per_yr ?? null, strongest_co2_sink: c.strongest_co2_sink ?? null, atmosphere_reference_pco2: c.atmosphere_reference_pco2 ?? 420 })
       setLight(Array.isArray(l.regions) ? l.regions : [])
       setSensing(Array.isArray(s.regions) ? s.regions : [])
       setRecos(Array.isArray(r.recommendations) ? r.recommendations : [])
       setRecoSummary({ network_average_obs_need: r.network_average_obs_need, estimated_observations_needed: r.estimated_observations_needed, summary: r.summary })
+      setFailedServices(failed)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
@@ -197,6 +205,13 @@ export default function OceanVision() {
   const confidentRegions = adaptive.filter((r) => r.maturity === 'confident').length
   const avgAdaptIndex = adaptive.length ? Math.round(adaptive.reduce((s, r) => s + r.adaptation_index, 0) / adaptive.length) : 0
   const extremeCoasts = light.filter((l) => l.severity === 'extreme').length
+  const activeSensingRegions = sensing.filter((r) => r.variables.some((v) => v.availability > 0)).length
+  const dataLimitations = [
+    ...failedServices.map((service) => `${service} could not be loaded`),
+    ...(carbon.length === 0 ? ['Carbon flux is unavailable: no recent SST records were found'] : []),
+    ...(sensing.length > 0 && !sensing.some((r) => r.variables.some((v) => v.availability > 0)) ? ['Satellite catalogue is available, but no current satellite inputs are present'] : []),
+    ...(light.some((region) => /proxy|offline|synthetic/i.test(region.source_proxy ?? '')) ? ['Light pollution values are offline proxy estimates, not live satellite measurements'] : []),
+  ]
 
   return (
     <div className="ov-page">
@@ -209,10 +224,19 @@ export default function OceanVision() {
           </div>
         </div>
         <div className="ov-badge-row">
-          <span className="ov-badge"><Cpu size={14} /> 5 engines online</span>
-          <span className="ov-badge ov-badge-live"><span className="ov-live-dot" /> LIVE</span>
+          <span className="ov-badge"><Cpu size={14} /> 5 analysis modules</span>
+          <span className={`ov-badge ${failedServices.length ? '' : 'ov-badge-live'}`}>
+            <span className="ov-live-dot" /> {failedServices.length ? 'API DEGRADED' : 'API CONNECTED'}
+          </span>
         </div>
       </motion.div>
+
+      {dataLimitations.length > 0 && !loading && (
+        <div className="ov-panel glass-card" role="status">
+          <div className="ov-panel-header"><AlertTriangle size={16} /><h3>Data coverage is limited</h3></div>
+          <ul className="ov-note">{dataLimitations.map((message) => <li key={message}>{message}</li>)}</ul>
+        </div>
+      )}
 
       <motion.div className="ov-tabs" variants={fadeUp} initial="hidden" animate="visible">
         {TABS.map(({ id, icon: Icon, label, desc }) => (
@@ -314,11 +338,11 @@ export default function OceanVision() {
               <div className="ov-score-row">
                 <div className="ov-score-card glass-card">
                   <Waves size={20} />
-                  <div className="ov-score-value" style={{ color: carbonMeta.national_total_uptake_MtC_per_yr < 0 ? '#10b981' : '#f43f5e' }}>
-                    {Math.abs(carbonMeta.national_total_uptake_MtC_per_yr)}
+                  <div className="ov-score-value" style={{ color: (carbonMeta.national_total_uptake_MtC_per_yr ?? 0) >= 0 ? '#10b981' : '#f43f5e' }}>
+                    {carbon.length ? Math.abs(carbonMeta.national_total_uptake_MtC_per_yr ?? 0) : '—'}
                   </div>
                   <div className="ov-score-label">
-                    {carbonMeta.national_total_uptake_MtC_per_yr < 0 ? 'Mt C absorbed / yr (sink)' : 'Mt C emitted / yr (source)'}
+                    {carbon.length ? ((carbonMeta.national_total_uptake_MtC_per_yr ?? 0) >= 0 ? 'Mt C absorbed / yr (estimated sink)' : 'Mt C emitted / yr (estimated source)') : 'No recent data for an estimate'}
                   </div>
                 </div>
                 <div className="ov-score-card glass-card">
@@ -333,7 +357,10 @@ export default function OceanVision() {
                 </div>
               </div>
 
-              <div className="ov-two-col">
+              <p className="ov-note">Flux is model-estimated from recent sea-surface temperature, chlorophyll where available, and a wave-based wind estimate. It is not a direct CO₂ measurement.</p>
+              {carbon.length === 0 ? (
+                <div className="ov-panel glass-card"><p className="ov-empty">No recent sea-surface temperature records are available for a carbon-flux estimate.</p></div>
+              ) : <div className="ov-two-col">
                 <div className="ov-panel glass-card">
                   <div className="ov-panel-header"><Activity size={16} /><h3>Regional net uptake (kt C / yr)</h3></div>
                   <ResponsiveContainer width="100%" height={280}>
@@ -370,7 +397,7 @@ export default function OceanVision() {
                     ))}
                   </div>
                 </div>
-              </div>
+              </div>}
             </div>
           )}
 
@@ -426,20 +453,20 @@ export default function OceanVision() {
               <div className="ov-score-row">
                 <div className="ov-score-card glass-card">
                   <Satellite size={20} />
-                  <div className="ov-score-value">{sensing.length}</div>
-                  <div className="ov-score-label">Regions harmonized</div>
+                  <div className="ov-score-value">{activeSensingRegions}</div>
+                  <div className="ov-score-label">Regions with satellite inputs</div>
                 </div>
                 <div className="ov-score-card glass-card">
                   <Activity size={20} />
                   <div className="ov-score-value">
-                    {sensing.length ? Math.round(sensing.reduce((s, r) => s + r.harmonized_confidence, 0) / sensing.length) : '—'}
+                    {activeSensingRegions ? Math.round(sensing.filter((r) => r.variables.some((v) => v.availability > 0)).reduce((s, r) => s + r.harmonized_confidence, 0) / activeSensingRegions) : '—'}
                   </div>
                   <div className="ov-score-label">Avg harmonized confidence</div>
                 </div>
                 <div className="ov-score-card glass-card">
                   <Crosshair size={20} />
                   <div className="ov-score-value">
-                    {sensing.length ? Math.max(...sensing.map((r) => r.fused_confidence_boost_pct)) : 0}%
+                    {activeSensingRegions ? `${Math.max(...sensing.filter((r) => r.variables.some((v) => v.availability > 0)).map((r) => r.fused_confidence_boost_pct))}%` : '—'}
                   </div>
                   <div className="ov-score-label">Best fusion gain</div>
                 </div>
@@ -524,7 +551,7 @@ export default function OceanVision() {
                 <p className="ov-note">{recoSummary.summary}</p>
               </div>
 
-              {recommendationError ? (
+              {failedServices.includes('Observation planner') ? (
                 <div className="ov-panel glass-card" role="alert">
                   <p className="ov-empty">Could not load observation recommendations. Check the backend connection and retry.</p>
                   <button className="ov-tab" onClick={() => window.location.reload()}>Retry</button>

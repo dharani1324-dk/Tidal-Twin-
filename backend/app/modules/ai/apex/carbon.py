@@ -92,7 +92,10 @@ def carbon_monitoring(db: Session) -> dict:
 
         # 100×100 km envelope approximation for the national aggregate.
         area_km2 = 10000.0
-        uptake_gc_yr = flux["flux_gc_per_m2_yr"] * area_km2 * 1e6
+        # Flux is positive toward the atmosphere (ocean source) and negative
+        # into the ocean (ocean sink). Keep the public uptake field positive
+        # for sinks and negative for sources.
+        uptake_gc_yr = -flux["flux_gc_per_m2_yr"] * area_km2 * 1e6
         total_gc_yr += uptake_gc_yr
 
         regions.append({
@@ -110,7 +113,7 @@ def carbon_monitoring(db: Session) -> dict:
 
     return {
         "engine": "Marine Carbon Monitoring (Takahashi + Wanninkhof + Weiss)",
-        "national_total_uptake_MtC_per_yr": round(-total_gc_yr / 1e12, 3),
+        "national_total_uptake_MtC_per_yr": round(total_gc_yr / 1e12, 3),
         "strongest_co2_sink": strongest_sink,
         "atmosphere_reference_pco2": PCO2_AIR,
         "regions": regions,
