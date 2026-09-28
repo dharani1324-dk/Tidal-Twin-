@@ -14,7 +14,6 @@ import DemoGuide from './components/system/DemoGuide'
 import { fetchLocations, fetchAlerts } from './api/client'
 import './App.css'
 
-const MissionIntro = lazy(() => import('./pages/MissionIntro'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const DigitalTwin = lazy(() => import('./pages/DigitalTwin'))
 const Assistant = lazy(() => import('./pages/Assistant'))
@@ -57,7 +56,7 @@ const NAV_GROUPS: NavSpec[] = [
   {
     section: 'Mission',
     items: [
-      { to: '/', label: 'Mission INTRO', icon: Home, end: true },
+      { to: '/', label: 'Dashboard', icon: Home, end: true },
       { to: '/globe', label: 'Digital Twin', icon: Globe2 },
       { to: '/monitoring', label: 'Monitoring & Alerts', icon: Radar },
       { to: '/data-layers', label: 'Data Layers Dashboard', icon: Database },
@@ -313,7 +312,7 @@ export default function App() {
   )
 
   return (
-    <div className={`app-shell${theme === 'classic' ? ' theme-classic' : ''}${location.pathname === '/' && theme !== 'classic' ? ' mission-shell' : ''}`}>
+    <div className={`app-shell${theme === 'classic' ? ' theme-classic' : ''}`}>
       {/* ---- Sidebar (desktop) ---- */}
       <aside className="sidebar">
         {product}
@@ -344,7 +343,7 @@ export default function App() {
             </button>
             <div className="sb-title">
               <span className="sb-crumb">TIDALTWIN /</span>
-              <b>{active?.label ?? 'Mission INTRO'}</b>
+              <b>{active?.label ?? 'Dashboard'}</b>
             </div>
           </div>
 
@@ -458,10 +457,7 @@ export default function App() {
         <main className="main-content">
           <Suspense fallback={<RouteLoading />}>
             <Routes>
-              <Route
-      path="/"
-      element={guard('Mission INTRO', theme === 'classic' ? <Dashboard /> : <MissionIntro />)}
-    />
+              <Route path="/" element={guard('Dashboard', <Dashboard />)} />
               <Route path="/classic" element={guard('Classic Console', <Dashboard />)} />
               <Route path="/globe" element={guard('Digital Twin', <DigitalTwin />)} />
               <Route path="/monitoring" element={guard('Monitoring & Alerts', <Monitoring />)} />
@@ -487,10 +483,7 @@ export default function App() {
               <Route path="/stories" element={guard('Story Mode', <Stories />)} />
               <Route path="/assistant" element={guard('Ocean AI Copilot', <Assistant />)} />
               <Route path="/reports" element={guard('Risk Report', <Reports />)} />
-              <Route
-      path="*"
-      element={guard('Mission INTRO', theme === 'classic' ? <Dashboard /> : <MissionIntro />)}
-    />
+              <Route path="*" element={guard('Dashboard', <Dashboard />)} />
             </Routes>
           </Suspense>
         </main>

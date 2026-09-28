@@ -133,27 +133,6 @@
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-/* The Mission Intro is its own front door, with its own compact masthead. */
-.app-shell.mission-shell {
-  display: block;
-  width: 100%;
-  height: auto;
-  min-height: 100vh;
-  overflow: visible;
-  background: #000;
-}
-.mission-shell > .sidebar,
-.mission-shell .system-bar,
-.mission-shell .stage-rail,
-.mission-shell > .shell-main > .mobile-drawer,
-.mission-shell > .drawer-overlay { display: none !important; }
-.mission-shell > .shell-main { display: block; min-height: 100vh; }
-.mission-shell .main-content {
-  display: block;
-  min-height: 100vh;
-  padding: 0;
-  overflow: visible;
-}
 .nav-item-active svg { color: var(--accent); }
 
 .nav-ai-dot { margin-left: auto; color: var(--accent-warm) !important; }
