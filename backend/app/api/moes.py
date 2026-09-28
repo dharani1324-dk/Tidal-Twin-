@@ -13,6 +13,7 @@ import re
 import ssl
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 import xml.etree.ElementTree as ET
 from datetime import timedelta
 from urllib.parse import quote
@@ -30,7 +31,15 @@ from app.services.moes_normalizer import normalize_argo_grid, normalize_indobis_
 router = APIRouter(prefix="/api/v1/moes", tags=["MoES Data"])
 _catalog_cache: dict = {"at": 0.0, "payload": None}
 _CACHE_SECONDS = 300
-TLS_VERIFY = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT) if os.name == "nt" else certifi.where()
+if os.name == "nt":
+    TLS_VERIFY = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+else:
+    TLS_VERIFY = ssl.create_default_context(cafile=certifi.where())
+    # INCOIS's ERDDAP endpoint omits its GlobalSign intermediate certificate.
+    # Windows retrieves it through AIA automatically; bundle that issuing CA
+    # for Linux clients so they can build the same validated chain offline.
+    _INCOIS_ISSUER_CA = Path(__file__).resolve().parents[2] / "certs" / "globalsign-rsa-ov-ssl-ca-2018.pem"
+    TLS_VERIFY.load_verify_locations(cafile=str(_INCOIS_ISSUER_CA))
 _grid_cache: dict[tuple, dict] = {}
 _indobis_cache: dict = {"at": 0.0, "payload": None}
 _niot_cache: dict = {"at": 0.0, "payload": None}
