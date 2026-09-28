@@ -50,12 +50,13 @@ Production `/api/v1/health` was reachable and reported database/PostGIS, TIDE, a
 
 ## Validation evidence
 
-- Backend full suite: 396 passed, 1 skipped in the prior baseline. The current full suite is being rerun with 12 new normalized-record contract cases.
+- Backend full suite: 408 passed, 1 skipped, including 12 new normalized-record contract cases (176.56 seconds).
 - Frontend tests: 37 passed.
 - Frontend production build: passed.
 - Frontend lint: exit 0 with existing warnings (state updates from effects, effect dependencies, one type-erasure warning, and fast-refresh export warning).
 - Docker Compose could not be started in this environment because Docker Desktop's daemon was unavailable. Production Railway services were reachable during the audit.
 - Interactive browser console/visual checks were unavailable; route HTTP and built bundles were checked directly.
+- Repair commit `ac61817` is pushed to `railway-deploy`. At the last live check, Railway was still returning the pre-repair biodiversity shape; deployment completion remains unverified and must be confirmed from the live response.
 
 ## Remaining operational limits
 
