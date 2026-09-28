@@ -8,6 +8,7 @@ product-specific ingestion routes.
 import csv
 import io
 import math
+import os
 import re
 import ssl
 import time
@@ -18,6 +19,7 @@ from urllib.parse import quote
 from datetime import datetime, timezone
 
 import httpx
+import certifi
 import truststore
 from fastapi import APIRouter, Query
 
@@ -28,6 +30,7 @@ from app.services.moes_normalizer import normalize_argo_grid, normalize_indobis_
 router = APIRouter(prefix="/api/v1/moes", tags=["MoES Data"])
 _catalog_cache: dict = {"at": 0.0, "payload": None}
 _CACHE_SECONDS = 300
+TLS_VERIFY = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT) if os.name == "nt" else certifi.where()
 _grid_cache: dict[tuple, dict] = {}
 _indobis_cache: dict = {"at": 0.0, "payload": None}
 _niot_cache: dict = {"at": 0.0, "payload": None}
@@ -103,7 +106,7 @@ def _load_catalog() -> dict:
             endpoint,
             timeout=httpx.Timeout(20, connect=8),
             follow_redirects=True,
-            verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT),
+            verify=TLS_VERIFY,
         )
         response.raise_for_status()
         reader = csv.DictReader(io.StringIO(response.text))
@@ -162,7 +165,7 @@ def _check_imd_api() -> dict:
     try:
         response = httpx.get("https://mausam.imd.gov.in/api/port_wx_api.php",
                              timeout=httpx.Timeout(5, connect=3), follow_redirects=True,
-                             verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+                             verify=TLS_VERIFY)
         if "whitelist" in response.text.casefold():
             return {"status": "ACCESS_RESTRICTED", "error": "IMD requires this server IP/domain to be whitelisted.", "checked_at": checked}
         if response.is_success:
@@ -243,7 +246,7 @@ def _load_indobis_status() -> dict:
     try:
         response = httpx.get(f"{INDOBIS_API}/node/{INDOBIS_NODE_ID}",
                              timeout=httpx.Timeout(15, connect=8), follow_redirects=True,
-                             verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+                             verify=TLS_VERIFY)
         response.raise_for_status()
         payload = {"status": "LIVE", "checked_at": checked, "error": None, "served_from_cache": False}
     except (httpx.HTTPError, ValueError) as exc:
@@ -261,7 +264,7 @@ def _load_niot_buoys() -> dict:
     endpoint = "https://services.niot.res.in/oos_app/api/dashboard/GetAllBuoysList?is_all=false"
     try:
         response = httpx.get(endpoint, timeout=httpx.Timeout(20, connect=8), follow_redirects=True,
-                             verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+                             verify=TLS_VERIFY)
         response.raise_for_status()
         body = response.json()
         raw = body.get("GetAllBuoysResp") or []
@@ -300,7 +303,7 @@ def _load_iitm_status() -> dict:
     endpoint = "https://ardc.tropmet.res.in/thredds/catalog/las/catalog.xml"
     try:
         response = httpx.get(endpoint, timeout=httpx.Timeout(12, connect=6), follow_redirects=True,
-                             verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+                             verify=TLS_VERIFY)
         response.raise_for_status()
         payload = {"status": "LIVE", "checked_at": checked, "error": None, "served_from_cache": False}
     except httpx.HTTPError as exc:
@@ -428,7 +431,7 @@ def dataset_metadata(dataset_id: str):
     url = settings.INCOIS_ERDDAP_BASE.rstrip("/") + f"/info/{dataset_id}/index.json"
     try:
         response = httpx.get(url, timeout=httpx.Timeout(15, connect=8), follow_redirects=True,
-                             verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+                             verify=TLS_VERIFY)
         response.raise_for_status()
         table = response.json().get("table", {})
         attrs: dict[str, dict[str, str]] = {}
@@ -517,7 +520,7 @@ def argo_grid(
     axis_url = settings.INCOIS_ERDDAP_BASE.rstrip("/") + "/griddap/incois_argo_10d_VAM.csv?ZAX"
     try:
         axis = httpx.get(axis_url, timeout=httpx.Timeout(15, connect=8), follow_redirects=True,
-                         verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+                         verify=TLS_VERIFY)
         axis.raise_for_status()
         axis_rows = list(csv.reader(io.StringIO(axis.text)))
         levels = [float(row[0]) for row in axis_rows[2:] if row and row[0] not in ("", "NaN")]
@@ -529,7 +532,7 @@ def argo_grid(
         data_url = settings.INCOIS_ERDDAP_BASE.rstrip("/") + "/griddap/incois_argo_10d_VAM.csv"
         response = httpx.get(data_url + "?" + quote(expression, safe="():,"),
                              timeout=httpx.Timeout(30, connect=8), follow_redirects=True,
-                             verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+                             verify=TLS_VERIFY)
         if response.status_code == 400 and "No data" in response.text:
             return {"available": False, "status": "NO_DATA_FOR_REQUEST", "source": "INCOIS", "dataset": dataset["name"], "time": source_time, "depth_m": level, "error": response.text[:250]}
         response.raise_for_status()
@@ -613,7 +616,7 @@ def biodiversity(
             "nodeid": INDOBIS_NODE_ID, "size": min(limit * 3, 1000), "start": 0,
             "marine": "true",
         }, timeout=httpx.Timeout(25, connect=8), follow_redirects=True,
-            verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+            verify=TLS_VERIFY)
         response.raise_for_status()
         body = response.json()
         records = []
@@ -685,7 +688,7 @@ def _latest_thredds_file(product: str) -> dict:
         raise ValueError("Unknown operational product")
     catalog_url = f"{_THREDDS_BASE}/catalog/{directory}/catalog.xml"
     response = httpx.get(catalog_url, timeout=httpx.Timeout(20, connect=8), follow_redirects=True,
-                         verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+                         verify=TLS_VERIFY)
     response.raise_for_status()
     root = ET.fromstring(response.content)
     files = sorted({
@@ -751,7 +754,7 @@ def incois_hydrodynamic_forecast(
         ])
         response = httpx.get(source["ncss_url"], params=params,
                              timeout=httpx.Timeout(35, connect=8), follow_redirects=True,
-                             verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+                             verify=TLS_VERIFY)
         response.raise_for_status()
         reader = csv.DictReader(io.StringIO(response.text))
         records = []
@@ -836,7 +839,7 @@ def incois_wave_forecast(
         source = _latest_thredds_file("wave")
         capabilities = httpx.get(source["wms_url"], params={"service": "WMS", "version": "1.3.0", "request": "GetCapabilities"},
                                  timeout=httpx.Timeout(25, connect=8), follow_redirects=True,
-                                 verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+                                 verify=TLS_VERIFY)
         capabilities.raise_for_status()
         root = ET.fromstring(capabilities.content)
         layer_name = "UWND:VWND-mag" if variable == "WIND" else variable
@@ -878,7 +881,7 @@ def incois_wave_forecast(
         }
         response = httpx.get(source["wms_url"], params=query,
                              timeout=httpx.Timeout(25, connect=8), follow_redirects=True,
-                             verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT))
+                             verify=TLS_VERIFY)
         response.raise_for_status()
         body = response.text
         value_match = re.search(r"Value:\s*([-+0-9.eE]+)", body)

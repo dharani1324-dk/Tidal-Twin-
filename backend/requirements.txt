@@ -13,6 +13,7 @@ pydantic-settings==2.7.0
 
 # --- HTTP client (to fetch real ocean data from public APIs) ---
 httpx==0.28.1
+certifi==2026.7.22
 requests==2.32.3
 truststore==0.10.4
 
