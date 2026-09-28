@@ -361,7 +361,20 @@ export default function DigitalTwin() {
       .catch(() => {})
 
     fetchErsstLatest()
-      .then((d: ErsstLayer) => setErsstData(d))
+      .then((d: Partial<ErsstLayer>) => {
+        const samples = Array.isArray(d?.samples) ? d.samples : []
+        setErsstData({
+          available: d?.available !== false && Array.isArray(d?.samples),
+          error: d?.error,
+          time: d?.time ?? 'Unavailable',
+          months: d?.months ?? [],
+          resolution_deg: d?.resolution_deg ?? 0,
+          source: d?.source ?? 'NOAA ERSST v5',
+          rows: d?.rows ?? samples.length,
+          stats: d?.stats ?? null,
+          samples,
+        })
+      })
       .catch(() => {})
 
     fetchChlorLatest()
@@ -1518,19 +1531,27 @@ export default function DigitalTwin() {
             <div className="control-title">
               <Satellite size={16} />
               <span>Real SST (NOAA ERSST v5)</span>
-              {ersstData && (
+              {ersstData?.available && (
                 <span className="podium-count">{ersstData.time}</span>
               )}
             </div>
 
             {!ersstData ? (
               <div className="hint">Loading the real ERSST grid…</div>
+            ) : !ersstData.available ? (
+              <div className="chl-pending">
+                <b>No ERSST grid is available.</b>
+                <p>
+                  The current database has no ingested NOAA ERSST cells, so this historical SST layer
+                  is hidden. Other Digital Twin layers remain available.
+                </p>
+              </div>
             ) : (
               <>
                 <div className="argo-chips">
                   <span className="argo-chip argo-chip-surface"><i /> GRID <b>{ersstData.resolution_deg}°</b></span>
                   <span className="argo-chip argo-chip-mld"><i /> CELLS <b>{ersstData.rows}</b></span>
-                  <span className="argo-chip argo-chip-mld"><i /> INDIA-BOX <b>{ersstData.samples.filter((s) => inIndiaBox(s.latitude, s.longitude)).length}</b></span>
+                  <span className="argo-chip argo-chip-mld"><i /> INDIA-BOX <b>{(ersstData.samples ?? []).filter((s) => inIndiaBox(s.latitude, s.longitude)).length}</b></span>
                 </div>
 
                 <div className="ersst-readout">
@@ -1597,7 +1618,7 @@ export default function DigitalTwin() {
                 <div className="argo-chips">
                   <span className="argo-chip argo-chip-mld"><i /> GRID <b>{chlorData.resolution_deg}°</b></span>
                   <span className="argo-chip argo-chip-mld"><i /> CELLS <b>{chlorData.rows}</b></span>
-                  <span className="argo-chip argo-chip-surface"><i /> INDIA-BOX <b>{chlorData.samples.filter((s) => inIndiaBox(s.latitude, s.longitude)).length}</b></span>
+                  <span className="argo-chip argo-chip-surface"><i /> INDIA-BOX <b>{(chlorData.samples ?? []).filter((s) => inIndiaBox(s.latitude, s.longitude)).length}</b></span>
                 </div>
 
                 <div className="ersst-readout chl-readout">

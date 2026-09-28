@@ -145,6 +145,8 @@ export interface GridStats {
 
 /** The latest real ERSST month grid + coverage summary. */
 export interface ErsstLayer {
+  available?: boolean
+  error?: string
   time: string
   months: string[]
   resolution_deg: number
