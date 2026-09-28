@@ -1,8 +1,8 @@
 # Deploy TidalTwin to Railway
 
 Railway deploys each part of the Compose stack as its own service. This setup
-uses a PostGIS container with a persistent Railway Volume, the existing FastAPI
-Dockerfile, and a Railway-specific frontend image. Only the frontend needs a
+uses a PostGIS container with a persistent Railway Volume, Railway-specific
+backend and frontend Dockerfiles, and a private backend API. Only the frontend needs a
 public domain; `/api` requests go through its proxy to the private backend.
 
 ## Before starting
@@ -23,8 +23,8 @@ backend CORS variable.
    set `POSTGRES_PASSWORD` to a strong random secret in Railway Variables. Add a
    Railway Volume mounted at `/var/lib/postgresql/data`. Keep the service
    private; do not generate a public TCP proxy.
-2. **Backend** — add the GitHub repository. Set its Root Directory to
-   `/backend`; Railway detects `backend/Dockerfile`. Name the service `backend`.
+2. **Backend** — add the GitHub repository. Keep its Root Directory at `/` and
+   set Dockerfile Path to `backend/Dockerfile.railway`. Name the service `backend`.
    Set its healthcheck path to `/api/v1/health` and timeout to 600 seconds.
    Add these variables:
 
@@ -37,8 +37,8 @@ backend CORS variable.
    ```
 
    Leave the backend without a public domain.
-3. **Frontend** — add the same GitHub repository. Set Root Directory to
-   `/frontend`, Dockerfile Path to `Dockerfile.railway`, and name the service
+3. **Frontend** — add the same GitHub repository. Keep Root Directory at `/`,
+   set Dockerfile Path to `frontend/Dockerfile.railway`, and name the service
    `frontend`. Set variables `PORT=8080` and
    `BACKEND_HOST=backend.railway.internal`; Railway supplies the `PORT` value
    used by Nginx. Generate a public Railway domain
