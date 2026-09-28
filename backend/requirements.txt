@@ -14,6 +14,7 @@ pydantic-settings==2.7.0
 # --- HTTP client (to fetch real ocean data from public APIs) ---
 httpx==0.28.1
 requests==2.32.3
+truststore==0.10.4
 
 # --- Database (PostgreSQL + PostGIS) ---
 sqlalchemy==2.0.36

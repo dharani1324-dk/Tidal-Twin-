@@ -97,6 +97,11 @@ Full component diagram: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 docker compose up --build
 ```
 
+For public hosting on Railway, use the separate-service setup in
+[`docs/RAILWAY_DEPLOY.md`](docs/RAILWAY_DEPLOY.md). Railway deploys the frontend,
+backend, and PostGIS database as separate services rather than running this
+Compose stack directly.
+
 | Service  | URL                     |
 |----------|-------------------------|
 | Frontend | http://localhost:8080   |

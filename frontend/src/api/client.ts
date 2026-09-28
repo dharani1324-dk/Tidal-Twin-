@@ -14,7 +14,7 @@ import type {
 } from '../types/system'
 
 // The backend runs here in development
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '')
 
 export const api = axios.create({
   baseURL: API_BASE,
@@ -24,6 +24,44 @@ export const api = axios.create({
 /** Get a friendly backend health status */
 export const fetchHealth = async () => {
   const { data } = await api.get('/api/v1/health')
+  return data
+}
+
+/** Live MoES source availability and INCOIS ERDDAP dataset catalog. */
+export const fetchMoesRegistry = async () => {
+  const { data } = await api.get('/api/v1/moes/registry', { timeout: 25000 })
+  return data
+}
+export const fetchMoesDatasets = async (q = '') => {
+  const { data } = await api.get('/api/v1/moes/datasets', { params: { q }, timeout: 25000 })
+  return data
+}
+export const fetchMoesFeature = async (featureId: string) => {
+  const { data } = await api.get(`/api/v1/moes/features/${encodeURIComponent(featureId)}`, { timeout: 25000 })
+  return data
+}
+export const fetchMoesDatasetMetadata = async (datasetId: string) => {
+  const { data } = await api.get(`/api/v1/moes/datasets/${encodeURIComponent(datasetId)}`, { timeout: 20000 })
+  return data
+}
+export const fetchMoesArgoGrid = async (variable: 'TEMP' | 'SAL', depth_m = 5) => {
+  const { data } = await api.get('/api/v1/moes/normalized/argo-grid', { params: { variable, depth_m }, timeout: 45000 })
+  return data
+}
+export const fetchMoesBiodiversity = async (limit = 200) => {
+  const { data } = await api.get('/api/v1/moes/normalized/biodiversity', { params: { limit }, timeout: 35000 })
+  return data
+}
+export const fetchMoesBuoys = async () => {
+  const { data } = await api.get('/api/v1/moes/buoys', { timeout: 25000 })
+  return data
+}
+export const fetchMoesHydrodynamicForecast = async (product: 'currents' | 'temperature' | 'salinity' | 'sea-level', latitude = 10, longitude = 80, hours = 168) => {
+  const { data } = await api.get('/api/v1/moes/forecast/hydrodynamics', { params: { product, latitude, longitude, hours }, timeout: 45000 })
+  return data
+}
+export const fetchMoesWaveForecast = async (latitude = 10, longitude = 80, variable = 'HS', valid_at?: string) => {
+  const { data } = await api.get('/api/v1/moes/forecast/waves', { params: { latitude, longitude, variable, valid_at }, timeout: 45000 })
   return data
 }
 

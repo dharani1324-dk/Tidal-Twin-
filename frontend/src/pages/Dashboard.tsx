@@ -14,6 +14,7 @@ import {
   fetchLocations, fetchObservations, triggerRefresh, fetchValidationSituation,
 } from '../api/client'
 import IntelligenceWorkspace from '../components/workspace/IntelligenceWorkspace'
+import { MoesFeatureGrid } from './MoesExplorer'
 import './Dashboard.css'
 
 interface Situation {
@@ -244,6 +245,8 @@ export default function Dashboard() {
           </button>
         ))}
       </div>
+
+      <MoesFeatureGrid />
 
       {/* ============ LOCATION STRIP ============ */}
       {error && (

@@ -38,6 +38,7 @@ const Microplastics = lazy(() => import('./pages/Microplastics'))
 const MicroplasticsDashboard = lazy(() => import('./pages/MicroplasticsDashboard'))
 const Deoxygenation = lazy(() => import('./pages/Deoxygenation'))
 const Acidification = lazy(() => import('./pages/Acidification'))
+const MoesExplorer = lazy(() => import('./pages/MoesExplorer'))
 
 /**
  * TidalTwin — Application Shell
@@ -60,6 +61,7 @@ const NAV_GROUPS: NavSpec[] = [
       { to: '/globe', label: 'Digital Twin', icon: Globe2 },
       { to: '/monitoring', label: 'Monitoring & Alerts', icon: Radar },
       { to: '/data-layers', label: 'Data Layers Dashboard', icon: Database },
+      { to: '/moes', label: 'MoES Data Explorer', icon: Waves },
       { to: '/classic', label: 'Classic Console', icon: LayoutDashboard },
       { to: '/assistant', label: 'Ocean AI Copilot', icon: MessageSquare },
     ],
@@ -464,6 +466,8 @@ export default function App() {
               <Route path="/globe" element={guard('Digital Twin', <DigitalTwin />)} />
               <Route path="/monitoring" element={guard('Monitoring & Alerts', <Monitoring />)} />
               <Route path="/data-layers" element={guard('Data Layers', <DataLayers />)} />
+              <Route path="/moes" element={guard('MoES Ocean Intelligence', <MoesExplorer />)} />
+              <Route path="/moes/:feature" element={guard('MoES Ocean Intelligence', <MoesExplorer />)} />
               <Route path="/validate" element={guard('Model Validation', <Validate />)} />
               <Route path="/anomalies" element={guard('Anomaly Intel', <AnomalyIntel />)} />
               <Route path="/forensics" element={guard('Ocean Forensics', <Forensics />)} />
