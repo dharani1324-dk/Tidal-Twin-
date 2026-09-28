@@ -101,6 +101,10 @@ function unwrap<T>(d: unknown): T {
   return d as T
 }
 
+function arrayOrEmpty<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value as T[] : []
+}
+
 function Card({
   title, icon, count, children,
 }: { title: string; icon: ReactNode; count?: string; children: ReactNode }) {
@@ -187,35 +191,61 @@ export default function DataLayers() {
   const [chlScale, setChlScale] = useState<ScaleMode>('log')
 
   const sstDomain = useMemo(
-    () => domainFrom(ersstData?.samples.map((s) => s.sst) ?? []) ?? TEMP_DEFAULT_DOMAIN,
+    () => domainFrom(ersstData?.samples?.map((s) => s.sst) ?? []) ?? TEMP_DEFAULT_DOMAIN,
     [ersstData],
   )
 
   const chlDomain = useMemo(
     () => domainFrom(
-      chlorData?.available ? chlorData.samples.map((s) => s.chlor_a) : [],
+      chlorData?.available ? (chlorData.samples ?? []).map((s) => s.chlor_a) : [],
     ) ?? CHL_LEGACY_DOMAIN,
     [chlorData],
   )
 
   useEffect(() => {
     fetchErsstLatest()
-      .then((d: ErsstLayer) => setErsstData(d))
+      .then((d: Partial<ErsstLayer>) => {
+        const samples = Array.isArray(d?.samples) ? d.samples : []
+        setErsstData({
+          available: d?.available !== false && Array.isArray(d?.samples),
+          error: d?.error,
+          time: d?.time ?? 'Unavailable',
+          months: d?.months ?? [],
+          resolution_deg: d?.resolution_deg ?? 0,
+          source: d?.source ?? 'NOAA ERSST v5',
+          rows: d?.rows ?? samples.length,
+          stats: d?.stats ?? null,
+          samples,
+        })
+      })
       .catch(() => setErsstData(null))
       .finally(() => setErsstLoading(false))
 
     fetchChlorLatest()
-      .then((d: ChlorLayer) => setChlorData(d))
+      .then((d: Partial<ChlorLayer>) => {
+        const samples = Array.isArray(d?.samples) ? d.samples : []
+        setChlorData({
+          available: d?.available === true && Array.isArray(d?.samples),
+          error: d?.error,
+          time: d?.time ?? 'Unavailable',
+          months: d?.months ?? [],
+          resolution_deg: d?.resolution_deg ?? 0,
+          source: d?.source ?? 'NOAA CoastWatch VIIRS',
+          rows: d?.rows ?? samples.length,
+          stats: d?.stats ?? null,
+          samples,
+        })
+      })
       .catch(() => setChlorData(null))
       .finally(() => setChlorLoading(false))
 
     fetchRealArgoFloats()
-      .then((d) => setFloats(d.floats ?? []))
+      .then((d) => setFloats(arrayOrEmpty<RealArgoFloat>(d?.floats)))
       .catch(() => setFloats([]))
       .finally(() => setFloatsLoading(false))
 
     fetchGliderDeployments()
-      .then((d) => setGliders(d.deployments ?? []))
+      .then((d) => setGliders(arrayOrEmpty<GliderDeployment>(d?.deployments)))
       .catch(() => setGliders([]))
       .finally(() => setGlidersLoading(false))
 
@@ -230,22 +260,22 @@ export default function DataLayers() {
       .finally(() => setVectorsLoading(false))
 
     fetchTwinDisagreement('temperature')
-      .then((d) => setDisagreement(d.points ?? []))
+      .then((d) => setDisagreement(arrayOrEmpty<DisagreementPoint>(d?.points)))
       .catch(() => setDisagreement([]))
       .finally(() => setDisLoading(false))
 
     fetchAnomalies({ sort: 'severity' })
-      .then((d) => setAnomalies(d.anomalies ?? []))
+      .then((d) => setAnomalies(arrayOrEmpty<AnomalyPoint>(d?.anomalies)))
       .catch(() => setAnomalies([]))
       .finally(() => setAnLoading(false))
 
     fetchTideCandidates({})
-      .then((d) => setTide(unwrap<TideRow[]>(d)))
+      .then((d) => setTide(arrayOrEmpty<TideRow>(unwrap<unknown>(d))))
       .catch(() => setTide([]))
       .finally(() => setTideLoading(false))
 
     fetchUncertainty()
-      .then((d) => setUncRegions(d.regions ?? []))
+      .then((d) => setUncRegions(arrayOrEmpty<Record<string, unknown>>(d?.regions)))
       .catch(() => setUncRegions([]))
       .finally(() => setUncLoading(false))
 
@@ -255,23 +285,23 @@ export default function DataLayers() {
       .finally(() => setSitLoading(false))
 
     fetchDataSources()
-      .then((d) => setSources(d.sources ?? []))
+      .then((d) => setSources(arrayOrEmpty<SourceRow>(d?.sources)))
       .catch(() => setSources([]))
       .finally(() => setSrcLoading(false))
 
     fetchDeoxygenationOverview()
-      .then((d) => setHotspots(d.hotspots?.hotspots ?? [] as HotspotRow[]))
+      .then((d) => setHotspots(arrayOrEmpty<HotspotRow>(d?.hotspots?.hotspots)))
       .catch(() => setHotspots([]))
       .finally(() => setOxyLoading(false))
   }, [])
 
   const indiaErsst = useMemo(
-    () => (ersstData ? ersstData.samples.filter((s) => inIndiaBox(s.latitude, s.longitude)).length : 0),
+    () => (ersstData?.available ? (ersstData.samples ?? []).filter((s) => inIndiaBox(s.latitude, s.longitude)).length : 0),
     [ersstData],
   )
 
   const indiaChl = useMemo(
-    () => (chlorData?.available ? chlorData.samples.filter((s) => inIndiaBox(s.latitude, s.longitude)).length : 0),
+    () => (chlorData?.available ? (chlorData.samples ?? []).filter((s) => inIndiaBox(s.latitude, s.longitude)).length : 0),
     [chlorData],
   )
 
@@ -306,7 +336,7 @@ export default function DataLayers() {
       <div className="dl-summary">
         <Stat label="Sources online" value={`${onlineSources}/${sources.length || '–'}`} tone={onlineSources > 0 ? 'ok' : 'off'} />
         <Stat label="Model fields" value={`${gridAvailable}/${gridTotal || '–'}`} tone={gridAvailable > 0 ? 'ok' : 'off'} />
-        <Stat label="SST cells" value={ersstData ? ersstData.rows.toLocaleString() : '–'} />
+        <Stat label="SST cells" value={ersstData?.available ? ersstData.rows.toLocaleString() : '–'} />
         <Stat label="Floats + gliders" value={`${floats.length + gliders.length}`} />
         <Stat label="Hotspots" value={`${hotspots.length}`} tone={hotspots.length > 0 ? 'warn' : undefined} />
         <Stat label="Active events" value={sit ? String(sit.active_events) : '–'} />
@@ -316,11 +346,16 @@ export default function DataLayers() {
 
       <div className="dl-sections">
         <Section title="Observed Grids" icon={<Satellite size={15} />}>
-        <Card title="Real SST (NOAA ERSST v5)" icon={<Satellite size={16} />} count={ersstData?.time}>
+        <Card title="Real SST (NOAA ERSST v5)" icon={<Satellite size={16} />} count={ersstData?.available ? ersstData.time : undefined}>
           {ersstLoading ? (
             <div className="dl-hint">Loading the real ERSST grid…</div>
           ) : !ersstData ? (
             <div className="dl-hint dl-hint-empty">ERSST endpoint unavailable.</div>
+          ) : !ersstData.available ? (
+            <div className="dl-pending">
+              <b>No ERSST grid is available.</b>
+              <p>The current database has no ingested NOAA ERSST cells. This layer will appear when a real grid is available.</p>
+            </div>
           ) : (
             <>
               <div className="dl-chips">
