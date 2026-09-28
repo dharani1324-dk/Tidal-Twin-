@@ -5,8 +5,22 @@ analysis remains MODEL_DERIVED; it is never recast as an instrument reading.
 """
 
 from hashlib import sha256
+from datetime import datetime, timezone
 
 from app.schemas.moes import UnifiedOceanRecord
+
+
+def _utc_instant(value: str | None) -> str | None:
+    """Return a UTC ISO timestamp only when the source provides a timed instant."""
+    if not value or "T" not in value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def normalize_argo_grid(payload: dict) -> list[dict]:
@@ -60,6 +74,7 @@ def normalize_indobis_occurrences(payload: dict) -> list[dict]:
     records = []
     for item in payload.get("records", []):
         identity = str(item.get("id") or f"{item.get('scientific_name')}|{item.get('event_date')}|{item.get('latitude')}|{item.get('longitude')}")
+        source_event_date = item.get("event_date")
         record = UnifiedOceanRecord(
             record_id=sha256(f"CMLRE|{identity}".encode("utf-8")).hexdigest(),
             source_id="CMLRE",
@@ -70,7 +85,7 @@ def normalize_indobis_occurrences(payload: dict) -> list[dict]:
             variable="species_occurrence",
             value=item.get("scientific_name"),
             units=None,
-            observed_at=item.get("event_date"),
+            observed_at=_utc_instant(source_event_date),
             retrieved_at=retrieved_at,
             latitude=item.get("latitude"),
             longitude=item.get("longitude"),
@@ -81,7 +96,11 @@ def normalize_indobis_occurrences(payload: dict) -> list[dict]:
             source_url=item.get("source_url") or payload.get("source_url", "https://indobis.in/"),
             attribution=item.get("institution") or "CMLRE / IndOBIS via OBIS",
             license=None,
-            attributes={"basis_of_record": item.get("basis_of_record"), "institution_code": item.get("institution")},
+            attributes={
+                "basis_of_record": item.get("basis_of_record"),
+                "institution_code": item.get("institution"),
+                "event_date": source_event_date,
+            },
         )
         records.append(record.model_dump())
     return records
