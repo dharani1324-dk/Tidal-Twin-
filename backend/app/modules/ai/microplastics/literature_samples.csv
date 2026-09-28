@@ -1,0 +1,48 @@
+# TidalTwin - curated published-literature microplastic samples
+# =============================================================
+# NOAA NCEI publishes no microplastic samples near several of the monitored
+# coasts (Mumbai, Chennai, Goa, Kochi, Odisha, Lakshadweep).  Those coasts are
+# reported as data gaps unless real, published measurements are added here.
+#
+# Every row MUST be a genuine measurement from a peer-reviewed (or otherwise
+# citable) study.  Nothing in this file may be estimated, averaged from other
+# sources, or invented.  Each row keeps its DOI and reference so the value can
+# always be traced back to the paper.  Cite the rows you use.
+#
+# HOW TO ADD A ROW
+# ----------------
+#   * One sample per row.  A paper reporting n stations contributes n rows.
+#   * Use the sample's coordinates, not the region's centroid.
+#   * Use the unit exactly as the paper reports it.  Valid families (see
+#     units.py) and native spellings recognised by the normaliser:
+#       water   : pieces/m3, particles/m3, items/m3, pieces/L, items/L ...
+#       sediment: pieces/kg dw, pieces kg-1 d.w., pieces kg-1, pieces/g,
+#                 items/kg, items/kg dw, items kg-1, items per kg,
+#                 particles/kg, particles kg-1, numbers/kg, numbers kg-1 ...
+#       nurdle  : pieces/10 min, nurdles/10 min ...
+#       beach   : use 'beach' medium with whatever unit the paper reports.
+#   * medium is one of: water, sediment, beach, beach_nurdle.
+#   * sample_date is YYYY-MM-DD (or YYYY/MM/DD).  Leave blank if unpublished.
+#   * A row without latitude, longitude, value or unit is rejected on ingest.
+#
+# COLUMNS
+# -------
+# latitude,longitude,sample_date,medium,unit,value,doi,reference,location_name,organization,sampling_method,sample_depth_m,country,note
+#
+# CURATED ROWS
+# ------------
+# Published measurements below were verified against the primary papers
+# (DOIs resolve via https://doi.org/<doi>; values match the papers' abstracts
+# or the review compilation where noted).  Coordinates that are approximate to
+# a named site carry an explicit note; the DOI column is empty only for a
+# newsletter item that has no DOI, and the reason is stated in its note.
+# ---------------------------------------------------------------------------
+19.1000,72.8200,,water,items/L,372,10.1016/j.chemosphere.2021.132484,"Gurjar U.R., Xavier K.A.M., Shukla S.P., Jaiswar A.K., Deshmukhe G., Nayak B.B. (2022). Microplastic pollution in coastal ecosystem off Mumbai coast, India. Chemosphere 288:132484. PMID 34624351.","Coastal waters off Mumbai, Arabian Sea","ICAR-Central Institute of Fisheries Education (CIFE), Mumbai","Surface water sampling; methods in the paper",0,India,"Mean of water samples 372 +/- 143 items/L. Coordinates approximate to the Mumbai study area (station map in paper). Sampling date not stated in the accessible abstract."
+19.1000,72.8200,,sediment,items/kg DW,9630,10.1016/j.chemosphere.2021.132484,"Gurjar U.R., Xavier K.A.M., Shukla S.P., Jaiswar A.K., Deshmukhe G., Nayak B.B. (2022). Microplastic pollution in coastal ecosystem off Mumbai coast, India. Chemosphere 288:132484. PMID 34624351.","Coastal waters off Mumbai, Arabian Sea","ICAR-Central Institute of Fisheries Education (CIFE), Mumbai","Sediment grab; methods in the paper",,India,"Mean of sediment samples 9630 +/- 2947 items/kg dry weight. Coordinates approximate to the Mumbai study area. Sampling date not stated in the accessible abstract."
+13.1550,80.2960,,water,items/L,22,10.1016/j.jconhyd.2024.104339,"Vignesh V.S., Prapanchan V.N., Indhiya Selvan V.N., Karmegam N., Kim W., Barcelo D., Govarthanan M. (2024). Microplastics, their abundance, and distribution in water and sediments in North Chennai, India: An assessment of pollution risk and human health impacts. Journal of Contaminant Hydrology.","North Chennai coastal environment - water samples","Collab. institutions (India, South Korea, Spain)","Water sampling; methods in the paper",0,India,"Mean 22 items/L across 71 water samples; the survey includes lake and open-well waters in the North Chennai vicinity, so treat as urban-coastal water. Coordinates approximate to North Chennai."
+13.1550,80.2960,,sediment,particles/kg,5200,10.1016/j.jconhyd.2024.104339,"Vignesh V.S., Prapanchan V.N., Indhiya Selvan V.N., Karmegam N., Kim W., Barcelo D., Govarthanan M. (2024). Microplastics, their abundance, and distribution in water and sediments in North Chennai, India: An assessment of pollution risk and human health impacts. Journal of Contaminant Hydrology.","North Chennai coastal environment - sediment samples","Collab. institutions (India, South Korea, Spain)","Sediment sampling; methods in the paper",,India,"Mean 26 particles per 5 g dry sediment over 60 samples; expressed per kg here (x200, dry-weight basis). Coordinates approximate to North Chennai."
+15.0106,74.0239,,sediment,items/kg,520,,"Balasubramaniam M., Phillott A.D. (2016). Preliminary observations of microplastics from beaches of Indian Ocean. Indian Ocean Turtle Newsletter No. 23, 13-16. https://seaturtle.org/library/BalasubramaniamM_2016_IndOceanTurtleNewsletter.pdf","Palolem Beach, South Goa","Indian Ocean Turtle Newsletter","Beach sediment collection; methods in the newsletter article",,India,"Fibre-dominated beach sediment (no DOI - it is a newsletter, hence the small confidence penalty). Coordinates are the Palolem beach centroid."
+10.4378,76.0876,,sediment,items/kg,120.85,10.1080/15275922.2019.1693442,"Ashwini S.K., Varghese G.K. (2019). Environmental forensic analysis of the microplastic pollution at 'Nattika' Beach, Kerala Coast, India. Environmental Forensics.","Nattika Beach, Thrissur district, Kerala coast","National Institute of Technology Calicut","Beach surface-sediment sampling; methods in the paper",,India,"2018 mean 120.85 items/kg (2017 mean 70.15 items/kg per Vaid et al. 2021 Table 1). Coordinates approximate to Nattika beach."
+19.8000,85.8300,,sediment,particles/kg,948,10.3389/frwa.2025.1749269,"Spatial distribution, morphological characteristics, and risk assessment of microplastics in the beach sediments of Odisha Coast, India. Frontiers in Water 8 (2026) 1749269.","Odisha coast beach sediments (Ganjam and Puri districts)","Frontiers in Water (open access)","Beach sediment sampling; methods in the paper",,India,"Study mean 948 +/- 268 particles/kg (range 350-1650) across the Odisha coast. Coordinates approximate to the Puri-Ganjam stretch."
+10.5670,72.6330,,water,items/m3,211.5,10.1016/j.jhazmat.2025.139866,"Hari Praved P., Sreeraj P., Neethu K.V., Bijoy Nandan S., Ravindran S., Marigoudar S.R. (2025). Unraveling the invisible threat of microplastics to Lakshadweep Coral Atolls, Indian Ocean: Multifaceted ecological risk and pollution profiling. Journal of Hazardous Materials 498:139866. PMID 40961706.","Lakshadweep lagoon surface seawater (six-atoll survey; highest-abundance station)","CUSAT; Naval Physical and Oceanographic Laboratory; NCCR (MoES)","Surface-seawater sampling; methods in the paper",0,India,"Archipelago-wide surface-seawater range 10.75-211.5 items/m3; this row is the highest measured station. Coordinates approximate to Kavaratti lagoon; station coordinates in the paper."
+10.5670,72.6330,,sediment,items/kg,124.25,10.1016/j.jhazmat.2025.139866,"Hari Praved P., Sreeraj P., Neethu K.V., Bijoy Nandan S., Ravindran S., Marigoudar S.R. (2025). Unraveling the invisible threat of microplastics to Lakshadweep Coral Atolls, Indian Ocean: Multifaceted ecological risk and pollution profiling. Journal of Hazardous Materials 498:139866. PMID 40961706.","Lakshadweep lagoon sediments (six-atoll survey; highest-abundance station)","CUSAT; Naval Physical and Oceanographic Laboratory; NCCR (MoES)","Lagoon sediment sampling; methods in the paper",,India,"Archipelago-wide sediment range 54-124.25 items/kg; this row is the highest measured station. Coordinates approximate to Kavaratti lagoon; station coordinates in the paper."

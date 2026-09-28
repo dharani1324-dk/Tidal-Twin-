@@ -1,4 +1,4 @@
-"""Generate TidalTwin SIH pitch deck (4 slides, light theme)."""
+"""Generate TidalTwin SIH pitch deck (7 slides, light theme)."""
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
@@ -13,6 +13,7 @@ DEEP = RGBColor(0xB4, 0x5F, 0x06)
 TEAL = RGBColor(0x0F, 0x76, 0x6E)
 RED = RGBColor(0xE1, 0x1D, 0x48)
 GREEN = RGBColor(0x05, 0x96, 0x69)
+GOLD = RGBColor(0x9A, 0x70, 0x1F)
 INK = RGBColor(0x1F, 0x29, 0x37)
 MUT = RGBColor(0x55, 0x66, 0x78)
 PANEL = RGBColor(0xEE, 0xF2, 0xF7)
@@ -254,6 +255,79 @@ _txt(s, Inches(1.6), Inches(6.18), Inches(10.1), Inches(0.75),
      "With SIH support: scale to 100+ Indian coastal regions and connect official marine advisories —\n"
      "a decision-intelligence dashboard in the hands of every coast.",
      size=17, color=WHITE, bold=True, align=PP_ALIGN.CENTER, line_spacing=1.15)
+
+def _slide_head(s, title):
+    _box(s, 0, 0, SW, Inches(0.28), fill=BLUE, line=None, rounded=False)
+    _txt(s, Inches(0.9), HEAD, Inches(11.5), Inches(0.55), title, size=30, color=NAVY, bold=True)
+    _box(s, Inches(0.95), TITLE_BAR, Inches(11.4), Pt(3.5), fill=BLUE, line=None, rounded=False)
+
+
+def _picture(s, path, max_w=Inches(10.8), max_h=Inches(5.5)):
+    from PIL import Image
+    iw, ih = Image.open(path).size
+    scale = min(max_w / iw, max_h / ih, 1.0)
+    w, h = int(iw * scale), int(ih * scale)
+    left = (SW - w) / 2
+    top = Inches(1.35) + (max_h - h) / 2
+    s.shapes.add_picture(path, left, top, width=w, height=h)
+
+
+# ============================================================ SLIDE 5 - DATABASE WORKFLOW
+s = prs.slides.add_slide(BLANK); _bg(s)
+_slide_head(s, "Database & data flow")
+_picture(s, r"C:\Project 2.0\presentation\db_workflow.png")
+_txt(s, Inches(0.9), Inches(7.08), Inches(11.5), Inches(0.4),
+     "Sources → ingestion → PostgreSQL 16 + PostGIS 3.4 → engines → outputs · every row traceable via provenance_register",
+     size=12, color=MUT, align=PP_ALIGN.CENTER)
+
+# ============================================================ SLIDE 6 - WHOLE-PROJECT WORKFLOW
+s = prs.slides.add_slide(BLANK); _bg(s)
+_slide_head(s, "Whole-project workflow")
+_picture(s, r"C:\Project 2.0\presentation\project_workflow.png")
+_txt(s, Inches(0.9), Inches(7.08), Inches(11.5), Inches(0.4),
+     "TIDE closes the adaptive loop: recommended next observation → re-observe → re-ingest",
+     size=12, color=MUT, align=PP_ALIGN.CENTER)
+
+# ============================================================ SLIDE 7 - RESEARCH & REFERENCES
+s = prs.slides.add_slide(BLANK); _bg(s)
+_slide_head(s, "Research & References")
+
+cols = [
+    ("OPEN DATA SOURCES (in production)", BLUE, [
+        "Open-Meteo Marine API (ERA5-driven) — live observations",
+        "NOAA CoastWatch ERDDAP — HYCOM 3D model + chlorophyll",
+        "IOOS National Glider DAC — glider profiles + BGC",
+        "Argo Program GDAC — real float T/S profiles",
+        "Global Fishing Watch AIS — derived surface currents",
+    ]),
+    ("ACADEMIC INSPIRATION (framing, not validation)", GOLD, [
+        "Howard, Information Value Theory — IEEE TSSC (1966)",
+        "Lindley, On a Measure of the Information Provided by an Experiment — Ann. Math. Stat. (1956)",
+        "MacKay, Information-Based Objective Functions for Active Data Selection — Neural Computation (1992)",
+        "Liu, Ting & Zhou, Isolation-Based Anomaly Detection — ACM TKDD (2012)",
+    ]),
+    ("STACK", TEAL, [
+        "FastAPI · SQLAlchemy · Pydantic",
+        "PostgreSQL 16 · PostGIS 3.4",
+        "React 19 · TypeScript · Vite · PWA",
+        "CesiumJS 3D globe",
+        "scikit-learn · NetCDF/CF · Docker",
+    ]),
+]
+cw3 = Inches(3.7); gx3 = Inches(0.25); x0i = Inches(1.05); y_top3 = Inches(1.25)
+for i, (title, acol, rows) in enumerate(cols):
+    x = x0i + i * (cw3 + gx3)
+    _box(s, x, y_top3, cw3, Inches(4.85), fill=PANEL, line=LINE)
+    _box(s, x, y_top3, cw3, Inches(0.5), fill=acol, line=None, radius=0.1)
+    _txt(s, x + Inches(0.18), y_top3 + Inches(0.09), cw3 - Inches(0.36), Inches(0.4), title, size=13, color=WHITE, bold=True)
+    _y = y_top3 + Inches(0.75)
+    for row in rows:
+        _txt(s, x + Inches(0.2), _y, cw3 - Inches(0.4), Inches(1.0), row, size=12.5, color=INK, line_spacing=1.1)
+        _y += Inches(0.82)
+
+_txt(s, Inches(1.05), Inches(6.35), Inches(11.3), Inches(0.4),
+     "Honesty: TIDE is inspired by decision / value-of-information theory as a decision-support heuristic; empirical scientific validation is future work.",
+     size=13, color=RED, bold=True, align=PP_ALIGN.CENTER)
 
 prs.save(r"C:\Project 2.0\presentation\TidalTwin_SIH_Pitch.pptx")
 print("saved: presentation/TidalTwin_SIH_Pitch.pptx")

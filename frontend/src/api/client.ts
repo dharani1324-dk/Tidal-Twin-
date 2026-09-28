@@ -854,3 +854,298 @@ export const fetchTideHypotheses = async (params: {
   const { data } = await api.get('/api/v1/tide/hypotheses', { params })
   return data
 }
+
+// --- Microplastics intelligence API helpers ---
+
+/** Everything the microplastics workspace renders: hotspots, surfaces, coverage. */
+export const fetchMicroplasticsOverview = async (radiusKm = 250) => {
+  const { data } = await api.get('/api/v1/microplastics/overview', {
+    params: { radius_km: radiusKm },
+  })
+  return data
+}
+
+/** Honest evidence report: how many real samples exist, and where the gaps are. */
+export const fetchMicroplasticsCoverage = async () => {
+  const { data } = await api.get('/api/v1/microplastics/coverage')
+  return data
+}
+
+/** Stored samples with their native units, provenance and published class. */
+export const fetchMicroplasticSamples = async (params: {
+  region_id?: number; medium?: string; unit_family?: string;
+  min_ordinal?: number; limit?: number;
+} = {}) => {
+  const { data } = await api.get('/api/v1/microplastics/samples', { params })
+  return data
+}
+
+/** Ranked hotspots as a new anomaly category, with recommended actions. */
+export const fetchMicroplasticHotspots = async (minPriority = 0) => {
+  const { data } = await api.get('/api/v1/microplastics/hotspots', {
+    params: { min_priority: minPriority },
+  })
+  return data
+}
+
+/** Yearly buckets per region and medium, for the time scrubber. */
+export const fetchMicroplasticTimeline = async () => {
+  const { data } = await api.get('/api/v1/microplastics/timeline')
+  return data
+}
+
+/** IDW concentration surface for one medium, with explicit gap counts. */
+export const fetchMicroplasticSurface = async (params: {
+  medium?: string; radius_km?: number;
+} = {}) => {
+  const { data } = await api.get('/api/v1/microplastics/surface', {
+    params: { medium: params.medium ?? 'water', radius_km: params.radius_km ?? 250 },
+  })
+  return data
+}
+
+/** Provenance, licences and endpoints for every microplastics source. */
+export const fetchMicroplasticSources = async () => {
+  const { data } = await api.get('/api/v1/microplastics/sources')
+  return data
+}
+
+/** The measurement discipline, unit ladders and scoring weights, exposed openly. */
+export const fetchMicroplasticMethod = async () => {
+  const { data } = await api.get('/api/v1/microplastics/method')
+  return data
+}
+
+/** Pull, normalise, map and store the NOAA NCEI collection. */
+export const ingestMicroplastics = async (limit = 2000) => {
+  const { data } = await api.post('/api/v1/microplastics/ingest', null, {
+    params: { limit },
+  })
+  return data
+}
+
+/** Project a 24-72h drift corridor. Returns status NO_FORCING when it cannot. */
+export const projectMicroplasticDrift = async (params: {
+  region_id: number; latitude?: number; longitude?: number;
+  duration_h?: number; sensitivity?: number;
+}) => {
+  const { data } = await api.post('/api/v1/microplastics/drift', {
+    region_id: params.region_id,
+    latitude: params.latitude,
+    longitude: params.longitude,
+    duration_h: params.duration_h ?? 72,
+    sensitivity: params.sensitivity ?? 1,
+  })
+  return data
+}
+
+/** Raise eligible hotspots into the platform alert store (idempotent). */
+export const refreshMicroplasticAlerts = async (minPriority = 60) => {
+  const { data } = await api.post('/api/v1/microplastics/alerts/refresh', null, {
+    params: { min_priority: minPriority },
+  })
+  return data
+}
+
+// --- Deoxygenation Intelligence API ---
+
+/** Get deoxygenation overview (hotspots, trends, coverage). */
+export const fetchDeoxygenationOverview = async (radiusKm = 250) => {
+  const { data } = await api.get('/api/v1/deoxygenation/overview', {
+    params: { radius_km: radiusKm },
+  })
+  return data
+}
+
+/** Get honest evidence report: how many real oxygen samples exist. */
+export const fetchDeoxygenationCoverage = async () => {
+  const { data } = await api.get('/api/v1/deoxygenation/coverage')
+  return data
+}
+
+/** Get stored oxygen samples with filters. */
+export const fetchDeoxygenationSamples = async (params: {
+  region_id?: number
+  min_severity?: string
+  is_hypoxic?: boolean
+  is_dead_zone?: boolean
+  limit?: number
+} = {}) => {
+  const { data } = await api.get('/api/v1/deoxygenation/samples', { params })
+  return data
+}
+
+/** Get ranked hypoxic hotspots with recommendations. */
+export const fetchDeoxygenationHotspots = async (minPriority = 0) => {
+  const { data } = await api.get('/api/v1/deoxygenation/hotspots', {
+    params: { min_priority: minPriority },
+  })
+  return data
+}
+
+/** Get historical trend analysis per region. */
+export const fetchDeoxygenationTrends = async (regionId?: number) => {
+  const { data } = await api.get('/api/v1/deoxygenation/trends', {
+    params: regionId != null ? { region_id: regionId } : {},
+  })
+  return data
+}
+
+/**
+ * Measured oxygen aggregated onto a 0.5-degree grid.
+ *
+ * Region-independent, so unlike the coastal hotspots this also covers offshore
+ * oxygen minimum zones. `band` must be one of the canonical depth bands
+ * (surface | pycnocline | deep); the API rejects anything else rather than
+ * silently returning an empty grid.
+ */
+export const fetchDeoxygenationZones = async (params: {
+  band?: 'surface' | 'pycnocline' | 'deep'
+  min_depth?: number
+  max_depth?: number
+} = {}) => {
+  const { data } = await api.get('/api/v1/deoxygenation/zones', { params })
+  return data
+}
+
+/** Get projected hypoxic zone expansion (stretch goal). */
+export const fetchDeoxygenationForecast = async (regionId: number, horizonDays = 30) => {
+  const { data } = await api.get('/api/v1/deoxygenation/forecast', {
+    params: { region_id: regionId, horizon_days: horizonDays },
+  })
+  return data
+}
+
+/** Get provenance and source catalogue. */
+export const fetchDeoxygenationSources = async () => {
+  const { data } = await api.get('/api/v1/deoxygenation/sources')
+  return data
+}
+
+/** Trigger ingestion of Argo BGC + NOAA hypoxia data. */
+export const ingestDeoxygenation = async (limit = 10) => {
+  const { data } = await api.post('/api/v1/deoxygenation/ingest', null, {
+    params: { limit },
+  })
+  return data
+}
+
+/** Map unassigned oxygen samples to coastal regions. */
+export const mapDeoxygenationRegions = async () => {
+  const { data } = await api.post('/api/v1/deoxygenation/map-regions')
+  return data
+}
+
+/** Raise hypoxic hotspots into platform alert store. */
+export const refreshDeoxygenationAlerts = async (minPriority = 60) => {
+  const { data } = await api.post('/api/v1/deoxygenation/alerts/refresh', null, {
+    params: { min_priority: minPriority },
+  })
+  return data
+}
+
+// --- Ocean Acidification Intelligence API ---
+
+/**
+ * Get acidification overview (hotspots, trends, coverage, zones).
+ *
+ * `radiusKm` only affects the proximity search used to attach coastal
+ * hotspots, exactly as in the deoxygenation module. It is NOT the region
+ * attribution radius - that is a backend constant, because it encodes a
+ * measured property of the float sampling pattern rather than a UI choice.
+ */
+export const fetchAcidificationOverview = async (radiusKm = 250) => {
+  const { data } = await api.get('/api/v1/acidification/overview', {
+    params: { radius_km: radiusKm },
+  })
+  return data
+}
+
+/** Get honest evidence report: how many real pH samples exist. */
+export const fetchAcidificationCoverage = async () => {
+  const { data } = await api.get('/api/v1/acidification/coverage')
+  return data
+}
+
+/**
+ * Get stored measured pH samples with filters.
+ *
+ * Note `ph_total` is measured while `omega_arag` is derived from measured pH
+ * plus co-located temperature and salinity. The page must keep those visually
+ * distinct; do not render derived aragonite as though it were an observation.
+ */
+export const fetchAcidificationSamples = async (params: {
+  region_id?: number
+  min_severity?: string
+  is_acidic?: boolean
+  is_undersaturated?: boolean
+  limit?: number
+} = {}) => {
+  const { data } = await api.get('/api/v1/acidification/samples', { params })
+  return data
+}
+
+/** Get ranked acidification stress zones with recommendations. */
+export const fetchAcidificationHotspots = async (minPriority = 0) => {
+  const { data } = await api.get('/api/v1/acidification/hotspots', {
+    params: { min_priority: minPriority },
+  })
+  return data
+}
+
+/** Get historical pH trend analysis per region. */
+export const fetchAcidificationTrends = async (regionId?: number) => {
+  const { data } = await api.get('/api/v1/acidification/trends', {
+    params: regionId != null ? { region_id: regionId } : {},
+  })
+  return data
+}
+
+/**
+ * Measured pH aggregated onto a 0.5-degree grid, keyed to the canonical
+ * depth bands so the 3D globe can slice by depth.
+ */
+export const fetchAcidificationZones = async (params: {
+  band?: 'surface' | 'pycnocline' | 'deep'
+  min_depth?: number
+  max_depth?: number
+} = {}) => {
+  const { data } = await api.get('/api/v1/acidification/zones', { params })
+  return data
+}
+
+/** Get projected pH decline for a region. */
+export const fetchAcidificationForecast = async (regionId: number, horizonDays = 180) => {
+  const { data } = await api.get('/api/v1/acidification/forecast', {
+    params: { region_id: regionId, horizon_days: horizonDays },
+  })
+  return data
+}
+
+/** Get provenance and source catalogue. */
+export const fetchAcidificationSources = async () => {
+  const { data } = await api.get('/api/v1/acidification/sources')
+  return data
+}
+
+/** Trigger ingestion of Argo BGC in-situ pH. */
+export const ingestAcidification = async (limit = 10) => {
+  const { data } = await api.post('/api/v1/acidification/ingest', null, {
+    params: { limit },
+  })
+  return data
+}
+
+/** Map unassigned pH samples to coastal regions. */
+export const mapAcidificationRegions = async () => {
+  const { data } = await api.post('/api/v1/acidification/map-regions')
+  return data
+}
+
+/** Raise acidification stress zones into the platform alert store. */
+export const refreshAcidificationAlerts = async (minPriority = 60) => {
+  const { data } = await api.post('/api/v1/acidification/alerts/refresh', null, {
+    params: { min_priority: minPriority },
+  })
+  return data
+}

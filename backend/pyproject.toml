@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# TidalTwin backend is not published as a package; the tool config below is what
+# matters. `pythonpath` is essential: the test suite imports `app.*` and
+# `scripts.*` as top-level modules, and without this entry pytest does not put
+# the backend root on sys.path, so every test errors at collection with
+# "No module named 'app'".
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.setuptools]
+# Prevents setuptools auto-discovery from walking scripts/ and data/ and failing
+# on the multiple top-level directories present in this repo.
+py-modules = []

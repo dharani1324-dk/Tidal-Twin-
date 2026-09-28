@@ -14,6 +14,9 @@ from app.models.netcdf import NetcdfReadings
 from app.models.argo import ArgoProfile
 from app.models.glider import GliderProfile
 from app.models.ctd import CtdProfile
+from app.models.microplastics import MicroplasticSample
+from app.models.dissolved_oxygen import DissolvedOxygenSample
+from app.models.acidification import OceanAcidificationSample
 
 __all__ = [
     "OceanLocation",
@@ -26,4 +29,7 @@ __all__ = [
     "ArgoProfile",
     "GliderProfile",
     "CtdProfile",
+    "MicroplasticSample",
+    "DissolvedOxygenSample",
+    "OceanAcidificationSample",
 ]

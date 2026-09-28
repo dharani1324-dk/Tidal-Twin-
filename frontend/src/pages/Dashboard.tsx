@@ -5,6 +5,7 @@ import {
   Thermometer, Waves, Wind, RefreshCw, MapPin, Activity,
   TrendingUp, TrendingDown, Sparkles, Radio, Ship, CheckCircle2, Globe2,
   MessageSquare, Radar, FileBarChart, ArrowRight, Database, Satellite,
+  Droplets, FlaskConical,
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -67,6 +68,8 @@ const fadeUp = {
 const QUICK_ACTIONS = [
   { to: '/globe', label: 'Digital Twin', icon: Globe2 },
   { to: '/monitoring', label: 'Monitoring', icon: Radar },
+  { to: '/deoxygenation', label: 'Deoxygenation', icon: Droplets },
+  { to: '/acidification', label: 'Acidification', icon: FlaskConical },
   { to: '/assistant', label: 'Ask Ocean AI', icon: MessageSquare },
   { to: '/reports', label: 'Risk Report', icon: FileBarChart },
 ]
@@ -183,6 +186,12 @@ export default function Dashboard() {
             <button className="btn btn-stroke" onClick={() => navigate('/globe')}>
               Open 3D Globe <ArrowRight size={14} />
             </button>
+            <button className="btn btn-stroke" onClick={() => navigate('/deoxygenation')} style={{ borderColor: '#fb6b84', color: '#fb6b84' }}>
+              <Droplets size={14} /> Deoxygenation
+            </button>
+            <button className="btn btn-stroke" onClick={() => navigate('/acidification')} style={{ borderColor: '#c026d3', color: '#c026d3' }}>
+              <FlaskConical size={14} /> Acidification
+            </button>
           </div>
           <div className="hero-meta">
             <span><Database size={11} /> Open-Meteo marine forecast + NOAA model grids</span>
@@ -230,7 +239,7 @@ export default function Dashboard() {
       {/* ============ QUICK ACTIONS ============ */}
       <div className="quick-strip">
         {QUICK_ACTIONS.map(({ to, label, icon: Icon }) => (
-          <button key={to} className="quick-chip" onClick={() => navigate(to)}>
+          <button key={label} className="quick-chip" onClick={() => navigate(to)}>
             <Icon size={15} /> {label}
           </button>
         ))}

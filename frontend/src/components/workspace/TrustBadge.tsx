@@ -34,6 +34,12 @@ export const TRUST_META: Record<string, TrustMeta> = {
     bg: 'rgba(139,140,248,0.14)',
     hint: 'Computed by the ocean model — not directly measured',
   },
+  DERIVED: {
+    label: 'DERIVED',
+    color: '#22d3ee',
+    bg: 'rgba(34,211,238,0.14)',
+    hint: 'Calculated from other values — not measured directly',
+  },
   SIMULATED: {
     label: 'SIMULATED',
     color: '#f59e0b',

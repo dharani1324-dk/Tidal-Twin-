@@ -19,6 +19,10 @@ import {
 import {
   CHL_LEGACY_DOMAIN,
   TEMP_DEFAULT_DOMAIN,
+  ACIDIFICATION_THRESHOLD_PH,
+  OMEGA_DEFAULT_DOMAIN,
+  PH_DEFAULT_DOMAIN,
+  PH_SEVERITY_EDGES,
   arrowFor,
   buildLatLonField,
   chlorColorCssFrom,
@@ -26,11 +30,15 @@ import {
   isoLevelsFor,
   isoLines,
   kForValue,
+  omegaColorCss,
+  phColorCss,
+  phSeverityLabel,
   salColorCss,
   salColorCssFrom,
   tempColorCssFrom,
   type IsoSegment,
 } from '../src/components/3d/globe/layerMath.ts'
+import { phDepthToAltitude } from '../src/components/3d/globe/layerMath.ts'
 
 /* ---- Isosurface contours (SIH #11) ---- */
 
@@ -64,7 +72,7 @@ test('buildLatLonField tolerates unordered and shuffled samples', () => {
   assert.equal(f!.nLat, 2)
   assert.equal(f!.nLon, 2)
   assert.equal(f!.values[1 * 2 + 0], 30) // row 1 (lat 7), col 0 (lon 61)
-  assert.equal(f!.values[0 * 2 + 1], 12)
+  assert.equal(f!.values[0 * 2 + 1], 12) // row 0 (lat 5), col 1 (lon 63)
 })
 
 test('isoLines draws one crossing segment for a single heated corner', () => {
@@ -359,4 +367,120 @@ test('salColorCssFrom rescales to a live domain', () => {
   // Falls back to the 32-37 PSU window without stats.
   assert.equal(salColorCssFrom(32), '#1e40af')
   assert.notEqual(salColorCssFrom(34, d, 'linear'), salColorCss(34))
+})
+/* ---- Ocean acidification ramps (acidification module) ---- */
+
+test('phSeverityLabel reproduces the backend severity ladder exactly', () => {
+  // Mirrors units.SEVERITY_LADDER in app/modules/ai/acidification/units.py.
+  // If these drift, the globe colours a cell differently from the badge the
+  // API returns for the same row — which is the whole thing the mirror is for.
+  assert.equal(phSeverityLabel(7.4), 'CRITICAL')
+  assert.equal(phSeverityLabel(7.7499), 'CRITICAL')
+  assert.equal(phSeverityLabel(7.75), 'HIGH')
+  assert.equal(phSeverityLabel(7.8999), 'HIGH')
+  assert.equal(phSeverityLabel(7.9), 'MODERATE')
+  assert.equal(phSeverityLabel(7.9999), 'MODERATE')
+  assert.equal(phSeverityLabel(8.0), 'LOW')
+  assert.equal(phSeverityLabel(8.0499), 'LOW')
+  assert.equal(phSeverityLabel(8.05), 'NORMAL')
+  assert.equal(phSeverityLabel(8.6), 'NORMAL')
+})
+
+test('phSeverityLabel refuses to classify an impossible pH', () => {
+  // The backend rejects these at ingest, so one reaching the UI means the
+  // caller is mis-wired. Returning null keeps the failure visible instead of
+  // colouring a physically impossible reading as merely "critical".
+  assert.equal(phSeverityLabel(7.39), null)
+  assert.equal(phSeverityLabel(8.61), null)
+  assert.equal(phSeverityLabel(6.2), null)
+  assert.equal(phSeverityLabel(null), null)
+  assert.equal(phSeverityLabel(undefined), null)
+  assert.equal(phSeverityLabel(Number.NaN), null)
+})
+
+test('phSeverityLabel edges match the exported ladder', () => {
+  for (const [edge, label] of PH_SEVERITY_EDGES) {
+    assert.equal(phSeverityLabel(edge - 1e-9), label)
+  }
+  // The acidification anchor itself sits exactly on a ladder edge.
+  assert.equal(phSeverityLabel(ACIDIFICATION_THRESHOLD_PH), 'LOW')
+})
+
+test('phColorCss darkens toward magenta as pH falls', () => {
+  // Healthy end is calm cyan; the acidified end is alarming magenta. This
+  // ramp must NOT reuse the temperature heat colours, where a red cell would
+  // read as "hot" rather than "acidic".
+  assert.equal(phColorCss(8.2), 'rgb(34,211,238)')
+  assert.notEqual(phColorCss(7.6), phColorCss(8.0))
+  assert.notEqual(phColorCss(7.6), phColorCss(7.4))
+})
+
+test('phColorCss marks an unknown value distinctly rather than colouring it', () => {
+  assert.equal(phColorCss(Number.NaN), 'rgb(148, 163, 184)')
+})
+
+test('omegaColorCss runs undersaturated red to supersaturated teal', () => {
+  // Saturation = 1.0 is the physical boundary and gets the marginal-red hue.
+  const undersat = omegaColorCss(0.5)
+  const marginal = omegaColorCss(1.0)
+  const stress = omegaColorCss(2.0)
+  const healthy = omegaColorCss(4.0)
+  for (const pair of [[undersat, marginal], [marginal, stress], [stress, healthy]]) {
+    assert.notEqual(pair[0], pair[1])
+  }
+})
+
+test('omegaColorCss renders absent aragonite as neutral, never as healthy', () => {
+  // This is the single most important case in the module: a sample with no
+  // derived omega must not be painted with the supersaturated teal that means
+  // "shell formation is fine".
+  const absent = omegaColorCss(null)
+  const absent2 = omegaColorCss(undefined)
+  assert.equal(absent, 'rgb(148, 163, 184)')
+  assert.equal(absent2, absent)
+  assert.notEqual(absent, omegaColorCss(4))
+  assert.notEqual(absent, omegaColorCss(0.5))
+})
+
+test('acidification default domains bracket every decision-relevant value', () => {
+  // Live data: pH 7.40-8.47; omega 0.478-7.42.
+  // pH is bracketed outright, so no cell is clipped on the measured axis.
+  assert.ok(PH_DEFAULT_DOMAIN.min <= 7.4)
+  assert.ok(PH_DEFAULT_DOMAIN.max >= 8.47)
+  // Aragonite is deliberately clipped above 4 (see OMEGA_DEFAULT_DOMAIN), but
+  // the window must still cover the undersaturation boundary and both
+  // documented stress thresholds, since those are the decision points.
+  assert.ok(OMEGA_DEFAULT_DOMAIN.min <= 0.478)
+  assert.ok(OMEGA_DEFAULT_DOMAIN.max >= 3.0)
+  // Nothing above the clip may change hue with the exact value: the top of the
+  // ramp is already "far above the 2.0 shellfish threshold".
+  assert.equal(omegaColorCss(4), omegaColorCss(7.42))
+})
+
+test('phDepthToAltitude places deeper samples further below the surface', () => {
+  assert.equal(phDepthToAltitude(0), 0)
+  assert.equal(phDepthToAltitude(100), -1200)
+  assert.equal(phDepthToAltitude(1000), -12000)
+  // Monotonic: a deeper sample is never drawn shallower than a shallower one.
+  assert.ok(phDepthToAltitude(800) < phDepthToAltitude(200))
+})
+
+test('phDepthToAltitude never yields a NaN or positive position', () => {
+  // A NaN position is dropped silently by Cesium, so the sample would simply
+  // disappear from the layer with no error anywhere.
+  for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, -50, -1]) {
+    const alt = phDepthToAltitude(bad)
+    assert.ok(Number.isFinite(alt), `altitude for ${bad} must be finite`)
+    assert.ok(alt <= 0)
+  }
+  // A nonsensical scale must not push points above the sea surface.
+  assert.equal(phDepthToAltitude(100, 0), 0)
+  assert.equal(phDepthToAltitude(100, -5), 0)
+  assert.equal(phDepthToAltitude(100, Number.NaN), 0)
+})
+
+test('phDepthToAltitude caps absurd depths instead of sinking through the earth', () => {
+  // A corrupt 1e9 m reading would place the point deep inside the planet.
+  assert.equal(phDepthToAltitude(1e9), -24000)
+  assert.equal(phDepthToAltitude(2000), -24000)
 })

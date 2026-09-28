@@ -63,6 +63,8 @@ const LAYER_DEFAULTS: LayersState = {
   realSST: false,
   realChl: false,
   oxygen: false,
+  oxygenHotspots: false,
+  acidification: false,
   disagreement: false,
   anomalies: false,
   tide: false,

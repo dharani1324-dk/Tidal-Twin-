@@ -43,6 +43,9 @@ from app.api.glider import router as glider_router
 from app.api.ctd import router as ctd_router
 from app.api.ogc import router as ogc_router
 from app.api.cf import router as cf_router
+from app.api.microplastics import router as microplastics_router
+from app.api.deoxygenation import router as deoxygenation_router
+from app.api.acidification import router as acidification_router
 from app.modules.ai.safety.live import broadcast_loop
 
 
@@ -202,6 +205,9 @@ app.include_router(glider_router)
 app.include_router(ctd_router)
 app.include_router(ogc_router)
 app.include_router(cf_router)
+app.include_router(microplastics_router)
+app.include_router(deoxygenation_router)
+app.include_router(acidification_router)
 
 
 # ---- Basic Routes (Doors) ----

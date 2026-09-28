@@ -23,6 +23,9 @@ path needing a real `{location_id}` — all *correct* HTTP semantics, not defect
 - `/api/v1/intelligence/*` — coverage, events, health, impact, priority,
   relationships, threat-chain, uncertainty (200); autopsy/causal/future/
   investigate/thermocline/timeline need params; counterfactual/whatif POST
+- `/api/v1/microplastics/*` — overview, coverage, samples, hotspots, surface,
+  timeline, sources, method (200); ingest / drift / alerts-refresh POST
+  (see `docs/MICROPLASTICS.md`)
 - `/api/v1/monitoring/*` — alerts, forecast (200); scan POST
 - `/api/v1/ocean/*` — locations (8) (200); observations need `{location_id}`
 - `/api/v1/reports/*` — index, summary (200)

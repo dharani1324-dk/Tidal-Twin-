@@ -480,3 +480,43 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Scientific-boundary note shown under the causal chain. Makes it explicit that
+   the chain is an uncalibrated heuristic and reports how many links rest on
+   measured vs derived vs missing data. */
+.intel-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.06);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  color: var(--muted, #93a4bd);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.intel-note > svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--cyan, #22d3ee);
+}
+
+.intel-note b {
+  color: var(--text, #e6f0ff);
+  font-weight: 600;
+}
+
+.intel-note ul {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.intel-note li {
+  overflow-wrap: anywhere;
+}

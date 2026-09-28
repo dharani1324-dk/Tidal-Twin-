@@ -1,0 +1,17 @@
+# ============================================================
+# TidalTwin - Backend Development / Test Dependencies
+# Install with:  .venv\Scripts\python -m pip install -r requirements-dev.txt
+#
+# These are NOT needed to run the application. They are the tooling required to
+# execute the backend test suite (tests/), which is otherwise unrunnable.
+# ============================================================
+
+-r requirements.txt
+
+# --- Test runner ---
+# The suite uses both unittest.TestCase classes and plain pytest functions, and
+# fastapi.testclient for endpoint tests.
+pytest==8.3.4
+
+# --- Test coverage reporting ---
+pytest-cov==6.0.0

@@ -28,12 +28,49 @@ class MonthWindowTest(unittest.TestCase):
 
 class BuildUrlTest(unittest.TestCase):
     def test_build_url_constrains_var_time_and_box(self):
-        url, params = fc.build_url("2021-09", DEFAULT_BOX)
+        url, params = fc.build_url(fc.ERDDAP_BASE, fc.DATASET_ID, "2021-09", DEFAULT_BOX)
         self.assertEqual(url, "https://coastwatch.pfeg.noaa.gov/erddap/griddap/nesdisVHNchlaDaily.nc")
         (constraint,) = params.keys()
         self.assertIn("chlor_a[(2021-09-01T00:00:00Z):1:(2021-10-01T00:00:00Z)]", constraint)
         self.assertIn("[(0.0):1:(26.0)]", constraint)
         self.assertIn("[(60.0):1:(100.0)]", constraint)
+        # A 3-D grid must NOT carry an altitude slice.
+        self.assertNotIn("[(0.0):1:(1.0)]", constraint)
+
+    def test_build_url_adds_altitude_slice_for_4d_grids(self):
+        """Some CoastWatch mirrors expose chlor_a as (time, altitude, lat, lon).
+        A 3-index constraint against those returns 404, so the altitude slice
+        must be present and must sit between the time and lat/lon slices."""
+        url, params = fc.build_url(
+            "https://coastwatch.noaa.gov/erddap/griddap",
+            "noaacwNPPVIIRSSQchlaMonthly",
+            "2021-09",
+            DEFAULT_BOX,
+            with_altitude=True,
+        )
+        self.assertEqual(
+            url,
+            "https://coastwatch.noaa.gov/erddap/griddap/noaacwNPPVIIRSSQchlaMonthly.nc",
+        )
+        (constraint,) = params.keys()
+        self.assertIn("chlor_a[(2021-09-01T00:00:00Z):1:(2021-10-01T00:00:00Z)]", constraint)
+        self.assertIn("[(0.0):1:(1.0)]", constraint)
+        self.assertIn("[(0.0):1:(26.0)]", constraint)
+        self.assertIn("[(60.0):1:(100.0)]", constraint)
+        # Order matters to ERDDAP: time, altitude, lat, lon.
+        self.assertLess(constraint.index("[(0.0):1:(1.0)]"), constraint.index("[(0.0):1:(26.0)]"))
+
+    def test_mirrors_are_ordered_with_a_reachable_mirror_before_pifsc(self):
+        """The primary pfeg host is firewalled on some networks, so at least one
+        NOAA-operated mirror must be configured as a fallback."""
+        bases = [base for base, _, _ in fc.MIRRORS]
+        self.assertIn(fc.ERDDAP_BASE, bases)
+        self.assertGreaterEqual(
+            len(set(bases)), 2, "at least one fallback mirror must be configured"
+        )
+        for base, dataset_id, product in fc.MIRRORS:
+            self.assertTrue(base.startswith("https://"), f"mirror {dataset_id} must use TLS")
+            self.assertTrue(product, f"mirror {dataset_id} must carry a human-readable product name")
 
 
 class FetchAndCompositeTest(unittest.TestCase):

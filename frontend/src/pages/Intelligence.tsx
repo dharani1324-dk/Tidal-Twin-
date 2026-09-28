@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import {
   Brain, Activity, ShieldAlert, GitBranch,
   ThermometerSun, ChevronDown, AlertTriangle,
-  ArrowRight, Zap, TrendingUp,
+  ArrowRight, Zap, TrendingUp, Info,
 } from 'lucide-react'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -98,7 +98,14 @@ export default function Intelligence() {
   const [threats, setThreats] = useState<ThreatRegion[]>([])
   const [impacts, setImpacts] = useState<ImpactItem[]>([])
   const [relationships, setRelationships] = useState<{ nodes: RelationshipNode[]; edges: RelationshipEdge[] }>({ nodes: [], edges: [] })
-  const [causal, setCausal] = useState<{ chain: CausalStep[]; ecosystem_risk: string } | null>(null)
+  const [causal, setCausal] = useState<{
+    chain: CausalStep[]
+    ecosystem_risk: string
+    scientific_basis?: string | null
+    calibrated?: boolean
+    evidence_summary?: { measured_links: number; derived_links: number; unavailable_links: number } | null
+    limitations?: string[]
+  } | null>(null)
   const [thermocline, setThermocline] = useState<ThermoclineData | null>(null)
   const [depthProfile, setDepthProfile] = useState<{ depths: number[]; temperature: number[]; salinity: number[]; density: number[]; oxygen: number[] } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -159,15 +166,22 @@ export default function Intelligence() {
 
       setRelationships(rel?.nodes ? rel : { nodes: [], edges: [] })
 
-      // --- causal: backend returns {step,node,description,level,confidence} → normalize ---
+      // --- causal: backend returns {step,node,description,level,value,basis} ---
+      // No confidence is rendered: the chain is a heuristic diagnostic and the
+      // backend deliberately ships no calibrated probability. `basis` tells the
+      // user whether a link rests on a measured or a derived variable.
       const rawChain = ca?.chain ?? []
       setCausal(ca ? {
-        ecosystem_risk: String(ca.ecosystem_risk ?? 'Unknown'),
+        ecosystem_risk: ca.ecosystem_risk == null ? 'Not computable' : String(ca.ecosystem_risk),
+        scientific_basis: ca.scientific_basis ?? null,
+        calibrated: ca.calibrated ?? false,
+        evidence_summary: ca.evidence_summary ?? null,
+        limitations: ca.limitations ?? [],
         chain: rawChain.map((s: any) => ({
           step: s.step,
           cause: s.node ?? s.cause ?? '',
           effect: s.description ?? s.effect ?? '',
-          mechanism: `${s.level ?? ''}${s.confidence ? ` · ${s.confidence}% conf.` : ''}`.trim(),
+          mechanism: [s.level, s.basis].filter(Boolean).join(' · '),
         })),
       } : null)
 
@@ -390,7 +404,25 @@ export default function Intelligence() {
               {causal?.ecosystem_risk && (
                 <div className="causal-risk">
                   <AlertTriangle size={14} />
-                  <span>Ecosystem Risk: {causal.ecosystem_risk}</span>
+                  <span>Ecosystem Risk (heuristic): {causal.ecosystem_risk}</span>
+                </div>
+              )}
+              {causal?.limitations && causal.limitations.length > 0 && (
+                <div className="intel-note">
+                  <Info size={13} />
+                  <div>
+                    <b>Heuristic diagnostic — not calibrated.</b>
+                    {causal.evidence_summary && (
+                      <span>
+                        {' '}{causal.evidence_summary.measured_links} measured link(s),{' '}
+                        {causal.evidence_summary.derived_links} derived,{' '}
+                        {causal.evidence_summary.unavailable_links} unavailable.
+                      </span>
+                    )}
+                    <ul>
+                      {causal.limitations.map((lim, i) => <li key={i}>{lim}</li>)}
+                    </ul>
+                  </div>
                 </div>
               )}
             </motion.div>

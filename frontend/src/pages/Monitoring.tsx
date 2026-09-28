@@ -166,6 +166,19 @@ export default function Monitoring() {
             </div>
           </div>
 
+          {/*
+            No internal scroller and no height cap. The list grows to fit its
+            content and the page scrolls instead. A capped `overflow-y: auto`
+            list inside a scrolling page gave the feed a second, competing
+            scrollbar, and on a short viewport the capped box was taller than
+            the space left in the viewport, so the feed ran into the forecast
+            section below it. Letting it grow removes the overlap by
+            construction, and one scrollbar is the expected behaviour anyway.
+          */}
+          <div className="alert-list-head">
+            <span>{loading ? 'Loading…' : `${alerts.length} alert${alerts.length === 1 ? '' : 's'}`}</span>
+          </div>
+
           <div className="alert-list">
             {loading && <div className="hint">Loading alerts…</div>}
             {!loading && alerts.length === 0 && (
@@ -173,9 +186,11 @@ export default function Monitoring() {
                 <ShieldCheck size={18} /> No alerts yet — run an AI scan, or simulate an event for the demo.
               </div>
             )}
-            {alerts.map((a) => (
-              <AlertCard key={a.id} alert={a} />
-            ))}
+            <AnimatePresence initial={false}>
+              {alerts.map((a) => (
+                <AlertCard key={a.id} alert={a} />
+              ))}
+            </AnimatePresence>
           </div>
         </motion.div>
       </div>
@@ -244,9 +259,18 @@ function AlertCard({ alert }: { alert: Alert }) {
 
   return (
     <motion.div
-      layout
+      /*
+       * No `layout` here on purpose. The cards are only ever mounted and
+       * unmounted, never reordered, so framer-motion's layout projection bought
+       * nothing — but it measures in viewport space, and this list is a capped,
+       * scrollable flex column. When a scan or a filter change added/removed a
+       * card, the projection ignored the scroll offset and left the surviving
+       * cards with residual transforms, which is what made the list look
+       * overlapped. `AnimatePresence` covers enter/exit without any projection.
+       */
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8, transition: { duration: 0.18 } }}
       className={`alert-card ${resolved ? 'alert-resolved' : ''}`}
     >
       <div className="alert-icon" style={{ color, background: `${color}1a`, borderColor: `${color}40` }}>

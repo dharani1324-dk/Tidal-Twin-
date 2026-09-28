@@ -157,6 +157,174 @@ export function salColorCssFrom(
   return lerpHex([0x1e, 0x40, 0xaf], [0x22, 0xd3, 0xee], kForValue(sal, d, mode))
 }
 
+/* ------------------------------------------------------------------ *
+ * Dissolved Oxygen ramp (deoxygenation module):                      *
+ * Healthy (>6 mg/L) teal -> Hypoxic (2-6 mg/L) amber ->              *
+ * Dead zone (<2 mg/L) red -> Near-anoxic (<0.5) dark red            *
+ * Input is do_mg_l (mg/L).                                           *
+ * ------------------------------------------------------------------ */
+
+export const DO_DEFAULT_DOMAIN: ScaleDomain = { min: 0, max: 8 }
+
+/** Dissolved oxygen colour ramp: teal (healthy) -> amber (hypoxic) -> red (dead zone). */
+export function doColorCss(do_mg_l: number): string {
+  const healthy = [0x14, 0xb8, 0xa6]   // #14b8a6 teal
+  const hypoxic = [0xf5, 0x9e, 0x0b]  // #f59e0b amber
+  const dead = [0xf4, 0x3f, 0x5e]     // #f43f5e red
+  const anoxic = [0x7f, 0x1d, 0x1d]   // #7f1d1d dark red
+  
+  // Thresholds: 0.5 (dead), 2.0 (hypoxic), 6.0 (healthy)
+  if (do_mg_l <= 0.5) {
+    const k = clamp(do_mg_l / 0.5, 0, 1)
+    return lerpHex(anoxic, dead, k)
+  } else if (do_mg_l <= 2.0) {
+    const k = clamp((do_mg_l - 0.5) / 1.5, 0, 1)
+    return lerpHex(dead, hypoxic, k)
+  } else if (do_mg_l <= 6.0) {
+    const k = clamp((do_mg_l - 2.0) / 4.0, 0, 1)
+    return lerpHex(hypoxic, healthy, k)
+  } else {
+    return `rgb(${healthy.join(',')})`
+  }
+}
+
+/** Dissolved oxygen ramp over a live data-driven domain. */
+export function doColorCssFrom(
+  do_mg_l: number,
+  _domain: ScaleDomain | null = null,
+  _mode: ScaleMode = 'linear',
+): string {
+  return doColorCss(do_mg_l)
+}
+
+/* ------------------------------------------------------------------ *
+ * Ocean acidification ramps (acidification module).                    *
+ *                                                                     *
+ * pH is the MEASURED quantity; aragonite saturation is DERIVED from   *
+ * measured pH plus co-located temperature and salinity. The two are  *
+ * deliberately given separate ramps so the globe can never imply     *
+ * that a derived number is an observation.                           *
+ *                                                                     *
+ * The severity thresholds below are transcribed from the backend     *
+ * SEVERITY_LADDER (units.py) and ARAGONITE_* constants. They must be *
+ * kept in step with it: the backend is the single source of truth    *
+ * for classification, and a divergent copy here would colour a cell  *
+ * differently from the badge the API returns for the same row.       *
+ * ------------------------------------------------------------------ */
+
+/** Backend-mirrored ladder edges, lowest pH first. See units.py SEVERITY_LADDER. */
+export const PH_SEVERITY_EDGES: readonly (readonly [number, string])[] = [
+  [7.75, 'CRITICAL'],
+  [7.9, 'HIGH'],
+  [8.0, 'MODERATE'],
+  [8.05, 'LOW'],
+]
+
+/** Conventional "reduced vs pre-industrial open ocean" pH anchor. */
+export const ACIDIFICATION_THRESHOLD_PH = 8.0
+
+/** Practical window the stored samples actually span, for the colourbar default. */
+export const PH_DEFAULT_DOMAIN: ScaleDomain = { min: 7.4, max: 8.5 }
+
+/**
+ * Metres of altitude per metre of real depth, for the 3D vertical layout.
+ *
+ * Real ocean depth is invisible at globe scale (2000 m against a 6371 km
+ * radius), so depth is drawn exaggerated and BELOW the sea surface. Kept as a
+ * separate concept from scene `verticalExaggeration`, which is a global visual
+ * transform rather than a statement about where a sample sits.
+ */
+export const PH_DEPTH_SCALE_DEFAULT = 12
+
+/** The deepest real BGC pH level we allow to be drawn before the cap binds. */
+const PH_DEPTH_CAP_M = 24000
+
+/**
+ * Clamp a real depth to a negative altitude under the sea surface.
+ *
+ * Surface samples (depth 0) sit exactly at 0 rather than being nudged below it,
+ * and non-finite or negative inputs collapse to the surface instead of
+ * producing a NaN position that Cesium would silently drop.
+ */
+export function phDepthToAltitude(
+  depth_m: number,
+  scale: number = PH_DEPTH_SCALE_DEFAULT,
+): number {
+  if (!Number.isFinite(depth_m) || depth_m <= 0) return 0
+  if (!Number.isFinite(scale) || scale <= 0) return 0
+  return -Math.min(depth_m * scale, PH_DEPTH_CAP_M)
+}
+
+/**
+ * Severity label for a measured pH, using the backend ladder.
+ *
+ * Returns null for values outside the seawater plausibility window rather
+ * than forcing a class on an impossible number — the backend rejects those
+ * rows at ingest, so seeing one here means the caller is mis-wired.
+ */
+export function phSeverityLabel(ph: number | null | undefined): string | null {
+  if (ph === null || ph === undefined || !Number.isFinite(ph)) return null
+  if (ph < 7.4 || ph > 8.6) return null
+  for (const [edge, label] of PH_SEVERITY_EDGES) {
+    if (ph < edge) return label
+  }
+  return 'NORMAL'
+}
+
+/**
+ * pH ramp: alarming magenta/red at the acidified end -> calm blue at alkaline.
+ * Deliberately NOT the temperature ramp — a red cell here means "more acid",
+ * and reusing the heat colours would make a cool-looking cell mean severe acid.
+ */
+export function phColorCss(ph: number): string {
+  if (!Number.isFinite(ph)) return 'rgb(148, 163, 184)' // slate: unknown
+  const acidic = [0xc0, 0x26, 0xd3] // #c026d3 magenta - severe
+  const stressed = [0xf4, 0x3f, 0x5e] // #f43f5e red
+  const moderate = [0xfb, 0x92, 0x3c] // #fb923c orange
+  const alkaline = [0x22, 0xd3, 0xee] // #22d3ee cyan - healthy
+  if (ph < 7.75) {
+    const k = clamp((7.75 - ph) / 0.35, 0, 1)
+    return lerpHex(stressed, acidic, k)
+  } else if (ph < 7.9) {
+    const k = clamp((7.9 - ph) / 0.15, 0, 1)
+    return lerpHex(moderate, stressed, k)
+  } else if (ph < 8.05) {
+    const k = clamp((8.05 - ph) / 0.15, 0, 1)
+    return lerpHex(alkaline, moderate, k)
+  }
+  return `rgb(${alkaline.join(',')})`
+}
+
+/** Aragonite saturation: undersaturated (<1) red -> oversaturated (>3) teal. */
+/**
+ * Aragonite saturation colour window.
+ *
+ * The live data reaches ~7.4, so the ramp saturates above 4. That is a
+ * deliberate readability choice, not an oversight: 4.0 is already twice the
+ * operational shellfish-stress threshold of 2.0, so everything clipped here
+ * is unambiguously "no shell stress" and no decision changes with the exact
+ * value. The globe can still widen the window from real data via `domainFrom`.
+ */
+export const OMEGA_DEFAULT_DOMAIN: ScaleDomain = { min: 0.4, max: 4 }
+
+export function omegaColorCss(omega: number | null | undefined): string {
+  if (omega === null || omega === undefined || !Number.isFinite(omega)) {
+    return 'rgb(148, 163, 184)' // slate: not derived, not "healthy"
+  }
+  const undersat = [0x7f, 0x1d, 0x1d] // #7f1d1d dark red - shell dissolution
+  const marginal = [0xf4, 0x3f, 0x5e] // #f43f5e red
+  const stressed = [0xfb, 0xbf, 0x24] // #fbbf24 amber
+  const healthy = [0x2d, 0xd4, 0xbf] // #2dd4bf teal
+  if (omega < 1) {
+    const k = clamp(omega / 1, 0, 1)
+    return lerpHex(undersat, marginal, k)
+  } else if (omega < 2) {
+    const k = clamp((omega - 1) / 1, 0, 1)
+    return lerpHex(marginal, stressed, k)
+  }
+  return lerpHex(stressed, healthy, clamp((omega - 2) / 1.5, 0, 1))
+}
+
 /** Depth ramp for glider/Argo samples: surface cyan -> abyss violet. */
 export function depthColorCss(depth: number, min: number, max: number): string {
   const lo = [0x67, 0xe8, 0xf9] // #67e8f9 surface

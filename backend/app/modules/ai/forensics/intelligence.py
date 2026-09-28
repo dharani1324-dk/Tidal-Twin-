@@ -295,6 +295,34 @@ def relationship_graph(db):
 # --------------------------------------------------------------------------
 # Causal Chain
 # --------------------------------------------------------------------------
+#
+# SCIENTIFIC BOUNDARY - read before trusting any number this function returns.
+#
+# This is a HEURISTIC DIAGNOSTIC, not a causal model and not a physical
+# simulation. Every link in the chain is a weighted indicator computed from the
+# latest observation plus the deterministic physics engine
+# (`app.modules.physics.ocean_profiles`), whose own coefficients are
+# uncalibrated. Concretely:
+#
+#   * Thermocline depth/strength are DERIVED, never measured here.
+#   * Dissolved oxygen is a Henry's-law proxy, not an observation.
+#   * A missing oxygen reading is NOT treated as 7.0 mg/L. A missing value is
+#     reported as missing and the oxygen link is emitted as `available: false`.
+#   * The indicators, their weights and the level thresholds below are
+#     engineering heuristics chosen to order severity, not values published by
+#     or calibrated against any observational study.
+#   * `basis` on every node states whether that node rests on a measured
+#     variable, a derived one, or nothing at all.
+#
+# The chain must never be presented as a probability. It carries no calibrated
+# confidence, which is why the per-node `confidence` field that earlier
+# returned hard-coded 90/85/88/92/78/80 has been removed entirely.
+
+
+def _node(step, node, value, level, basis, description):
+    return {"step": step, "node": node, "value": value, "level": level,
+            "basis": basis, "description": description}
+
 
 def causal_chain(db, loc_id):
     loc = db.query(OceanLocation).filter(OceanLocation.id == loc_id).first()
@@ -310,50 +338,146 @@ def causal_chain(db, loc_id):
     tc_depth = thermo["thermocline_depth"]
     tc_strength = thermo["strength_c_per_m"]
     temp = o.sea_surface_temperature
-    o2 = o.dissolved_oxygen or 7.0
-    wave = o.wave_height or 1.0
-    current = o.current_speed or 0.5
-
-    # Drive indicators
-    wind_ind = round(wave * 0.6 + current * 0.3, 2)
-    mixing_ind = round(max(0, 1.0 - thermo["mixed_layer_depth"] / 40.0), 2)
-    tc_ind = round(tc_strength, 3)
-    temp_ind = round(abs(temp - 28.0), 2)
-    oxygen_ind = round(max(0, 7.5 - o2), 2)
-    ecosystem_risk = round(min(1.0, (temp_ind * 0.4 + oxygen_ind * 0.3 + wave * 0.2 + mixing_ind * 0.1)), 2)
+    o2 = o.dissolved_oxygen
+    wave = o.wave_height
+    current = o.current_speed
 
     def _level(v, thresholds):
-        if v < thresholds[0]: return "low"
-        if v < thresholds[1]: return "moderate"
+        if v < thresholds[0]:
+            return "low"
+        if v < thresholds[1]:
+            return "moderate"
         return "high"
 
-    chain = [
-        {"step": 1, "node": "Wind/Wave input", "value": wind_ind, "level": _level(wind_ind, [0.4, 0.8]),
-         "description": f"Wave height {wave:.1f}m, current {current:.1f}m/s",
-         "confidence": 90},
-        {"step": 2, "node": "Mixing intensity", "value": mixing_ind, "level": _level(mixing_ind, [0.3, 0.6]),
-         "description": f"Thermocline at {tc_depth:.0f}m — mixing {'enhanced' if mixing_ind > 0.4 else 'suppressed'}",
-         "confidence": 85},
-        {"step": 3, "node": "Thermocline response", "value": tc_ind, "level": _level(tc_ind, [0.3, 0.6]),
-         "description": f"Temperature gradient {tc_ind:.3f} °C/m {'(sharp)' if tc_ind > 0.4 else '(gradual)'}",
-         "confidence": 88},
-        {"step": 4, "node": "Sea surface temperature", "value": temp_ind, "level": _level(temp_ind, [0.8, 1.6]),
-         "description": f"SST anomaly {temp_ind:+.2f}°C",
-         "confidence": 92},
-        {"step": 5, "node": "Dissolved oxygen", "value": oxygen_ind, "level": _level(oxygen_ind, [1.0, 2.0]),
-         "description": f"Oxygen deficit {oxygen_ind:.2f} mg/L (current {o2:.1f} mg/L)",
-         "confidence": 78},
-        {"step": 6, "node": "Ecosystem risk", "value": ecosystem_risk, "level": _level(ecosystem_risk, [0.3, 0.6]),
-         "description": f"Composite ecosystem risk {ecosystem_risk:.2f}",
-         "confidence": 80},
-    ]
+    chain = []
+    # --- 1. Wind / wave forcing ------------------------------------------------
+    if wave is not None and current is not None:
+        wind_ind = round(wave * 0.6 + current * 0.3, 2)
+        chain.append(_node(
+            1, "Wind/Wave input", wind_ind, _level(wind_ind, [0.4, 0.8]), "MEASURED",
+            f"Wave height {wave:.1f}m, current {current:.1f}m/s"))
+    else:
+        missing = [n for n, v in (("wave height", wave), ("current speed", current)) if v is None]
+        chain.append(_node(
+            1, "Wind/Wave input", None, "unknown", "UNAVAILABLE",
+            f"Not computable - no {' and no '.join(missing)} recorded for this observation."))
+
+    # --- 2. Mixing intensity (derived) ----------------------------------------
+    mixing_ind = round(max(0, 1.0 - thermo["mixed_layer_depth"] / 40.0), 2)
+    chain.append(_node(
+        2, "Mixing intensity", mixing_ind, _level(mixing_ind, [0.3, 0.6]), "DERIVED_HEURISTIC",
+        f"Thermocline modelled at {tc_depth:.0f}m — mixing "
+        f"{'enhanced' if mixing_ind > 0.4 else 'suppressed'}. Derived, not measured."))
+
+    # --- 3. Thermocline response (derived) ------------------------------------
+    tc_ind = round(tc_strength, 3)
+    chain.append(_node(
+        3, "Thermocline response", tc_ind, _level(tc_ind, [0.3, 0.6]), "DERIVED_HEURISTIC",
+        f"Modelled temperature gradient {tc_ind:.3f} °C/m "
+        f"{'(sharp)' if tc_ind > 0.4 else '(gradual)'}. Derived, not measured."))
+
+    # --- 4. Sea surface temperature (measured) ---------------------------------
+    if temp is not None:
+        temp_ind = round(abs(temp - 28.0), 2)
+        chain.append(_node(
+            4, "Sea surface temperature", temp_ind, _level(temp_ind, [0.8, 1.6]), "MEASURED",
+            f"Deviation from the 28.0 °C tropical reference {temp_ind:+.2f}°C"))
+    else:
+        temp_ind = None
+        chain.append(_node(
+            4, "Sea surface temperature", None, "unknown", "UNAVAILABLE",
+            "No sea surface temperature recorded for this observation."))
+
+    # --- 5. Dissolved oxygen (measured, or explicitly absent) -----------------
+    if o2 is not None:
+        oxygen_ind = round(max(0, 7.5 - o2), 2)
+        chain.append(_node(
+            5, "Dissolved oxygen", oxygen_ind, _level(oxygen_ind, [1.0, 2.0]), "MEASURED",
+            f"Oxygen deficit {oxygen_ind:.2f} mg/L against the 7.5 mg/L adequacy "
+            f"reference (measured {o2:.1f} mg/L)"))
+    else:
+        oxygen_ind = None
+        chain.append(_node(
+            5, "Dissolved oxygen", None, "unknown", "UNAVAILABLE",
+            "No dissolved oxygen measured for this observation. The physics engine's "
+            "oxygen proxy is deliberately NOT substituted for a measurement here."))
+
+    # --- 6. Ecosystem risk (only from the links that actually exist) -----------
+    parts, weights, notes = [], [], []
+    if temp_ind is not None:
+        parts.append(temp_ind * 0.4)
+        weights.append(0.4)
+    if oxygen_ind is not None:
+        parts.append(oxygen_ind * 0.3)
+        weights.append(0.3)
+    if wave is not None:
+        parts.append(wave * 0.2)
+        weights.append(0.2)
+    parts.append(mixing_ind * 0.1)
+    weights.append(0.1)
+
+    if sum(weights) <= 0:
+        ecosystem_risk = None
+        risk_basis = "UNAVAILABLE"
+    else:
+        # Renormalise over the links that are present so a missing measurement
+        # lowers the score's evidence base instead of silently scoring as zero.
+        ecosystem_risk = round(min(1.0, sum(parts) / sum(weights)), 2)
+        risk_basis = ("MEASURED_AND_DERIVED" if len(weights) == 4 else "PARTIAL_MIXED_BASIS")
+        if oxygen_ind is None:
+            notes.append("Ecosystem risk excludes the dissolved-oxygen term: no oxygen measurement.")
+        if temp_ind is None:
+            notes.append("Ecosystem risk excludes the SST term: no temperature measurement.")
+        if wave is None:
+            notes.append("Ecosystem risk excludes the wave term: no wave height measurement.")
+
+    chain.append(_node(
+        6, "Ecosystem risk", ecosystem_risk,
+        "unknown" if ecosystem_risk is None else _level(ecosystem_risk, [0.3, 0.6]),
+        risk_basis,
+        "Composite ecosystem stress indicator"
+        + (f" = {ecosystem_risk:.2f}" if ecosystem_risk is not None else " (not computable)")))
+
+    measured = [n for n in chain if n["basis"] == "MEASURED"]
+    derived = [n for n in chain if "DERIVED" in n["basis"]]
+    unavailable = [n for n in chain if n["basis"] == "UNAVAILABLE"]
+
+    def _phrase(v, t, up, down, unknown="is unknown"):
+        if v is None:
+            return unknown
+        return up if v > t else down
+
     narrative = (
-        f"Wind energy {'increases' if wind_ind > 0.4 else 'is modest'} → "
-        f"{'enhances' if mixing_ind > 0.4 else 'supresses'} vertical mixing → "
-        f"thermocline at {tc_depth:.0f}m {'sharpens' if tc_ind > 0.4 else 'remains gradual'} → "
-        f"SST {'rises' if temp_ind > 0.8 else 'is near-normal'} → "
-        f"{'oxygen stress develops' if oxygen_ind > 1.0 else 'oxygen remains adequate'} → "
-        f"{'elevated ecosystem risk' if ecosystem_risk > 0.3 else 'ecosystem stable'}."
+        f"Wind energy {_phrase(chain[0]['value'], 0.4, 'increases', 'is modest')} → "
+        f"{_phrase(mixing_ind, 0.4, 'enhances', 'suppresses')} vertical mixing → "
+        f"thermocline modelled at {tc_depth:.0f}m "
+        f"{_phrase(tc_ind, 0.4, 'sharpens', 'remains gradual')} → "
+        f"SST {_phrase(temp_ind, 0.8, 'is elevated', 'is near-normal', 'is unknown')} → "
+        f"oxygen {_phrase(oxygen_ind, 1.0, 'is under stress', 'is adequate', 'is unknown')} → "
+        f"ecosystem risk {_phrase(ecosystem_risk, 0.3, 'is elevated', 'is low', 'is unknown')}."
     )
-    return {"location_id": loc_id, "location": loc.name if loc else None,
-            "chain": chain, "ecosystem_risk": ecosystem_risk, "narrative": narrative}
+
+    return {
+        "location_id": loc_id,
+        "location": loc.name if loc else None,
+        "chain": chain,
+        "ecosystem_risk": ecosystem_risk,
+        "narrative": narrative,
+        "scientific_basis": "HEURISTIC_DIAGNOSTIC",
+        "calibrated": False,
+        "evidence_summary": {
+            "measured_links": len(measured),
+            "derived_links": len(derived),
+            "unavailable_links": len(unavailable),
+        },
+        "limitations": [
+            "Thermocline depth, mixing intensity and gradient are derived by the "
+            "deterministic physics engine, not measured.",
+            "Indicator weights and level thresholds are engineering heuristics used to "
+            "order severity. They are not calibrated against observational data and "
+            "carry no probability meaning.",
+            "This chain is a diagnostic ordering aid, not a causal model or a forecast.",
+        ]
+        + notes,
+    }
+

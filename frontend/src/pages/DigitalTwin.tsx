@@ -5,13 +5,13 @@ import {
   Thermometer, Waves, Droplets, Tag, Globe2, Crosshair, Layers, Tornado, Clock,
   Play, Pause, Repeat, Target, Navigation, GitCompare, AlertTriangle, Activity,
   Database, ShieldCheck, Gauge, ChevronRight, Radar, Route, ScanLine, X, Loader2,
-  Satellite, Orbit,
+  Satellite, Orbit, TestTube2,
 } from 'lucide-react'
 import CesiumGlobe from '../components/3d/globe/CesiumGlobe'
 import ColorScaleBar from '../components/3d/globe/ColorScaleBar'
 import { inIndiaBox, nearestCell, domainFrom, isoLevelsFor, TEMP_DEFAULT_DOMAIN, SAL_DEFAULT_DOMAIN, CHL_LEGACY_DOMAIN } from '../components/3d/globe/layerMath'
 import type { ScaleDomain, ScaleMode } from '../components/3d/globe/layerMath'
-import type { GlobeLocation, SeriesRegion, StormTrackData, ArgoFloat, RealArgoFloat, ErsstLayer, ChlorLayer, OxygenSample, DisagreementPoint, AnomalyPoint, TransectData, TideGlobeMarker, LayerKey, CurrentVector, ModelSlice, GliderDeployment, GliderSample, GliderTrack } from '../components/3d/globe/CesiumGlobe'
+import type { GlobeLocation, SeriesRegion, StormTrackData, ArgoFloat, RealArgoFloat, ErsstLayer, ChlorLayer, OxygenSample, PhSample, PhMetric, DisagreementPoint, AnomalyPoint, TransectData, TideGlobeMarker, LayerKey, LayersState, CurrentVector, ModelSlice, GliderDeployment, GliderSample, GliderTrack } from '../components/3d/globe/CesiumGlobe'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts'
 import TransectHUD from '../components/transect/TransectHUD'
 import {
@@ -22,7 +22,10 @@ import {
   fetchTwinCompare, fetchTwinExplain, fetchTwinProfile,
   fetchTwinDisagreement, fetchAnomalies, fetchSituation, fetchDataSources, fetchTransect,
   fetchTideCandidates,
+  fetchDeoxygenationOverview,
+  fetchAcidificationSamples,
 } from '../api/client'
+import type { OxygenHotspot } from '../components/3d/globe/CesiumGlobe'
 import './DigitalTwin.css'
 
 const fadeUp = {
@@ -110,31 +113,44 @@ function baselineAt(reg: SeriesRegion, idx: number) {
   return temps.reduce((a, b) => a + b, 0) / temps.length
 }
 
+/**
+ * Shared empty array for "this layer is switched off". A literal `[]` in JSX is
+ * a fresh object on every render, which would defeat `CesiumGlobe`'s memo and
+ * make it re-evaluate the glider layer four times a second during replay.
+ */
+const NO_GO_DATA: never[] = []
+
 export default function DigitalTwin() {
   const [searchParams] = useSearchParams()
   const [locations, setLocations] = useState<GlobeLocation[]>([])
   const [loading, setLoading] = useState(true)
   const [activeLoc, setActiveLoc] = useState<GlobeLocation | null>(null)
   const [variable, setVariable] = useState('temperature')
-  const [layers, setLayers] = useState({
-    temperature: true,
-    waves: true,
-    currents: true,
-    labels: true,
+  /** Every layer starts switched off so the globe opens as a clean, empty
+   *  sphere and the user picks what to load deliberately. Typed as
+   *  `LayersState` so adding a new `LayerKey` forces a decision here instead
+   *  of silently defaulting to on. */
+  const [layers, setLayers] = useState<LayersState>({
+    temperature: false,
+    waves: false,
+    currents: false,
+    labels: false,
     storm: false,
     uncertainty: false,
     priority: false,
     argo: false,
-    realArgo: true,
-    realSST: true,
-    realChl: true,
+    realArgo: false,
+    realSST: false,
+    realChl: false,
     oxygen: false,
-    disagreement: true,
-    anomalies: true,
+    oxygenHotspots: false,
+  acidification: false,
+    disagreement: false,
+    anomalies: false,
     tide: false,
-    isos: true,
-    vectors: true,
-    modelgrid: true,
+    isos: false,
+    vectors: false,
+    modelgrid: false,
     glider: false,
   })
   const [storm, setStorm] = useState<StormTrackData | null>(null)
@@ -152,6 +168,9 @@ export default function DigitalTwin() {
   const [argoProfileBusy, setArgoProfileBusy] = useState(false)
   const [argoProfileError, setArgoProfileError] = useState<string | null>(null)
   const [cursor, setCursor] = useState<number>(0)
+  /** Instrument readout is docked in the control column; this drives its
+   *  collapsed state and the small globe-corner trigger. */
+  const [instrumentOpen, setInstrumentOpen] = useState(true)
   const [playing, setPlaying] = useState(false)
   const [replayMode, setReplayMode] = useState<ReplayMode>('temp')
 
@@ -189,6 +208,17 @@ export default function DigitalTwin() {
   const [gliderStatus, setGliderStatus] = useState<'loading' | 'ready' | 'nodata'>('loading')
   const [oxygenSamples, setOxygenSamples] = useState<OxygenSample[]>([])
   const [oxygenStatus, setOxygenStatus] = useState<'idle' | 'loading' | 'ready' | 'nodata' | 'error'>('idle')
+  const [oxygenHotspots, setOxygenHotspots] = useState<OxygenHotspot[]>([])
+  const [oxygenHotspotsStatus, setOxygenHotspotsStatus] = useState<'idle' | 'loading' | 'ready' | 'nodata' | 'error'>('idle')
+  // --- Real measured ocean pH (acidification module) ---
+  // pH is the measured quantity; aragonite is derived and may be absent, so the
+  // layer can legitimately hold samples with `omega_arag: null`.
+  const [phSamples, setPhSamples] = useState<PhSample[]>([])
+  const [phStatus, setPhStatus] = useState<'idle' | 'loading' | 'ready' | 'nodata' | 'error'>('idle')
+  const [phMetric, setPhMetric] = useState<PhMetric>('ph')
+  // Depth window for the pH layer. Defaults to the full column; the slider
+  // narrows it, and samples outside the window are not drawn at all.
+  const [phDepthMax, setPhDepthMax] = useState(2000)
   const [gliderProfile, setGliderProfile] = useState<GliderProfileData | null>(null)
   const [gliderProfileBusy, setGliderProfileBusy] = useState(false)
   const [gliderProfileError, setGliderProfileError] = useState<string | null>(null)
@@ -399,6 +429,31 @@ export default function DigitalTwin() {
         setTideCandidates(list.map((c, i) => ({ ...c, rank: i + 1 })))
       })
       .catch(() => {})
+
+    // Fetch deoxygenation overview (hotspots, trends, coverage).
+    fetchDeoxygenationOverview()
+      .then((d) => {
+        setOxygenHotspots(d.hotspots?.hotspots ?? [])
+        setOxygenHotspotsStatus(d.hotspots?.hotspots?.length ? 'ready' : 'nodata')
+      })
+      .catch(() => {
+        setOxygenHotspots([])
+        setOxygenHotspotsStatus('error')
+      })
+    // Fetch real measured in-situ pH (acidification). Only a bounded page is
+    // pulled so the batched point field stays a sensible size; the count shown
+    // in the layer card is the fetched count, not the whole store.
+    setPhStatus('loading')
+    fetchAcidificationSamples({ limit: 1200 })
+      .then((d) => {
+        const rows = d?.samples ?? []
+        setPhSamples(rows)
+        setPhStatus(rows.length ? 'ready' : 'nodata')
+      })
+      .catch(() => {
+        setPhSamples([])
+        setPhStatus('error')
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -511,6 +566,20 @@ export default function DigitalTwin() {
     return () => clearInterval(id)
   }, [playing, maxCursor])
 
+  // Stable prop identities for the globe. `CesiumGlobe` is memoised and keys its
+  // layer rebuilds on the *identity* of these objects, so building them inline
+  // (as this page used to) handed the globe a new `scaleModes` / `anomalies`
+  // object on every parent render — including the four-per-second replay tick —
+  // which is what tore down and re-added thousands of primitives.
+  const globeScaleModes = useMemo(
+    () => ({ sst: sstScale, chl: chlScale, modelgrid: gridScale }),
+    [sstScale, chlScale, gridScale],
+  )
+  const globeAnomalies = useMemo(
+    () => anomalyRows.filter((a) => a.severity !== 'low').slice(0, 8),
+    [anomalyRows],
+  )
+
   const toggleLayer = (key: keyof typeof layers) => {
     setLayers((prev) => ({ ...prev, [key]: !prev[key] }))
   }
@@ -530,6 +599,8 @@ export default function DigitalTwin() {
     { key: 'realSST' as const, icon: <Satellite size={16} />, name: 'Real SST (ERSST)', desc: 'NOAA ERSST v5 · 2° grid · real measurements' },
     { key: 'realChl' as const, icon: <Orbit size={16} />, name: 'Satellite Chl (VIIRS)', desc: 'NOAA CoastWatch VIIRS·Himawari · 5 km · ocean colour' },
     { key: 'oxygen' as const, icon: <Droplets size={16} />, name: 'Dissolved Oxygen', desc: 'Real GliderDAC BGC samples · source values · no interpolation' },
+    { key: 'oxygenHotspots' as const, icon: <AlertTriangle size={16} />, name: 'Hypoxic Zones', desc: 'Ranked low-oxygen hotspots · severity · recommendations' },
+    { key: 'acidification' as const, icon: <TestTube2 size={16} />, name: 'Ocean pH (measured)', desc: 'Real Argo BGC in-situ pH · placed at true depth · Ωarag derived' },
     { key: 'isos' as const, icon: <ScanLine size={16} />, name: 'SST Isolines', desc: 'Marching-squares isotherms of the real ERSST field' },
     { key: 'vectors' as const, icon: <Navigation size={16} />, name: 'Current Vectors', desc: 'True u/v arrows of the real model current field' },
     { key: 'modelgrid' as const, icon: <Layers size={16} />, name: 'Model Depth Slice', desc: 'One real model grid layer at the selected depth' },
@@ -549,9 +620,24 @@ export default function DigitalTwin() {
     { key: 'vectors', label: 'Current Vectors' },
     { key: 'modelgrid', label: 'Model Depth Slice' },
     { key: 'glider', label: 'Real Gliders' },
+    { key: 'oxygenHotspots', label: 'Hypoxic Zones' },
+    { key: 'acidification', label: 'Ocean pH (measured)' },
   ]
 
   const activeVar = VARIABLES.find((v) => v.key === variable) ?? VARIABLES[0]
+  // How many pH samples the current depth window + metric will actually draw.
+  // In aragonite mode a sample with no derived omega is skipped, not coloured,
+  // so the layer card reports the number the user can really see.
+  const visiblePhCount = useMemo(
+    () =>
+      phSamples.filter(
+        (s) =>
+          s.depth_m <= phDepthMax &&
+          (phMetric !== 'omega' || (s.omega_arag != null && Number.isFinite(s.omega_arag))),
+      ).length,
+    [phSamples, phDepthMax, phMetric],
+  )
+
   const cursorTime = series[0]?.points[cursor]?.time
   const cursorLabel = cursorTime
     ? new Date(cursorTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -707,8 +793,53 @@ export default function DigitalTwin() {
         <div className="twin-count glass-card">
           <Crosshair size={16} />
           <span>{loading ? '…' : locations.length} MONITORED</span>
-        </div>
-      </div>
+            </div>
+
+            {/* pH depth window + metric. Shown whenever the pH layer has real
+                data, because both controls change what is actually drawn and a
+                layer that silently shows fewer points needs to say why. */}
+            {phStatus === 'ready' && (
+              <div className="slice-controls" style={{ marginTop: 'var(--sp-3)' }}>
+                <div className="slice-field">
+                  <span className="slice-kicker">pH COLOUR BASIS</span>
+                  <div className="slice-selects">
+                    <button
+                      className={`slice-pill ${phMetric === 'ph' ? 'on' : ''}`}
+                      onClick={() => setPhMetric('ph')}
+                    >
+                      Measured pH
+                    </button>
+                    <button
+                      className={`slice-pill ${phMetric === 'omega' ? 'on' : ''}`}
+                      onClick={() => setPhMetric('omega')}
+                      title="Aragonite saturation is DERIVED from measured pH, temperature and salinity — never observed. Samples with no derived value are not drawn."
+                    >
+                      Ωarag (derived)
+                    </button>
+                  </div>
+                </div>
+                <div className="slice-field">
+                  <span className="slice-kicker">MAX DEPTH (m)</span>
+                  <input
+                    type="range"
+                    min={50}
+                    max={2000}
+                    step={50}
+                    value={phDepthMax}
+                    onChange={(e) => setPhDepthMax(Number(e.target.value))}
+                    aria-label="Maximum pH sample depth in metres"
+                    style={{ width: '100%' }}
+                  />
+                  <span
+                    className="slice-kicker"
+                    style={{ display: 'block', marginTop: 2 }}
+                  >
+                    {phDepthMax} m · {visiblePhCount} shown
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
 
       {/* Decision situation strip */}
       <motion.div variants={fadeUp} initial="hidden" animate="show" className="twin-situation">
@@ -732,16 +863,20 @@ export default function DigitalTwin() {
             ersst={ersstData}
             chlor={chlorData}
             oxygenSamples={oxygenSamples}
-            scaleModes={{ sst: sstScale, chl: chlScale, modelgrid: gridScale }}
+            oxygenHotspots={oxygenHotspots}
+            phSamples={phSamples}
+            phMetric={phMetric}
+            phDepthRange={{ min: 0, max: phDepthMax }}
+            scaleModes={globeScaleModes}
             disagreement={disagreement}
-            anomalies={anomalyRows.filter((a) => a.severity !== 'low').slice(0, 8)}
+            anomalies={globeAnomalies}
             tideCandidates={tideCandidates}
             opacity={opacity}
             exaggeration={exaggeration}
             isolevels={layers.isos ? isoLevels : null}
             currentVectors={layers.vectors ? currentVectors : null}
             modelSlice={layers.modelgrid ? gridSlice : null}
-            gliderTracks={layers.glider ? gliderTracks : []}
+            gliderTracks={layers.glider ? gliderTracks : NO_GO_DATA}
             onGliderClick={handleGliderClick}
             onRegionClick={handleRegionClick}
             onArgoFloatClick={handleArgoFloatClick}
@@ -752,61 +887,101 @@ export default function DigitalTwin() {
           />
           {transectData && <TransectHUD data={transectData} />}
 
-          {/* Instrument chrome — confidence/evidence framing for the live instrument. */}
-          <div className="globe-instrument" aria-label="Instrument status">
-            <div className="gi-head">
-              <span className="gi-kicker">INSTRUMENT</span>
-              <span className="gi-var">
-                {activeVar.label.toUpperCase()}
-                {gridDepths.length > 0 && <i> · DEPTH {gridDepth} M</i>}
-              </span>
-              <span className="gi-t dot-accent" title="Live telemetry" />
-            </div>
-            <div className="gi-cells">
-              <span className="gi-cell"><i>OBS COVERAGE</i><b>{situation?.observation_coverage_pct != null ? `${Math.round(situation.observation_coverage_pct)}%` : '—'}</b></span>
-              <span className="gi-cell"><i>MODEL TRUST</i><b>{situation?.model_trust != null ? `${Math.round(situation.model_trust)}%` : '—'}</b></span>
-              <span className="gi-cell"><i>DATA GAP</i><b>{situation?.observation_coverage_pct != null ? `${Math.round(100 - situation.observation_coverage_pct)}%` : '—'}</b></span>
-              <span className="gi-cell"><i>ACTIVE LAYERS</i><b>{Object.values(layers).filter(Boolean).length}</b></span>
-            </div>
-            <div className="gi-modes" role="tablist" aria-label="Confidence and evidence lenses">
-              <button
-                type="button"
-                className={`gi-mode${layers.uncertainty ? ' on' : ''}`}
-                onClick={() => toggleLayer('uncertainty')}
-                role="tab"
-                aria-selected={layers.uncertainty}
-              ><i />CONFIDENCE</button>
-              <button
-                type="button"
-                className={`gi-mode${layers.disagreement ? ' on' : ''}`}
-                onClick={() => toggleLayer('disagreement')}
-                role="tab"
-                aria-selected={layers.disagreement}
-              ><i />DISAGREEMENT</button>
-              <button
-                type="button"
-                className={`gi-mode${layers.anomalies ? ' on' : ''}`}
-                onClick={() => toggleLayer('anomalies')}
-                role="tab"
-                aria-selected={layers.anomalies}
-              ><i />EVIDENCE</button>
-              <button
-                type="button"
-                className={`gi-mode${layers.priority ? ' on' : ''}`}
-                onClick={() => toggleLayer('priority')}
-                role="tab"
-                aria-selected={layers.priority}
-              ><i />PRIORITY</button>
-            </div>
-            <div className="gi-provenance">
-              <b>PROVENANCE</b>
-              <span>ERSST V5 · REAL ARGO · VIIRS CHL · HYCOM MODEL GRID · TIDAL</span>
-            </div>
-          </div>
+          {/*
+            The instrument readout used to be a permanently-open panel pinned to
+            the globe's top-left corner, where it covered ~360px of ocean at all
+            times. It now lives in the right-hand control column and is opened
+            from this small corner trigger, so the globe is unobstructed by
+            default without losing the readout.
+          */}
+          <button
+            type="button"
+            className="globe-instrument-trigger"
+            aria-expanded={instrumentOpen}
+            aria-controls="twin-instrument"
+            onClick={() => setInstrumentOpen((open) => !open)}
+            title={instrumentOpen ? 'Hide instrument readout' : 'Show instrument readout'}
+          >
+            <Gauge size={14} />
+            <span>INSTRUMENT</span>
+            <b>{situation?.observation_coverage_pct != null ? `${Math.round(situation.observation_coverage_pct)}%` : '—'}</b>
+          </button>
         </div>
 
         {/* Control + intelligence panel */}
         <div className="twin-controls">
+          {/*
+            Instrument chrome — confidence/evidence framing for the live
+            instrument. Docked in the control column instead of floating over
+            the globe, so it can never overlap the map.
+          */}
+          <div
+            id="twin-instrument"
+            className={`glass-card control-card instrument-card${instrumentOpen ? '' : ' instrument-card-collapsed'}`}
+            aria-label="Instrument status"
+          >
+            <button
+              type="button"
+              className="control-title instrument-card-toggle"
+              aria-expanded={instrumentOpen}
+              onClick={() => setInstrumentOpen((open) => !open)}
+            >
+              <Gauge size={16} />
+              <span>Instrument</span>
+              <span className="instrument-card-caret" aria-hidden="true">{instrumentOpen ? '▾' : '▸'}</span>
+            </button>
+            <div className="instrument-card-body" hidden={!instrumentOpen}>
+              <div className="gi-head">
+                <span className="gi-kicker">INSTRUMENT</span>
+                <span className="gi-var">
+                  {activeVar.label.toUpperCase()}
+                  {gridDepths.length > 0 && <i> · DEPTH {gridDepth} M</i>}
+                </span>
+                <span className="gi-t dot-accent" title="Live telemetry" />
+              </div>
+              <div className="gi-cells">
+                <span className="gi-cell"><i>OBS COVERAGE</i><b>{situation?.observation_coverage_pct != null ? `${Math.round(situation.observation_coverage_pct)}%` : '—'}</b></span>
+                <span className="gi-cell"><i>MODEL TRUST</i><b>{situation?.model_trust != null ? `${Math.round(situation.model_trust)}%` : '—'}</b></span>
+                <span className="gi-cell"><i>DATA GAP</i><b>{situation?.observation_coverage_pct != null ? `${Math.round(100 - situation.observation_coverage_pct)}%` : '—'}</b></span>
+                <span className="gi-cell"><i>ACTIVE LAYERS</i><b>{Object.values(layers).filter(Boolean).length}</b></span>
+              </div>
+              <div className="gi-modes" role="tablist" aria-label="Confidence and evidence lenses">
+                <button
+                  type="button"
+                  className={`gi-mode${layers.uncertainty ? ' on' : ''}`}
+                  onClick={() => toggleLayer('uncertainty')}
+                  role="tab"
+                  aria-selected={layers.uncertainty}
+                ><i />CONFIDENCE</button>
+                <button
+                  type="button"
+                  className={`gi-mode${layers.disagreement ? ' on' : ''}`}
+                  onClick={() => toggleLayer('disagreement')}
+                  role="tab"
+                  aria-selected={layers.disagreement}
+                ><i />DISAGREEMENT</button>
+                <button
+                  type="button"
+                  className={`gi-mode${layers.anomalies ? ' on' : ''}`}
+                  onClick={() => toggleLayer('anomalies')}
+                  role="tab"
+                  aria-selected={layers.anomalies}
+                ><i />EVIDENCE</button>
+                <button
+                  type="button"
+                  className={`gi-mode${layers.priority ? ' on' : ''}`}
+                  onClick={() => toggleLayer('priority')}
+                  role="tab"
+                  aria-selected={layers.priority}
+                ><i />PRIORITY</button>
+              </div>
+              <div className="gi-provenance">
+                <b>PROVENANCE</b>
+                <span>ERSST V5 · REAL ARGO · VIIRS CHL · HYCOM MODEL GRID · TIDAL</span>
+              </div>
+            </div>
+          </div>
+
           {/* Variable selector */}
           <div className="glass-card control-card">
             <div className="control-title">
@@ -844,11 +1019,23 @@ export default function DigitalTwin() {
                     <span className="toggle-name">{name}</span>
                     <span className="toggle-desc">{key === 'oxygen' && layers.oxygen
                       ? oxygenStatus === 'loading' ? 'Loading real GliderDAC samples…'
-                        : oxygenStatus === 'ready' ? `${oxygenSamples.length} real samples · colors show this subset’s relative range`
+                        : oxygenStatus === 'ready' ? `${oxygenSamples.length} real samples · colors show this subset's relative range`
                           : oxygenStatus === 'nodata' ? 'No real oxygen samples available; no synthetic values substituted'
                             : oxygenStatus === 'error' ? 'GliderDAC source unavailable; toggle to retry'
                               : desc
-                      : desc}</span>
+                      : key === 'oxygenHotspots' && layers.oxygenHotspots
+                        ? oxygenHotspotsStatus === 'loading' ? 'Loading hypoxic zone hotspots…'
+                          : oxygenHotspotsStatus === 'ready' ? `${oxygenHotspots.length} hypoxic hotspots · ranked by severity & priority`
+                            : oxygenHotspotsStatus === 'nodata' ? 'No hypoxic hotspots detected; ingest Argo BGC/NOAA data'
+                              : oxygenHotspotsStatus === 'error' ? 'Deoxygenation API unavailable; toggle to retry'
+                                : desc
+                      : key === 'acidification' && layers.acidification
+                          ? phStatus === 'loading' ? 'Loading real Argo BGC pH…'
+                            : phStatus === 'ready' ? `${visiblePhCount} of ${phSamples.length} real pH samples · to ${phDepthMax} m · ${phMetric === 'omega' ? 'Ωarag derived' : 'measured pH'}`
+                              : phStatus === 'nodata' ? 'No real pH samples stored; ingest Argo BGC pH first'
+                                : phStatus === 'error' ? 'Acidification API unavailable; toggle to retry'
+                                  : desc
+                          : desc}</span>
                   </span>
                   <span className={`toggle-switch ${layers[key] ? 'toggle-switch-on' : ''}`}>
                     <span className="toggle-knob" />

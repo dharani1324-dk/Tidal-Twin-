@@ -5,7 +5,8 @@ import {
   Waves, Globe2, Radar, MessageSquare, FileBarChart, Home, BookOpen,
   LifeBuoy, Siren, Scale, Search, Brain, FlaskConical, Sparkles, Anchor,
   Bell, Menu, X, Radio, Satellite, Database, CircleUser, Command, ShieldAlert, Sparkle,
-  AlertTriangle, Crosshair, History, ShieldCheck, LayoutDashboard, Palette,
+  AlertTriangle, Crosshair, History, ShieldCheck, LayoutDashboard, Palette, Droplets,
+  Gauge, Activity, TestTube2,
 } from 'lucide-react'
 import ErrorBoundary from './components/ErrorBoundary'
 import SystemStatusPill from './components/system/SystemStatusPill'
@@ -13,11 +14,12 @@ import DemoGuide from './components/system/DemoGuide'
 import { fetchLocations, fetchAlerts } from './api/client'
 import './App.css'
 
-const OceanHome = lazy(() => import('./pages/OceanHome'))
+const MissionIntro = lazy(() => import('./pages/MissionIntro'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const DigitalTwin = lazy(() => import('./pages/DigitalTwin'))
 const Assistant = lazy(() => import('./pages/Assistant'))
 const Monitoring = lazy(() => import('./pages/Monitoring'))
+const DataLayers = lazy(() => import('./pages/DataLayers'))
 const Stories = lazy(() => import('./pages/Stories'))
 const Reports = lazy(() => import('./pages/Reports'))
 const Safety = lazy(() => import('./pages/Safety'))
@@ -32,6 +34,10 @@ const AnomalyIntel = lazy(() => import('./pages/AnomalyIntel'))
 const Tide = lazy(() => import('./pages/Tide'))
 const DecisionReplay = lazy(() => import('./pages/DecisionReplay'))
 const TideValidation = lazy(() => import('./pages/TideValidation'))
+const Microplastics = lazy(() => import('./pages/Microplastics'))
+const MicroplasticsDashboard = lazy(() => import('./pages/MicroplasticsDashboard'))
+const Deoxygenation = lazy(() => import('./pages/Deoxygenation'))
+const Acidification = lazy(() => import('./pages/Acidification'))
 
 /**
  * TidalTwin — Application Shell
@@ -50,9 +56,10 @@ const NAV_GROUPS: NavSpec[] = [
   {
     section: 'Mission',
     items: [
-      { to: '/', label: 'Mission Control', icon: Home, end: true },
+      { to: '/', label: 'Mission INTRO', icon: Home, end: true },
       { to: '/globe', label: 'Digital Twin', icon: Globe2 },
       { to: '/monitoring', label: 'Monitoring & Alerts', icon: Radar },
+      { to: '/data-layers', label: 'Data Layers Dashboard', icon: Database },
       { to: '/classic', label: 'Classic Console', icon: LayoutDashboard },
       { to: '/assistant', label: 'Ocean AI Copilot', icon: MessageSquare },
     ],
@@ -75,6 +82,12 @@ const NAV_GROUPS: NavSpec[] = [
     items: [
       { to: '/oceanvision', label: 'Ocean Vision', icon: Sparkles },
       { to: '/coastal', label: 'Coastal Intel', icon: Anchor },
+      // `end` on the workspace item so it does not also light up while the
+      // nested dashboard route is open.
+      { to: '/microplastics', label: 'Microplastics', icon: Droplets, end: true },
+      { to: '/microplastics/dashboard', label: 'MP Dashboard', icon: Gauge },
+      { to: '/deoxygenation', label: 'Deoxygenation', icon: Activity },
+      { to: '/acidification', label: 'Acidification', icon: TestTube2 },
       { to: '/safety', label: 'Safety Center', icon: LifeBuoy },
       { to: '/risk', label: 'Risk Map', icon: Siren },
     ],
@@ -110,7 +123,7 @@ function stageIndexFor(pathname: string): number {
   if (pathname.startsWith('/tide/validation') || pathname.startsWith('/validate')) return 8
   if (pathname.startsWith('/tide') || pathname.startsWith('/intelligence')) return 4
   if (pathname.startsWith('/globe') || pathname.startsWith('/monitoring')) return 0
-  if (pathname.startsWith('/anomalies')) return 1
+  if (pathname.startsWith('/anomalies') || pathname.startsWith('/microplastics')) return 1
   if (pathname.startsWith('/forensics')) return 2
   if (pathname.startsWith('/oceanvision')) return 5
   if (pathname.startsWith('/scenarios')) return 6
@@ -163,11 +176,13 @@ export default function App() {
   const active = FLAT_NAV.find((n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)))
 
   useEffect(() => {
+    if (location.pathname === '/') return
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
-  }, [])
+  }, [location.pathname])
 
   useEffect(() => {
+    if (location.pathname === '/') return
     let alive = true
     const load = async () => {
       try {
@@ -190,7 +205,7 @@ export default function App() {
       alive = false
       clearInterval(poll)
     }
-  }, [])
+  }, [location.pathname])
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -296,7 +311,7 @@ export default function App() {
   )
 
   return (
-    <div className={`app-shell${theme === 'classic' ? ' theme-classic' : ''}`}>
+    <div className={`app-shell${theme === 'classic' ? ' theme-classic' : ''}${location.pathname === '/' && theme !== 'classic' ? ' mission-shell' : ''}`}>
       {/* ---- Sidebar (desktop) ---- */}
       <aside className="sidebar">
         {product}
@@ -327,7 +342,7 @@ export default function App() {
             </button>
             <div className="sb-title">
               <span className="sb-crumb">TIDALTWIN /</span>
-              <b>{active?.label ?? 'Mission Control'}</b>
+              <b>{active?.label ?? 'Mission INTRO'}</b>
             </div>
           </div>
 
@@ -441,10 +456,14 @@ export default function App() {
         <main className="main-content">
           <Suspense fallback={<RouteLoading />}>
             <Routes>
-              <Route path="/" element={guard('Mission Control', theme === 'classic' ? <Dashboard /> : <OceanHome />)} />
+              <Route
+      path="/"
+      element={guard('Mission INTRO', theme === 'classic' ? <Dashboard /> : <MissionIntro />)}
+    />
               <Route path="/classic" element={guard('Classic Console', <Dashboard />)} />
               <Route path="/globe" element={guard('Digital Twin', <DigitalTwin />)} />
               <Route path="/monitoring" element={guard('Monitoring & Alerts', <Monitoring />)} />
+              <Route path="/data-layers" element={guard('Data Layers', <DataLayers />)} />
               <Route path="/validate" element={guard('Model Validation', <Validate />)} />
               <Route path="/anomalies" element={guard('Anomaly Intel', <AnomalyIntel />)} />
               <Route path="/forensics" element={guard('Ocean Forensics', <Forensics />)} />
@@ -454,13 +473,20 @@ export default function App() {
               <Route path="/tide/validation" element={guard('TIDE Validation', <TideValidation />)} />
               <Route path="/oceanvision" element={guard('Ocean Vision', <OceanVision />)} />
               <Route path="/coastal" element={guard('Coastal Intel', <CoastalIntel />)} />
+              <Route path="/microplastics" element={guard('Microplastics', <Microplastics />)} />
+              <Route path="/microplastics/dashboard" element={guard('MP Dashboard', <MicroplasticsDashboard />)} />
+              <Route path="/deoxygenation" element={guard('Deoxygenation', <Deoxygenation />)} />
+      <Route path="/acidification" element={guard('Acidification', <Acidification />)} />
               <Route path="/scenarios" element={guard('Scenario Lab', <ScenarioLab />)} />
               <Route path="/safety" element={guard('Safety Center', <Safety />)} />
               <Route path="/risk" element={guard('Risk Map', <RiskMap />)} />
               <Route path="/stories" element={guard('Story Mode', <Stories />)} />
               <Route path="/assistant" element={guard('Ocean AI Copilot', <Assistant />)} />
               <Route path="/reports" element={guard('Risk Report', <Reports />)} />
-              <Route path="*" element={guard('Mission Control', theme === 'classic' ? <Dashboard /> : <OceanHome />)} />
+              <Route
+      path="*"
+      element={guard('Mission INTRO', theme === 'classic' ? <Dashboard /> : <MissionIntro />)}
+    />
             </Routes>
           </Suspense>
         </main>

@@ -47,15 +47,39 @@ def origin_status(source: str | None, data_type: str | None) -> str:
         return "SIMULATED"
     if any(tag in raw for tag in ("SYNTHETIC", "DEMO")):
         return "SYNTHETIC"
-    if "OPEN_METEO" in raw or "FORECAST" in raw or "MODEL" in raw:
+    if any(tag in raw for tag in (
+        "OPEN_METEO", "FORECAST", "MODEL", "VAM", "ANALYSIS", "OBJECTIVE", "GRIDDAP", "REANALYSIS",
+    )):
         return "MODEL_DERIVED"
-    if any(tag in raw for tag in ("SATELLITE", "VIIRS", "HIMAWARI", "OCEAN_COLOR")):
+    if any(tag in raw for tag in ("SATELLITE", "VIIRS", "HIMAWARI", "OCEAN_COLOR", "OCM", "SAR", "ALTIMET")):
         return "SATELLITE_DERIVED"
     if "HISTORICAL" in raw or "ERSST" in raw or "CLIMATOLOGY" in raw:
         return "HISTORICAL"
     if any(tag in raw for tag in ("ARGO", "GLIDER", "BUOY", "CTD", "IN_SITU", "MEASUREMENT")):
         return "REAL"
     return "UNKNOWN"
+
+
+#: Statuses a producer may assert explicitly on a row via ``data_status``.
+EXPLICIT_STATUSES = ("REAL", "HISTORICAL", "MODEL_DERIVED", "SATELLITE_DERIVED", "SIMULATED", "SYNTHETIC")
+
+
+def effective_origin_status(row) -> str:
+    """Prefer the row's asserted ``data_status`` over string inference.
+
+    Inference from a source name is only a fallback and it is ambiguous: an
+    objective analysis *of* Argo floats contains the token ``ARGO`` but its
+    values are analysis output, not measurements.  Letting the ingest path
+    assert ``data_status`` explicitly keeps ``Indian_ARGO_Floats`` (``REAL``)
+    and ``incois_argo_10d_VAM`` (``MODEL_DERIVED``) distinguishable even
+    though both names contain "Argo".
+    """
+    asserted = getattr(row, "data_status", None)
+    if asserted is not None:
+        candidate = str(asserted).strip().upper()
+        if candidate in EXPLICIT_STATUSES:
+            return candidate
+    return origin_status(getattr(row, "source", None), getattr(row, "data_type", None))
 
 
 def _utc(timestamp: datetime) -> datetime:
@@ -67,7 +91,7 @@ def assess_record(row, location=None, now: datetime | None = None) -> dict:
     source = getattr(row, "source", None)
     data_type = getattr(row, "data_type", None)
     timestamp = getattr(row, "timestamp", None)
-    status = origin_status(source, data_type)
+    status = effective_origin_status(row)
     values = {name: getattr(row, name, None) for name in FIELD_UNITS}
     source_key = (source or "").upper().replace("-", "_").replace(" ", "_")
     if "OPEN_METEO" in source_key:

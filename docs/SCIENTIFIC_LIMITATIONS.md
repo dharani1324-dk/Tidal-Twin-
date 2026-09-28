@@ -108,6 +108,42 @@ heuristic score, not a probability or causal conclusion.
 - Consistency/sensitivity checks are labelled **ALGORITHM CONSISTENCY
   TESTING**, never "validation".
 
+## Microplastics module
+
+Full detail in `docs/MICROPLASTICS.md`. The load-bearing limitations:
+
+- **The NOAA NCEI collection is an archive, not a live feed.** Records in the
+  Indian Ocean window span 2013-05-27 to 2021-12-08 only. Nothing the module
+  reports describes present-day conditions. Recency is therefore measured
+  against the newest sample *in the collection*, not against today, and the
+  payload states `is_live_feed: false`.
+- **Concentrations are never combined across unit families.** `pieces/m3`
+  (water column), `pieces/kg dw` (sediment) and `pieces/10 min` (nurdle patrol)
+  measure different things under different sampling effort and are not
+  convertible. There is deliberately no blended "microplastic risk number".
+- **The severity ladder is the source's own and is unit-specific.** A value of
+  54 is `Medium` in sediment and far above the top of the water-column ladder.
+  We carry NOAA's published class verbatim and never overrule it; our derived
+  ladder only fills gaps.
+- **Interpolation is inverse distance weighting, not kriging.** No variogram is
+  fitted, because the data cannot support one. Grid cells with no sample in
+  range are reported as gaps and never filled with zero — an unsampled cell and
+  a sampled-clean cell must never look the same.
+- **Drift is a single-layer surface corridor, not a forecast.** It is refused
+  outright when no real current forcing exists, rather than advected with a
+  default velocity. When forcing exists it passes credibility gates (minimum
+  vessels and position reports, a 1.5 m/s plausibility ceiling, distance to the
+  origin, and a positive uncertainty requirement); failures are attached to the
+  output and downgrade confidence to `VERY_LOW` rather than being suppressed.
+- **Microplastics are not a passive tracer.** Buoyant particles wind-slip and
+  dense ones sink. Neither sinking, beaching, resuspension nor vertical shear
+  is modelled.
+- **Only 2 of 8 monitored regions have any published microplastic sample.** The
+  other six are named as data gaps and given no estimated value.
+- The NASA satellite-derived plastic-signal connector is credential-gated and
+  **unimplemented**. It returns `UNAVAILABLE` with a reason; no satellite layer
+  is fabricated in its place.
+
 ## Release identity
 
 Version `1.0.0` / release name `TIDE-Loop` are **packaging identifiers**. They
